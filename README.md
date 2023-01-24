@@ -1,32 +1,13 @@
 <h1><strong><code>&lt;ANUVerzum /&gt;</code> JS</strong> FRAMEWORK USAGE:</h1>
 
-### ***@author: **Anubis*****
-### ***@license: **MIT*****
+<br>
+
+<h3>@author: <strong>Anubis</strong></h3>
+<h3>@license: <strong>MIT</strong></h3>
 
 <br>
 
-Supports *both HTML and inline-SVG element creation*, "stateful" (or class-based) components and function (currently "stateless") components!<br>
-- If you wish to use the SVG **`<a>`**, **`<style>`** or **`<title>`** tags, please use instead **`<anchor>`**, **`<svgStyle>`** or **`<svgTitle>`** respectively)!
-- **`<script>`** SVG tag is not supported! Please create a separate component for the elements and define their behavior as you would do in case of a regular component!
-- When creating `<svg>` tag, you don't have to define the `xmlns` attribute. 
-- Adding style definition inside `<svgStyle>` should be done as a string template as `children`, e.g.:
-
-    ```javascript
-    <svg viewBox="0 0 10 10">
-        <svgStyle>
-            {`circle {
-                fill: gold;
-                stroke: maroon;
-                stroke-width: 2px;
-            }`}
-        </svgStyle>
-        <circle cx="5" cy="5" r="4" />
-    </svg>
-    ```
-
-<br>
-
-<h2>Table of contents:</h2>
+<h2>Framework usage:</h2>
 
 <ul>
     <li>
@@ -97,17 +78,158 @@ Supports *both HTML and inline-SVG element creation*, "stateful" (or class-based
             <a href="#anulytics-track-event">tracking events on elements using Anu.Anulytics.trackEvent(event, props)</a>
         </li>
     </ul>
+    <li>
+        <a href="#context-api">Creating and accessing the context out of the "normal props flow" - The Context API</a>
+    </li>
+    <ul>
+        <li>
+            <a href="#creating-context">Creating the context</a>
+        </li>
+        <li>
+            <a href="#usage-of-context-provider-and-consumers">Usage of the context provider and its consumer(s)</a>
+        </li>
+    </ul>
+    <li>
+        <a href="#store-api">Storing and mutating the global state on actions dispatched, memoizing complex conversions on the global state and combining reducers - The Store API</a>
+    </li>
+    <ul>
+        <li>
+            <a href="#dispatching-actions">Dispatching actions</a>
+        </li>
+        <li>
+            <a href="#handling-actions-with-reducers">Handling actions with reducers</a>
+        </li>
+        <li>
+            <a href="#memoizing-state-conversions">Memoizing (global) state conversions</a>
+        </li>
+        <li>
+            <a href="#combining-reducers">Combining reducers</a>
+        </li>
+        <li>
+            <a href="#creating-the-store">Creating the store</a>
+        </li>
+    </ul>
+    <li>
+        <a href="#connector-api">Connecting components to the global state - The Connector API</a>
+    </li>
+    <ul>
+        <li>
+            <a href="#connect-to-store">Connect to the store</a>
+        </li>
+        <li>
+            <a href="#create-container-component">Create container component</a>
+        </li>
+    </ul>
+    <li>
+        <a href="#intl-api">Supporting multiple languages - The Intl API</a>
+    </li>
+    <ul>
+        <li>
+            <a href="#creating-language-objects">Creating the supported language objects</a>
+        </li>
+        <li>
+            <a href="#adding-language-objects-to-provider">Adding the language objects to the Intl provider</a>
+        </li>
+        <li>
+            <a href="#formatting-component-texts">Formatting component texts</a>
+        </li>
+        <li>
+            <a href="#formatting-attribute-texts">Formatting attribute texts</a>
+        </li>
+        <li>
+            <a href="#abbreviating-numbers">Abbreviating numbers</a>
+        </li>
+    </ul>
+    <li>
+        <a href="#feature-api">Switching features on / off - The Feature API</a>
+    </li>
+    <ul>
+        <li>
+            <a href="#setting-features-list">Setting the features list</a>
+        </li>
+        <li>
+            <a href="#toggling-features">Toggling the features</a>
+        </li>
+    </ul>
+</ul>
+
+<br>
+
+<h2>Utilities:</h2>
+
+<ul>
+    <li>
+        <a href="#deep-equal">Deep equality check for objects using Anu.utils.deepEqual()</a>
+    </li>
+    <li>
+        <a href="#asyncronous-utilities">Asyncronous utilities</a>
+    </li>
+    <ul>
+        <li>
+            <a href="#asynchronous-mapping">Asyncronous mapping</a>
+        </li>
+        <li>
+            <a href="#promise">Promise</a>
+        </li>
+        <ul>
+            <li>
+                <a href="#instantiation">Instantiation</a>
+            </li>
+            <li>
+                <a href="#promise-then">Usage of Anu.utils.Async.Promise.prototype.then() instance method</a>
+            </li>
+            <li>
+                <a href="#promise-catch">The Anu.utils.Async.Promise.prototype.catch() instance method</a>
+            </li>
+            <li>
+                <a href="#promise-all">The Anu.utils.Async.Promise.all() static method</a>
+            </li>
+            <li>
+                <a href="#promise-race">The Anu.utils.Async.Promise.race() static method</a>
+            </li>
+            <li>
+                <a href="#promise-resolve">The Anu.utils.Async.Promise.resolve() static method</a>
+            </li>
+            <li>
+                <a href="#promise-reject">The Anu.utils.Async.Promise.reject() static method</a>
+            </li>
+        </ul>
+    </ul>
 </ul>
 
 <br>
 <hr>
+
+<h1><strong><code>&lt;ANUVerzum /&gt;</code> JS</strong> USAGE</h1>
+
 <br>
 
 <h2 id="creating-components-and-rendering">Creating components and rendering elements</h2>
 
+Supports both <i>HTML</i> and <i>inline-SVG</i> element creation, "stateful" (or class-based) components and function (currently "stateless") components!<br>
+- If you wish to use the SVG <code>&lt;a&gt;</code>, <code>&lt;style&gt;</code> or <code>&lt;title&gt;</code> tags, please use instead <code>&lt;anchor&gt;</code>, <code>&lt;svgStyle&gt;</code> or <code>&lt;svgTitle&gt;</code> respectively)!
+- <code>&lt;script&gt;</code> SVG tag is not supported! Please create a separate component for the elements and define their behavior as you would do in case of a regular component!
+- When creating <code>&lt;svg&gt;</code> tag, you don't have to define the <code>xmlns</code> attribute. 
+- Adding style definition inside <code>&lt;svgStyle&gt;</code> should be done as a string template as <code>children</code>, e.g.:
+
+    ```javascript
+    <svg viewBox="0 0 10 10">
+        <svgStyle>
+            {`circle {
+                fill: gold;
+                stroke: maroon;
+                stroke-width: 2px;
+            }`}
+        </svgStyle>
+        <circle cx="5" cy="5" r="4" />
+    </svg>
+    ```
+
+<br>
+
 <h3 id="function-components">Function components</h3>
 
-- Function components are functions which can receive `props` and must always return either an *HTML element*, an *inline-SVG element*, a *component* or *NULL*.
+- Function components are functions which can receive <code>props</code> and must always return either an <i>HTML element</i>, an <i>inline-SVG element</i>, a <i>Component</i> or <code>NULL</code>.
 - Both class-based and function component names must start with a capital letter, inline-SVG-s and HTML element names are lower-case!
 
     ```javascript
@@ -119,7 +241,7 @@ Supports *both HTML and inline-SVG element creation*, "stateful" (or class-based
     };
     ```
 
-    ***Example - _returning HTML elements_***:
+    <strong>Example</strong> - <i>returning HTML elements</i>:
 
     ```javascript
     const MyTitleBar = props => {
@@ -131,7 +253,7 @@ Supports *both HTML and inline-SVG element creation*, "stateful" (or class-based
     };
     ```
 
-    ***Example - _returning inline-SVG elements_***:
+    <strong>Example</strong> - <i>returning inline-SVG elements</i>:
 
     ```javascript
     const MyCircle = () => {
@@ -150,7 +272,7 @@ Supports *both HTML and inline-SVG element creation*, "stateful" (or class-based
     };
     ```
 
-    ***Example - _returning composed elements_***:
+    <strong>Example</strong> - <i>returning composed elements</i>:
 
     ```javascript
     const TitleWithCircle = () => {
@@ -165,14 +287,14 @@ Supports *both HTML and inline-SVG element creation*, "stateful" (or class-based
 
 <h3 id="class-based-components">Class-based components</h3>
 
-- Always must extend `Anu.Component`, always must implement `render()` method!
-- If the component receives `props` and you want to do additional settings inside the constructor (e.g. binding handlers or setting up initial state),
-`super(props)` should always be the first call inside the `constructor(props)`!
-- You can use `setState()` to re-render the component.
+- Always must extend <code>Anu.Component</code>, always must implement <code>render()</code> method!
+- If the component receives <code>props</code> and you want to do additional settings inside the constructor (e.g. binding handlers or setting up initial state),
+<code>super(props)</code> should always be the first call inside the <code>constructor(props)</code>!
+- You can use <code>setState()</code> to re-render the component.
 It takes one argument which can be:
     - Object which will be merged with the old state
-    - Callback which take the actual `state` and `props` as arguments (useful if `state` and `props` were updated asynchronously)
-- _NEVER_ use `setState()` in `constructor()` or `componentWillUnmount()` (can be called in `componentDidMount()` and `componentDidUpdate()`, but only in condition - as you would do in React)!
+    - Callback which take the actual <code>state</code> and <code>props</code> as arguments (useful if <code>state</code> and <code>props</code> were updated asynchronously)
+- <strong>NEVER</strong> use <code>setState()</code> in <code>constructor()</code> or <code>componentWillUnmount()</code> (can be called in <code>componentDidMount()</code> and <code>componentDidUpdate()</code>, but only in condition - as you would do in React)!
 
     ```javascript
     class ClassComponent extends Anu.Component {
@@ -237,7 +359,7 @@ It takes one argument which can be:
 <h3 id="wrapper-components-and-sub-components">Wrapper components and related sub-components</h3>
 
 - The approach is the following:
-    - First, create a wrapper component which will render its `props.children`, for example.
+    - First, create a wrapper component which will render its <code>props.children</code>, for example.
     - Then, create wrapped / sub-components.
     - Add the sub-component to the wrapper as a property.
 
@@ -289,8 +411,8 @@ It takes one argument which can be:
 
 <h3 id="avoiding-unnecessary-wrapper-elements">Avoiding unnecessary wrapper elements</h3>
 
-- It is useful when you have a list of properties you want to loop through and render them (i.e. not in a nested structure but rather one after the other) but you don't want an extra `div` element to be rendered.
-- When wrapping a list of elements within `<Anu.Fragment />`, the System won't wrap it within an extra (and unnecessary) wrapper element (like a `div`).
+- It is useful when you have a list of properties you want to loop through and render them (i.e. not in a nested structure but rather one after the other) but you don't want an extra <code>&lt;div /&gt;</code> element to be rendered.
+- When wrapping a list of elements within <code>&lt;Anu.Fragment /&gt;</code>, the System won't wrap it within an extra (and unnecessary) wrapper element, like a <code>&lt;div /&gt;</code>.
 
     ```javascript
     const ElemList = props => {
@@ -322,10 +444,10 @@ However, there are some cases
 uploading files using a custom uploader button,
 handling onclick event outside of a given element, etc.)
 when you want to imperatively modify a child outside of the typical dataflow.
-- Refs can ONLY BE CREATED IN CLASS COMPONENTS but can be passed as prop - use different name then!
-- Set "ref" attribute/property ONLY ON HOST COMPONENT!
+- Refs can <strong>ONLY BE CREATED IN CLASS COMPONENTS</strong> but can be passed as prop - use different name then!
+- Set <code>ref</code> attribute / property <strong>ONLY ON HOST COMPONENT</strong>!
 
-    ***Example - _focusing an input element_***:
+    <strong>Example</strong> - <i>focusing an input element</i>:
 
     ```javascript
     class RefTestClass extends Anu.Component {
@@ -346,7 +468,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
     }
     ```
 
-    ***Example - _file uploader with preview_***:
+    <strong>Example</strong> - <i>file uploader with preview</i>:
 
     ```javascript
     class FileUploader extends Anu.Component {
@@ -406,7 +528,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
     }
     ```
 
-    ***Example - _handling `onClick` event outside of the referenced element_***:
+    <strong>Example</strong> - <i>handling <code>onClick</code> event outside of the referenced element</i>:
 
     ```javascript
     class ClickOutsideComponent exttends Anu.Component {
@@ -445,7 +567,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
     }
     ```
 
-    ***Example - _drag-and-drop todo list_***:
+    <strong>Example</strong> - <i>drag-and-drop todo list</i>:
 
     ```javascript
     const TODO_STATUS = {
@@ -532,7 +654,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
     }
     ```
 
-    ***Example - _infinite scroll_***:
+    <strong>Example</strong> - <i>infinite scroll</i>:
 
     ```javascript
     class ScrollComponent extends Anu.Component {
@@ -552,7 +674,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
             this.setState({ loading: true });
             Anu
                 .ServerAPI
-                .get('my/server/url', { page, limit: 10 })
+                .get('/app/my/server/url', { page, limit: 10 })
                 .then(res => {
                     this.setState({ photos: [...this.state.photos, ...res.data] });
                     this.setState({ loading: false });
@@ -608,7 +730,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
     
 <h3 id="rendering-application">Rendering your application</h3>
 
-- Select an existing HTML element (typically having `ID` as "root" or "app") and use the `Anu.render()` method which takes two arguments:
+- Select an existing HTML element (typically having <code>id</code> as "root" or "app") and use the <code>Anu.render()</code> method which takes two arguments:
     - The first one is the component you want to add to the DOM tree.
     - The second one is a valid HTML element already in the DOM tree, to which you want to attach your component.
 
@@ -626,11 +748,11 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
 <h3 id="linking-and-routing">Linking and routing</h3>
 
-- You can use `<Anu.History.Link />` elements those work just like "normal" links but without the reload of the page:
-    - The `<Anu.History.Link />` element has a `to` prop. When clicking on it, its `to` prop will be matched against the `path` prop of `<Anu.History.Route />`.
-- Use the `<Anu.History.Route />` component that takes a `path` argument and if the link you clicked matches the `path`, it will render the attached component:
-    - The `<Anu.History.Route />` component has a `path` prop to match against the URL. If it has an `exact` prop, it doesn't allow partial matching.
-    - The `<Anu.History.Route />` can also have a `component` (must be a component) or a `render` prop (it must be a function that returns a component).
+- You can use <code>&lt;Anu.History.Link /&gt;</code> elements those work just like "normal" links but without the reload of the page:
+    - The <code>&lt;Anu.History.Link /&gt;</code> element has a <code>to</code> prop. When clicking on it, its <code>to</code> prop will be matched against the <code>path</code> prop of <code>&lt;Anu.History.Route /&gt;</code>.
+- Use the <code>&lt;Anu.History.Route /&gt;</code> component that takes a <code>path</code> argument and if the link you clicked matches the <code>path</code>, it will render the attached component:
+    - The <code>&lt;Anu.History.Route /&gt;</code> component has a <code>path</code> prop to match against the URL. If it has an <code>exact</code> prop, it doesn't allow partial matching.
+    - The <code>&lt;Anu.History.Route /&gt;</code> can also have a <code>component</code> (must be a component) or a <code>render</code> prop (it must be a function that returns a component).
 
         ```javascript
         const Home = () => <h2>Home</h2>;
@@ -689,10 +811,10 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
 <h3 id="redirecting-with-history-redirect">Redirecting - <strong>The <code>&lt;Anu.History.Redirect /&gt;</code> component</strong></h3>
 
-- If the user needs to be redirected (e.g. if not logged in), use the `<Anu.History.Redirect />` component:
-    - The `<Anu.History.Redirect />` takes a `to` (URL) and an optional `push` (boolean) argument.
-    This will tell the System to render the component which can be found on the `to` URL (which is basically an `<Anu.History.Route />` which will render the corresponding component).
-    If `push` is present, it will push the URL into the History API instead of replacing the current one.
+- If the user needs to be redirected (e.g. if not logged in), use the <code>&lt;Anu.History.Redirect /&gt;</code> component:
+    - The <code>&lt;Anu.History.Redirect /&gt;</code> takes a <code>to</code> (URL) and an optional <code>push</code> (boolean) argument.<br>
+    This will tell the System to render the component which can be found on the <code>to</code> URL (which is basically an <code>&lt;Anu.History.Route /&gt;</code> which will render the corresponding component).
+    If <code>push</code> is present, it will push the URL into the <strong>History API</strong> instead of replacing the current one.
 
         ```javascript
         const RouteredApp = () => {
@@ -714,12 +836,12 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
 <h3 id="redirecting-with-history-goto">Redirecting from within the code - <strong>The <code>Anu.History.goTo()</code> method</strong></h3>
 
-- If you need to call a route from a function, use the `Anu.History.goTo()` function.
-    - It takes a `path` string argument.
-    If not specified, it will use its default path (`'/'`).
-    - Optionally, it can take a `replace` boolean argument.
-    If set to `true`, it will replace the current URL. By default, it pushes into the History API.
-    - Please only use `Anu.History.goTo()` if you need to redirect user inside the code based on functionality (like in `if` statement) for accessibility reasons.
+- If you need to call a route from a function, use the <code>Anu.History.goTo()</code> function.
+    - It takes a <code>path</code> string argument.
+    If not specified, it will use its default path (<code>'/'</code>).
+    - Optionally, it can take a <code>replace</code> boolean argument.
+    If set to <code>true</code>, it will replace the current URL. By default, it pushes into the History API.
+    - Please only use <code>Anu.History.goTo()</code> if you need to redirect user inside the code based on functionality (like in <code>if</code> statement) for accessibility reasons.
 
         ```javascript
         // Pushes URL into History API by default
@@ -732,15 +854,15 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
 <h2 id="server-api">Calling the server asynchronously - <strong>The Server API</strong></h2>
 
-The `Anu.ServerAPI` is basically built on top of `Anu.utils.Async.Promise` and currently has 5 methods `get()`, `post()`, `put()`, `delete()` and `file()`.
+The <code>Anu.ServerAPI</code> is basically built on top of <code>Anu.utils.Async.Promise</code> and currently has 5 methods <code>get()</code>, <code>post()</code>, <code>put()</code>, <code>delete()</code> and <code>file()</code>.
 
-<h3 id="get-and-delete-methods">The <code>GET</code> and <code>DELETE</code> HTTP methods</h3>
+<h3 id="get-and-delete-methods">The <strong>GET</strong> and <strong>DELETE</strong> HTTP methods</h3>
 
-- The `Anu.ServerAPI.get()` and `Anu.ServerAPI.delete()` perform a ***GET*** or ***DELETE*** HTTP method respectively to get data from the server or delete a specific data from the server
-(usually referenced by an _ID_ attribute in both cases but not necessarily when using ***GET***).
-They are faster than the ***POST*** or ***PUT*** HTTP methods but lack the security as well.
-- Can take a `url` (string - must always start with "`/app`"!) and an optional `params` (object) argument and return an `Anu.utils.Async.Promise` object.
-You can send params within the URL ***AND/OR*** as URI query parameters, e.g.:
+- The <code>Anu.ServerAPI.get()</code> and <code>Anu.ServerAPI.delete()</code> perform a <strong>GET</strong> or <strong>DELETE</strong> HTTP method respectively to get data from the server or delete a specific data from the server
+(usually referenced by an <code>id</code> attribute in both cases but not necessarily when using <strong>GET</strong>).<br>
+They are faster than the <strong>POST</strong> or <strong>PUT</strong> HTTP methods but lack the security as well.
+- Can take a <code>url</code> (string - <strong>MUST ALWAYS START WITH "<code>/app</code>"!</strong>) and an optional <code>params</code> (object) argument and return an <code>Anu.utils.Async.Promise</code> object.
+You can send params within the URL <strong>AND/OR</strong> as URI query parameters, e.g.:
         
     ```javascript
     const passedValueForGet = '1234'; // Represents an ID
@@ -750,50 +872,50 @@ You can send params within the URL ***AND/OR*** as URI query parameters, e.g.:
     };
     Anu
         .ServerAPI
-        .get(`/my-server-url/${passedValueForGet}`, paramsForGet)
+        .get(`/app/my-server-url/${passedValueForGet}`, paramsForGet)
         .then(({ response }) => { /* ... */ })
         .catch(({ status }) => { /* ... */ });
-    // In this case, the XHR URL will be: `my/server/url/${passedValueForGet}?key=value&nextKex=nextValue`
+    // In this case, the XHR URL will be: `/app/my/server/url/${passedValueForGet}?key=value&nextKex=nextValue`
     const passedValueForDelete = '1234'; // Represents an ID
     Anu
         .ServerAPI
-        .delete(`/my-server-url/${passedValueForDelete}`)
+        .delete(`/app/my-server-url/${passedValueForDelete}`)
         .then(({ response }) => { /* ... */ })
         .catch(({ status }) => { /* ... */ });
-    // In this case, the XHR URL will be: `my/server/url/${passedValueForDelete}`
+    // In this case, the XHR URL will be: `/app/my/server/url/${passedValueForDelete}`
     ```
     
-<h3 id="post-and-put-methods">The <code>POST</code> and <code>PUT</code> HTTP methods</h3>
+<h3 id="post-and-put-methods">The <strong>POST</strong> and <strong>PUT</strong> HTTP methods</h3>
 
-- The `Anu.ServerAPI.post()` and `Anu.ServerAPI.put()` perform an ***POST*** or ***PUT*** HTTP method respectively to send large data to the server and optionally get other data back.
-- It takes a `url` (string) and a `data` (object) argument and returns an `Anu.utils.Async.Promise` object:
+- The <code>Anu.ServerAPI.post()</code> and <code>Anu.ServerAPI.put()</code> perform an <strong>POST</strong> or <strong>PUT</strong> HTTP method respectively to send large data to the server and optionally get other data back.
+- It takes a <code>url</code> (string) and a <code>data</code> (object) argument and returns an <code>Anu.utils.Async.Promise</code> object:
 
     ```javascript
     const dataForPost = { /* ... */ };
     Anu
         .ServerAPI
-        .post('/my-server-url/', dataForPost)
+        .post('/app/my-server-url/', dataForPost)
         .then(({ response }) => { /* ... */ })
         .catch(({ status }) => { /* ... */ });
     const passedValue = '1234'; // Represents an ID
     const dataForPut = { /* ... */ };
     Anu
         .ServerAPI
-        .put(`/my-server-url/${passedValue}`, dataForPut)
+        .put(`/app/my-server-url/${passedValue}`, dataForPut)
         .then(({ response }) => { /* ... */ })
         .catch(({ status }) => { /* ... */ });
     ```
 
-<h3 id="file-method">The <code>FILE</code> HTTP method</h3>
+<h3 id="file-method">The <strong>FILE</strong> HTTP method</h3>
 
-- The `Anu.ServerAPI.file()` performs a POST HTTP method and encodes one or more files to send them to the server.
-- It takes an `url` (string), a `file` (one `File` object or an ***array*** of `File` objects) argument and an optional `data` (object) and returns an `Anu.utils.Async.Promise` object:
+- The <code>Anu.ServerAPI.file()</code> performs a POST HTTP method and encodes one or more files to send them to the server.
+- It takes an <code>url</code> (string), a <code>file</code> (one <code>File</code> object or an <strong>ARRAY</strong> of <code>File</code> objects) argument and an optional <code>data</code> (object) and returns an <code>Anu.utils.Async.Promise</code> object:
 
     ```javascript
     const data = { /* ... */ };
     Anu
         .ServerAPI
-        .file('/my-server-url/', File, data)
+        .file('/app/my-server-url/', File, data)
         .then(({ response }) => { /* ... */ })
         .catch(({ status }) => { /* ... */ });
     ```
@@ -802,24 +924,24 @@ You can send params within the URL ***AND/OR*** as URI query parameters, e.g.:
 
 <h2 id="anulytics-api">Tracking users - <strong>The Anulytics API</strong></h2>
 
-- ***`<ANUVerzum />` JS Framework*** comes with its built-in analytics tool.
-- Unlike the most analytics tools, ***Anulytics API*** is designed to send the collected informations only once: when the user leaves the page (either changing tab, navigating to a different domain or closing the page / browser).
+<strong><code>&lt;ANUVerzum /&gt;</code> JS Framework</strong> comes with its built-in analytics tool.<br>
+Unlike the most analytics tools, <strong>Anulytics API</strong> is designed to send the collected informations only once: when the user leaves the page (either changing tab, navigating to a different domain or closing the page / browser).<br>
 This way, no unnecessary XHR calls are made, which could otherwise negatively impact performance and user experience.
-- It has two public interfaces: `<Anu.Anulytics.Provider />` and `Anu.Anulytics.trackEvent()`.
-- In order to use the built-in analytics tool, you must wrap all your components you want to track within `<Anu.Anulytics.Provider />` component
-(without this, you can't use `Anu.Anulytics.trackEvent()` event tracker functionality).
+- It has two public interfaces: <code>&lt;Anu.Anulytics.Provider /&gt;</code> and <code>Anu.Anulytics.trackEvent()</code>.
+- In order to use the built-in analytics tool, you must wrap all your components you want to track within <code>&lt;Anu.Anulytics.Provider /&gt;</code> component
+(without this, you can't use <code>Anu.Anulytics.trackEvent()</code> event tracker functionality).
 
 <h3 id="anulytics-provider">Wrapping up your front-end project within the <code>&lt;Anu.Anulytics.Provider /&gt;</code> component</h3>
 
 - This component is responsible for the aggregation of the collected data and sends it to the server. It can have only one child element.
 - Once the user leaves the page or navigates to / focuses on another tab, the component sends the collected data to the user-defined server via HTTP POST method.
 - It takes 4 properties:
-    - `analyticsUrl`, which is a string that represents the URL of the server you want to send the data you collected.
-    - `userData` is an object of data about the user.
-    Make sure that you ask for permissions from the end-users and build the `userData` object accordingly in order to stay GDPR-compliant.
+    - <code>analyticsUrl</code>, which is a string that represents the URL of the server you want to send the data you collected.
+    - <code>userData</code> is an object of data about the user.
+    Make sure that you ask for permissions from the end-users and build the <code>userData</code> object accordingly in order to stay GDPR-compliant.
     Always ask permission from the end-user, highlighting the types of data you wish to use.
-    - `onSuccess` callback is a custom callback function that will be fired when data transmission ended successfully.
-    - `onFail` callback is a custom callback function that will be fired when data transmission failed.
+    - <code>onSuccess</code> callback is a custom callback function that will be fired when data transmission ended successfully.
+    - <code>onFail</code> callback is a custom callback function that will be fired when data transmission failed.
 
         ```javascript
         const App = () => (
@@ -829,7 +951,7 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
         );
         ```
 
-    - The `data` object sent to the server looks like the following:
+    - The <code>data</code> object sent to the server looks like the following:
 
         ```javascript
         {
@@ -850,19 +972,19 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
         }
         ```
     
-    - The `Event` type is an object which ***key attribute*** is the ***name of the event*** (a string that represents the event, action type or a link if it was fired by navigation).
-    The value of the Event object contains three properties: `eventType`, `timestamp` and `properties`:
-        - The `eventType` is a string that is always set.
-        It can have the following values: `'initialization'`, `'navigation'`, `'userAction'`, `'stateChange'` or `'pageLeave'`:
-            - `'initialization'` is always set once the page loaded.
-            - `'pageLeave'` is always set once the user focuses on another tab or closes the application (i.e.: leaving the current / actual page).
-            - `'navigation'` is set on inner navigation (if user clicks on a `<Anu.History.Link />`, the `Anu.History.goTo()` was called or the user got redirected via `<Anu.History.Redirect />`).
-            - `'userAction'` is set when `Anu.Anulytics.trackEvent()` has been used.
-                - This is the only public API of ***Anulytics API***
-            - `'stateChange'` is automatically called when an **action** gets dispatched.
-        - The `timestamp` is always set: it is the POSIX timestamp of the fired event.
-        - The `properties` can either be an empty object (typically when the event was fired by navigation) or a `Property` type.
-        The `properties` are typically set when `Anu.Anulytics.trackEvent()` has been used.
+    - The <code>Event</code> type is an object which <strong>key attribute</strong> is the <strong>name of the event</strong> (a string that represents the event, action type or a link if it was fired by navigation).
+    The value of the Event object contains three properties: <code>eventType</code>, <code>timestamp</code> and <code>properties</code>:
+        - The <code>eventType</code> is a string that is always set.
+        It can have the following values: <code>'initialization'</code>, <code>'navigation'</code>, <code>'userAction'</code>, <code>'stateChange'</code> or <code>'pageLeave'</code>:
+            - <code>'initialization'</code> is always set once the page loaded.
+            - <code>'pageLeave'</code> is always set once the user focuses on another tab or closes the application (i.e.: leaving the current / actual page).
+            - <code>'navigation'</code> is set on inner navigation (if user clicks on a <code>&lt;Anu.History.Link /&gt;</code>, the <code>Anu.History.goTo()</code> was called or the user got redirected via <code>&lt;Anu.History.Redirect /&gt;</code>).
+            - <code>'userAction'</code> is set when <code>Anu.Anulytics.trackEvent()</code> has been used.
+                - This is the only public API of <strong>Anulytics API</strong>
+            - <code>'stateChange'</code> is automatically called when an <strong>action</strong> gets dispatched.
+        - The <code>timestamp</code> is always set: it is the POSIX timestamp of the fired event.
+        - The <code>properties</code> can either be an empty object (typically when the event was fired by navigation) or a <code>Property</code> type.
+        The <code>properties</code> are typically set when <code>Anu.Anulytics.trackEvent()</code> has been used.
 
             ```javascript
             type Event {
@@ -874,17 +996,17 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
             }
             ```
 
-    - The `UserActionProperties` type can have various properties, like `id`, `name`, `url` and `value`:
-        - The `id` is the value of the ID attribute of the DOM element with the given event handler tracked: `event.target.id` (optional but ***highly recommended*** to set).
-        - The `name` is the value of the name attribute of the DOM element with the given event handler tracked: `event.target.name` (optional but ***highly recommended*** to set).
-        - The `nodeName` is the name of the DOM node with the given event handler tracked: `event.target.nodeName`.
-        - The `keyCode` is the ASCII code of the key pressed (if the given element is a keyboard event, like `keyup`) or null.
-        - The `value` is the value of the DOM element with the given event handler tracked: `event.target.value`.
-        - The `pageX` is the X-coordinate of the mouse position from the left side of the ***page***: `event.pageX`.
-        - The `pageY` is the Y-coordinate of the mouse position from the top of the ***page***: `event.pageY`.
-        - The `scrollTop` is the amount the user scrolled from the top of the ***page***.
-        - The `scrollLeft` is the amount the user scrolled from the left side of the ***page***.
-        - The `url` is the URL of the page that contains the DOM element with the given event handler tracked.
+    - The <code>UserActionProperties</code> type can have various properties, like <code>id</code>, <code>name</code>, <code>url</code> and <code>value</code>:
+        - The <code>id</code> is the value of the ID attribute of the DOM element with the given event handler tracked: <code>event.target.id</code> (optional but <strong>HIGHLY RECOMMENDED</strong> to set).
+        - The <code>name</code> is the value of the name attribute of the DOM element with the given event handler tracked: <code>event.target.name</code> (optional but <strong>HIGHLY RECOMMENDED</strong> to set).
+        - The <code>nodeName</code> is the name of the DOM node with the given event handler tracked: <code>event.target.nodeName</code>.
+        - The <code>keyCode</code> is the ASCII code of the key pressed (if the given element is a keyboard event, like <code>keyup</code>) or null.
+        - The <code>value</code> is the value of the DOM element with the given event handler tracked: <code>event.target.value</code>.
+        - The <code>pageX</code> is the X-coordinate of the mouse position from the left side of the page: <code>event.pageX</code>.
+        - The <code>pageY</code> is the Y-coordinate of the mouse position from the top of the page: <code>event.pageY</code>.
+        - The <code>scrollTop</code> is the amount the user scrolled from the top of the page.
+        - The <code>scrollLeft</code> is the amount the user scrolled from the left side of the page.
+        - The <code>url</code> is the URL of the page that contains the DOM element with the given event handler tracked.
 
             ```javascript
             type UserActionProperties {
@@ -902,11 +1024,11 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
             }
             ```
     
-    - The `StateChangeProperties` type can have four properties: `url`, `prevState`, `action` and `nextState`:
-        - The `url` is the URL of the page that contains the DOM element with the given event handler tracked.
-        - The `prevState` is the global state object before the action was performed.
-        - The `action` is the dispatched action.
-        - The `nextState` is the global state object after the action was performed.
+    - The <code>StateChangeProperties</code> type can have four properties: <code>url</code>, <code>prevState</code>, <code>action</code> and <code>nextState</code>:
+        - The <code>url</code> is the URL of the page that contains the DOM element with the given event handler tracked.
+        - The <code>prevState</code> is the global state object before the action was performed.
+        - The <code>action</code> is the dispatched action.
+        - The <code>nextState</code> is the global state object after the action was performed.
 
             ```javascript
             type UserActionProperties {
@@ -917,38 +1039,38 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
             }
             ```
     
-    - The `User` type is an object of the developer choice.
+    - The <code>User</code> type is an object of the developer choice.
     If not provided, an empty object will be passed.
 
 <h3 id="anulytics-track-event">Tracking events on elements using <code>Anu.Anulytics.trackEvent(event, props)</code></h3>
 
-- ***Anulytics API*** tracks visited links within the application out of the box.
-If you want to track additional elements, call `Anu.Anulytics.trackEvent(event, props)` method inside the event handler.
+- <strong>Anulytics API</strong> tracks visited links within the application out of the box.
+If you want to track additional elements, call <code>Anu.Anulytics.trackEvent(event, props)</code> method inside the event handler.
 - It takes two arguments:
-    - The `event` object is always needed because this object contains required information to track.
-    - The `props` is optional: either an object (not an array) or null. 
+    - The <code>event</code> object is always needed because this object contains required information to track.
+    - The <code>props</code> is optional: either an object (not an array) or null. 
 
 <br>
 
-## Creating and accessing the context out of the "normal props flow" - ***The Context API***:
+<h2 id="context-api">Creating and accessing the context out of the "normal props flow" - <strong>The Context API</strong></h2>
 
-### ***Creating the context:***
+<h3 id="creating-context">Creating the context</h3>
 
-- To create a context provider and context consumer elements with default context, call the `Anu.createContext()`.
-It takes a `context` argument which can be reached later as `context.defaultContext.value` and returns a context provider and consumer:
+- To create a context provider and context consumer elements with default context, call the <code>Anu.createContext()</code>.
+It takes a <code>context</code> argument which can be reached later as <code>context.defaultContext.value</code> and returns a context provider and consumer:
 
     ```javascript
     const ThemedContext = Anu.createContext({ theme: 'Theme-1' });    // This can be accessed as "context.defaultContext.value.theme"
     ```
 
-### ***Usage of the context provider and its consumer(s):***
+<h3 id="usage-of-context-provider-and-consumers">Usage of the context provider and its consumer(s)</h3>
 
-- Context props defined on `<ThemedContext.ContextProvider />` can be accessed from within the function child of the `<ThemedContext.ContextConsumer />` as `context.value`.
+- Context props defined on <code>&lt;ThemedContext.ContextProvider /&gt;</code> can be accessed from within the function child of the <code>&lt;ThemedContext.ContextConsumer /&gt;</code> as <code>context.value</code>.
 - Context providers can have multiple context consumer descendents.
-- Context consumers can have one function-as-a-child (which takes the `context` as argument) which must return a valid HTML, inline-SVG element, component (either class-based or function) or `null`.
-- You can have as many elements between the context provider and consumer(s), as you want.
-No need to pass the `context` all the way down within the "props flow"; the function child of the context consumer will have access to it by default.
-It allows you to create your "intermediate" components without depending from the `context` (they don't need to be aware of it if they have nothing to do with it...).
+- Context consumers can have one function-as-a-child (which takes the <code>context</code> as argument) which must return a valid HTML, inline-SVG element, component (either class-based or function) or <code>null</code>.
+- You can have as many elements between the context provider and consumer(s), as you want.<br>
+No need to pass the <code>context</code> all the way down within the "props flow"; the function child of the context consumer will have access to it by default.<br>
+It allows you to create your "intermediate" components without depending from the <code>context</code> (they don't need to be aware of it if they have nothing to do with it...).
 		
     ```javascript
     const ComponentWithContext = () => {
@@ -984,28 +1106,24 @@ It allows you to create your "intermediate" components without depending from th
         );
     };
     ```
-
-<br>
-<hr>
+    
 <br>
 
-## The next APIs (`Anu.Connector.connect()` and `<Anu.Connector.Provider />`; `<Anu.Intl.Provider />`, `<Anu.Intl.FormattedMessage />`, `Anu.Intl.formatMessage()` and `Anu.Intl.abbreviateNumber()`; `<Anu.Feature.Provider />` and `<Anu.Feature.Toggle />`) are strongly relying on the Context API ##
+<strong>The next APIs (<code>Anu.Connector.connect()</code> and <code>&lt;Anu.Connector.Provider /&gt;</code>; <code>&lt;Anu.Intl.Provider /&gt;</code>, <code>&lt;Anu.Intl.FormattedMessage /&gt;</code>, <code>Anu.Intl.formatMessage()</code> and <code>Anu.Intl.abbreviateNumber()</code>; <code>&lt;Anu.Feature.Provider /&gt;</code> and <code>&lt;Anu.Feature.Toggle /&gt;</code>) are strongly relying on the Context API</strong><br>
 
 <br>
-<hr>
-<br>
 
-##  Storing and mutating the global state on actions dispatched, memoizing complex conversions on the global state and combining reducers - ***The Store API***:
+<h2 id="store-api">Storing and mutating the global state on actions dispatched, memoizing complex conversions on the global state and combining reducers - <strong>The Store API</strong></h2>
 
-### ***Dispatching actions:***
+<h3 id="dispatching-actions">Dispatching actions</h3>
 
 - Create action creator functions (returns an object) or asynchronous action creator functions (returns a function) to dispatch action(s):
     - To create a synchronous action creator, simply create a function that returns an object.
-    You *MUST* specify its `type` member - the reducer will react when an action with this type was dispatched.
-    - If you create asynchronous action creator as well, then remember, the action creator should return a *function* instead of an object (in this case, you *MUST* use a middleware - see "**Creating the store**" section):
+    You <strong>MUST</strong> specify its <code>type</code> member - the reducer will react when an action with this type was dispatched.
+    - If you create asynchronous action creator as well, then remember, the action creator should return a <strong>FUNCTION</strong> instead of an object (in this case, you <strong>MUST</strong> use a middleware - see <a href="#creating-the-store">Creating the store</a> section):
         - The outermost function will take whatever we pass to it
-        - That returned function takes 2 arguments: `dispatch` and `getState`
-        - Here. you can do additional things (like getting out a value from the state using `getState()` or dispatching an action using `dispatch()`) before returning the final payload (most likely an AJAX request).
+        - That returned function takes 2 arguments: <code>dispatch</code> and <code>getState</code>
+        - Here. you can do additional things (like getting out a value from the state using <code>getState()</code> or dispatching an action using <code>dispatch()</code>) before returning the final payload (most likely an AJAX request).
 
             ```javascript
             // Simple action creator:
@@ -1022,7 +1140,7 @@ It allows you to create your "intermediate" components without depending from th
             };
             ```
                 
-            ***Example - _creating a "simple" action creator_***:
+            <strong>Example</strong> - <i>creating a "simple" action creator</i>:
 
             ```javascript
             // Action type:
@@ -1038,7 +1156,7 @@ It allows you to create your "intermediate" components without depending from th
             });
             ```
 
-            ***Example - _creating an "asynchronous" action creator_***:
+            <strong>Example</strong> - <i>creating an "asynchronous" action creator</i>:
 
             ```javascript
             // Action type:
@@ -1052,17 +1170,18 @@ It allows you to create your "intermediate" components without depending from th
                 dispatch({ type: myAsyncActionTypes.PENDING });
                 return Anu
                     .ServerAPI
-                    .get(`/my/server/url/${value}`)
+                    .get(`/app/my/server/url/${value}`)
                     .then(({ response }) => dispatch({ type: myAsyncActionTypes.FULFILLED, payload: { response } }))
                     .catch(({ status }) => dispatch({ type: myAsyncActionTypes.REJECTED, payload: { status } }));
             };
             ```
 
-### ***Handling actions with reducers:***
+<h3 id="handling-actions-with-reducers">Handling actions with reducers</h3>
 
 - Note that if it is added to the rootReducer, it will represent that "sub-tree" of the state so,
 it should return that part, with the updated desired values:
 - Note that the relationship between actions and reducers is M:N!
+- <strong>NEVER</strong> mutater the state directly!
 
     ```javascript
     // Initial state:
@@ -1081,7 +1200,7 @@ it should return that part, with the updated desired values:
     };
     ```
 
-    ***Example - _handling the previous actions_***:
+    <strong>Example</strong> - <i>handling the previous actions</i>:
 
     ```javascript	
     const defaultState = { /* ... */ };
@@ -1125,14 +1244,14 @@ it should return that part, with the updated desired values:
     };
     ```
 
-### ***Memoizing global state conversions:***
+<h3 id="memoizing-state-conversions">Memoizing (global) state conversions</h3>
 
 - Selectors are memoized functions which come handy if you need to do expensive calculations or conversions on the global state.
-- To create selector, use the `Anu.store.createSelector()` (it comes handy in `mapStateToProps()` - see "**Connecting components to the global state - ***The Connector API*****" section):
+- To create selector, use the <code>Anu.store.createSelector()</code> (it comes handy in <code>mapStateToProps()</code> - see <a href="#connector-api">Connecting components to the global state - The Connector API</a> section):
     - Its first argument is an array of "getter" functions which will return the desired slice of the global state object.
     These functions must always return something.
     - The second argument is a "handler" function which take as many arguments as many "getter" functions you defined; these arguments are the return values of the "getter" functions.
-    Their number and order is the same as of the "getters" within the first (array) argument of the `Anu.store.createSelector()`.
+    Their number and order is the same as of the "getters" within the first (array) argument of the <code>Anu.store.createSelector()</code>.
 
         ```javascript
         // Getter functions:
@@ -1162,11 +1281,11 @@ it should return that part, with the updated desired values:
         const mySelector = Anu.store.createSelector(getters, handler);
         ```
 
-### ***Combining reducers:***
+<h3 id="combining-reducers">Combining reducers</h3>
 
-- You can combine multiple reducers using the `Anu.store.combineReducers()` if you need a more complex state shape:
+- You can combine multiple reducers using the <code>Anu.store.combineReducers()</code> if you need a more complex state shape:
     - The function receives one (object) argument - the "key" of the item will be the name of the corresponding state-part, the "value" is the reducer you want to add to the combined reducer.
-	- `Anu.store.combineReducers()` can be used multiple times in the application.
+	- <code>Anu.store.combineReducers()</code> can be used multiple times in the application.
 
         ```javascript
         const combinedReducer = Anu.store.combineReducers({
@@ -1188,21 +1307,21 @@ it should return that part, with the updated desired values:
         };
         ```
 	
-### ***Creating the store:***
+<h3 id="creating-the-store">Creating the store</h3>
 
-- The store object stores the global state object (that can be reached using the `store.getState()` methiod) and it also has the `store.dispatch()`, `store.subscribe()` and `store.unsubscribe()` methods.
-You will likely use the `store.getState()` and `store.dispatch()` methods only because subscribing and unsubscribing functionalities are "wired" into the `<Anu.Connector.Provider />` and the "connedted"
-(also known as "container") component(s) created by using the `Anu.Connector.connect()` - see "**Connecting components to the global state - ***The Connector API*****" section.
-- Create a store object using `Anu.store.createStore()`:
-    - The first argument is the `rootReducer` which is always needed (can be either a "single" reducer or a combination of ("single" and/or combined) reducers),
-    - The second `initialState` argument is optional however, if you don't use it, the initial state will be `undefined`.
+- The store object stores the global state object (that can be reached using the <code>store.getState()</code> methiod) and it also has the <code>store.dispatch()</code>, <code>store.subscribe()</code> and <code>store.unsubscribe()</code> methods.
+You will likely use the <code>store.getState()</code> and <code>store.dispatch()</code> methods only because subscribing and unsubscribing functionalities are "wired" into the <code>&lt;Anu.Connector.Provider /&gt;</code> and the "connedted"
+(also known as "container") component(s) created by using the <code>Anu.Connector.connect()</code> - see <a href="#connector-api">Connecting components to the global state - The Connector API</a> section.
+- Create a store object using <code>Anu.store.createStore()</code>:
+    - The first argument is the <code>rootReducer</code> which is always needed (can be either a "single" reducer or a combination of ("single" and/or combined) reducers),
+    - The second <code>initialState</code> argument is optional however, if you don't use it, the initial state will be <code>undefined</code>.
     This argument is useful if you want to have initialized values for your application before dispatching your first action.
     - The third argument is optional, you can use it if you want to apply middleware functionalities like dispatching asynchronous actions (e.g. AJAX calls or delayed calls). 
-    In this case, the built-in `Anu.store.middleware.applyMiddleware()` can be passed:
+    In this case, the built-in <code>Anu.store.middleware.applyMiddleware()</code> can be passed:
         - It can take any numbers of callbacks (even zero) those will run on every actions dispatched.
         - There are 2 built-in callbacks you can use out-of-the-box:
-            - The `Anu.store.middleware.loggingMiddleware()` is a logger; it comes handy when in development mode,
-            - The `Anu.store.middleware.thunkMiddleware()` enables you to use asynchronous action creators (those returning functions instead of objects) as well.
+            - The <code>Anu.store.middleware.loggingMiddleware()</code> is a logger; it comes handy when in development mode,
+            - The <code>Anu.store.middleware.thunkMiddleware()</code> enables you to use asynchronous action creators (those returning functions instead of objects) as well.
 
                 ```javascript
                 // Assuming that the 'rootReducer' is the 'combinedReducer' created before:
@@ -1220,13 +1339,15 @@ You will likely use the `store.getState()` and `store.dispatch()` methods only b
                 );
                 ```
 
-## Connecting components to the global state - ***The Connector API***:
+<br>
 
-- This API is designed to connect your global store with elements within the presentation layer.
+<h2 id="connector-api">Connecting components to the global state - <strong>The Connector API</strong></h2>
 
-### ***Connect to the store:***
+This API is designed to connect your global store with elements within the presentation layer.
 
-- Wrap the outermost component (this should contain all your "container" components - see "**Create container component**" section) within `<Anu.Connector.Provider />` and pass the store object:
+<h3 id="connect-to-store">Connect to the store</h3>
+
+- Wrap the outermost component (this should contain all your "container" components - see <a href="#create-container-component">Create container component</a> section) within <code>&lt;Anu.Connector.Provider /&gt;</code> and pass the store object:
 
     ```javascript
     class App extends Anu.Component {
@@ -1240,19 +1361,19 @@ You will likely use the `store.getState()` and `store.dispatch()` methods only b
     };
     ```
 
-### ***Create container component:***
+<h3 id="create-container-component">Create container component</h3>
 
 - To connect your "container" component to the global store, simply define a component (either a function or class-based) you want to connect.
 It is a "curried function" (a function returns a function, also known as "high-order function" (HOF)).
-The first function takes two arguments: the `mapStateToProps()` and `mapDispatchToProps()`, the second one takes the wrapped component.
-- Be aware that the props of wrapped component are the combination of the props passed to the (outer) component (i.e. when rendering in the return statement) and those returned by `mapStateToProps()` and `mapDispatchToProps()`!
-- Define maximum two functions (they are typically called `mapStateToProps()` and `mapDispatchToProps()`; if either one is not defined, pass `null` respectively):
-    - The `mapStateToProps()` can fetch values from the global state and injects them as props into the wrapped component you want to connect:
-        - It takes the `state` as the first argument and an optional `ownProps` which is basically the object of the props you pass down from the caller component as part of the "props flow".
+The first function takes two arguments: the <code>mapStateToProps()</code> and <code>mapDispatchToProps()</code>, the second one takes the wrapped component.
+- Be aware that the props of wrapped component are the combination of the props passed to the (outer) component (i.e. when rendering in the return statement) and those returned by <code>mapStateToProps()</code> and <code>mapDispatchToProps()</code>!
+- Define maximum two functions (they are typically called <code>mapStateToProps()</code> and <code>mapDispatchToProps()</code>; if either one is not defined, pass <code>null</code> respectively):
+    - The <code>mapStateToProps()</code> can fetch values from the global state and injects them as props into the wrapped component you want to connect:
+        - It takes the <code>state</code> as the first argument and an optional <code>ownProps</code> which is basically the object of the props you pass down from the caller component as part of the "props flow".
         - The function must return an object of props which can now be used by the wrapped component as if they were "regular" props.
-        - This function is the ideal place to use selectors - see "**Memoizing global state conversions**" section.
-    - The `mapDispatchToProps()` can define functions those dispatch actions and injects them as props into the wrapped component you want to connect:
-        - It takes the `dispatch` as the first argument and an optional `ownProps` which is basically the object of the props you pass down from the caller component as part of the "props flow".
+        - This function is the ideal place to use selectors - see <a href="#memoizing-state-conversions">Memoizing (global) state conversions</a> section.
+    - The <code>mapDispatchToProps()</code> can define functions those dispatch actions and injects them as props into the wrapped component you want to connect:
+        - It takes the <code>dispatch</code> as the first argument and an optional <code>ownProps</code> which is basically the object of the props you pass down from the caller component as part of the "props flow".
         - The function must return an object of props (functions-as-props those dispatch actions - call action creators) which can now be used by the wrapped component as if they were "regular" props.
 
             ```javascript
@@ -1291,22 +1412,24 @@ The first function takes two arguments: the `mapStateToProps()` and `mapDispatch
             const ContainerComponent = Anu.Connector.connect(mapStateToProps, mapDispatchToProps)(WrappedComponent);
             ```
 
-## Supporting multiple languages - ***The Intl API***:
+<br>
 
-- The basic concept behind the "Intl API" is that you define different JSON objects for each languages you support in your application and
+<h2 id="intl-api">Supporting multiple languages - <strong>The Intl API</strong></h2>
+
+The basic concept behind the <strong>Intl API</strong> is that you define different JSON objects for each languages you support in your application and
 you refer to the text-part you need.
-- Use the `<Anu.Intl.Provider />` to set the supported language files for your "static texts" (no end-user-entered texts will be translated...) and the set the selected language in your app.
-- Then, use the `<Anu.Intl.formattedMessage />` to place the text on the selected language referred by the `id` property.
-You can also use `Anu.Intl.formatMessage()` when you want to translate a property value only (e.g. the placeholder text in an input element).
-- If the text itself should also contain a dynamic text value, you can pass an optional `values` property which contains key-value pairs.
-- In the text inside the language file, you should refer for the key using the `{key}` format.
+- Use the <code>&lt;Anu.Intl.Provider /&gt;</code> to set the supported language files for your "static texts" (no end-user-entered texts will be translated...) and the set the selected language in your app.
+- Then, use the <code>&lt;Anu.Intl.formattedMessage /&gt;</code> to place the text on the selected language referred by the <code>id</code> property.
+You can also use <code>Anu.Intl.formatMessage()</code> when you want to translate a property value only (e.g. the placeholder text in an input element).
+- If the text itself should also contain a dynamic text value, you can pass an optional <code>values</code> property which contains key-value pairs.
+- In the text inside the language file, you should refer for the key using the <code>{key}</code> format.
 
-### ***Creating the supported language objects:***
+<h3 id="creating-language-objects">Creating the supported language objects</h3>
 
 - These are basically simple objects with key-value pairs.
-The key is always the ID of the referred text (see "**Formatting component texts**" and "**Formatting attribute texts**" section), the value is the value to print.
+The key is always the ID of the referred text (see <a href="#formatting-component-texts">Formatting component texts</a> and <a href="#formatting-attribute-texts">Formatting attribute texts</a> section), the value is the value to print.
 - Create as many language objects as many languages you want to support.
-Don't forget that the IDs should match in each objects because they will be the key used by the *Intl API* to find the text for the selected language.
+Don't forget that the IDs should match in each objects because they will be the key used by the <strong>Intl API</strong> to find the text for the selected language.
 - Wrap these objects within one main object.
 This time, the keys will be the strings you mark the supported languages and the corresponding values will be the objects created before.
 
@@ -1329,13 +1452,13 @@ This time, the keys will be the strings you mark the supported languages and the
     };
     ```
 
-### ***Injecting the language objects into the application:***
+<h3 id="adding-language-objects-to-provider">Adding the language objects to the Intl provider</h3>
 
-- Within this step, wrap the outermost component (this should contain all your "internationalized" components, texts, etc.) within the `<Anu.Intl.Provider />`.
+- Within this step, wrap the outermost component (this should contain all your "internationalized" components, texts, etc.) within the <code>&lt;Anu.Intl.Provider /&gt;</code>.
 This component takes three props:
-    - The `messages` property should be the object that contains all the translations for all the languages your application supports.
-    - The `locale` property is practically a short string that is the preferred language (it must match with one of the keys of the outermost object passed as `messages`).
-    - The `defaultLocale` property is optional and will refer to the default language if `messages[locale]` couldn't be found.
+    - The <code>messages</code> property should be the object that contains all the translations for all the languages your application supports.
+    - The <code>locale</code> property is practically a short string that is the preferred language (it must match with one of the keys of the outermost object passed as <code>messages</code>).
+    - The <code>defaultLocale</code> property is optional and will refer to the default language if <code>messages[locale]</code> couldn't be found.
 
         ```javascript
         // This will use the first 2 letters of the language set in browser settings (e.g.: "en", "it", "hu", ...):
@@ -1350,12 +1473,12 @@ This component takes three props:
         };
         ```
     
-### ***Formatting component texts:***
+<h3 id="formatting-component-texts">Formatting component texts</h3>
 
-- Use `<Anu.Intl.FormattedMessage />` for the specific text (referred by `id` property) - if used as a rendered element:
-    - The first, required argument is the `id` property which is the key of the text in the user-defined language objects.
-    - It can take an optional `values` property which is an object:
-        - The key property must match the placeholder you want to replace with your dynamic value within the text inside your language object you refer (i.e. wrapped between `{` and `}`).
+- Use <code>&lt;Anu.Intl.FormattedMessage /&gt;</code> for the specific text (referred by <code>id</code> property) - if used as a rendered element:
+    - The first, required argument is the <code>id</code> property which is the key of the text in the user-defined language objects.
+    - It can take an optional <code>values</code> property which is an object:
+        - The key property must match the placeholder you want to replace with your dynamic value within the text inside your language object you refer (i.e. wrapped between <code>{</code> and <code>}</code>).
         - The value is what should be used to replace the placeholder.
 
             ```javascript
@@ -1374,15 +1497,15 @@ This component takes three props:
             };
             ```
 
-### ***Formatting attribute texts:***
+<h3 id="formatting-attribute-texts">Formatting attribute texts</h3>
 
-- Use `Anu.Intl.formatMessage()` for the specific text (referred by `id` property) - if used as an attribute of an element:
-    - The first, required argument is the `id` property which is the key of the text in the user-defined JSON files (e.g.: `messages_hu[id]` or `messages_en[id]`).
-    - The second argument is the `values` property which is either an object or `null`. If defined:
-        - The key property must match the placeholder you want to replace with your dynamic value within the text inside your language object you refer (i.e. wrapped between `{` and `}`).
+- Use <code>Anu.Intl.formatMessage()</code> for the specific text (referred by <code>id</code> property) - if used as an attribute of an element:
+    - The first, required argument is the <code>id</code> property which is the key of the text in the user-defined JSON files (e.g.: <code>messages_hu[id]</code> or <code>messages_en[id]</code>).
+    - The second argument is the <code>values</code> property which is either an object or <code>null</code>. If defined:
+        - The key property must match the placeholder you want to replace with your dynamic value within the text inside your language object you refer (i.e. wrapped between <code>{</code> and <code>}</code>).
         - The value is what should be used to replace the placeholder.
-    - It can also take an optional `defaultMessage` property which is used if the searched text couldn't been found.
-    - If the ID can not be found and no `defaultMessage` is passed, the function will return the `id` value as a string.
+    - It can also take an optional <code>defaultMessage</code> property which is used if the searched text couldn't been found.
+    - If the ID can not be found and no <code>defaultMessage</code> is passed, the function will return the <code>id</code> value as a string.
 
         ```javascript
         const ComponentWithFormatMessageFunctionCall = () => {
@@ -1393,21 +1516,21 @@ This component takes three props:
         };
         ```
     
-### ***Abbreviating numbers:***
+<h3 id="abbreviating-numbers">Abbreviating numbers</a>
 
-- If you want to abbreviate a large number, the `Anu.Intl.abbreviateNumber()` function comes handy.
-- This function is also part of the ***INTL API*** so, it is able to read the language set within `<Anu.IntlProvider />` (and you must use it within `<Anu.IntlProvider />`).
-This currently supports only the *Hungarian* and the *English* abbreviations by default, but you can define your custom abbreviation rules as well.
+- If you want to abbreviate a large number, the <code>Anu.Intl.abbreviateNumber()</code> function comes handy.
+- This function is also part of the <strong>INTL API</strong> so, it is able to read the language set within <code>&lt;Anu.IntlProvider /&gt;</code> (and you must use it within <code>&lt;Anu.IntlProvider /&gt;</code>).<br>
+This currently supports only the <i>Hungarian</i> and the <i>English</i> abbreviations by default, but you can define your custom abbreviation rules as well.
 - The function takes two arguments:
-    - The first argument is the numeric `value`: the number to abbreviate.
-    If there is no match for the selected language and you didn't specify a custom `options` object, the system will fall back to the default (English) options.
-    - The second, optional argument is the `options`, which is an object:
-        - The first member is `units` - an array of strings to be used as abbreviation units.
+    - The first argument is the numeric <code>value</code>: the number to abbreviate.<br>
+    If there is no match for the selected language and you didn't specify a custom <code>options</code> object, the system will fall back to the default (English) options.
+    - The second, optional argument is the <code>options</code>, which is an object:
+        - The first member is <code>units</code> - an array of strings to be used as abbreviation units.<br>
         When not specified, it will use the default (english) abbreviation units ('K', 'M', 'B', 'T').
-        - The second member is `decimalPlaces` - a number that represents the decimal places.
+        - The second member is <code>decimalPlaces</code> - a number that represents the decimal places.<br>
         If not specified, the system will fall back to use two decimal places.
-        - The third member is `decimalSign` - a string to replace the standard (at least in english speaking countries) dot (.) sign with the one of choice.
-        If not specified, the system will fall back to the default dot (.) sign.
+        - The third member is <code>decimalSign</code> - a string to replace the standard (at least in english speaking countries) dot (<code>.</code>) sign with the one of choice.<br>
+        If not specified, the system will fall back to the default dot (<code>.</code>) sign.
 
             ```javascript
             // Usage with default options:
@@ -1416,7 +1539,7 @@ This currently supports only the *Hungarian* and the *English* abbreviations by 
             Anu.Intl.abbreviateNumber(value, option);
             ```
 
-            ***Example - _abbreviating a number using default (built-in) options_***:
+            <strong>Example</strong> - <i>abbreviating a number using default (built-in) options</i>:
 
             ```javascript
             Anu.Intl.abbreviateNumber(10000000000):              // 10B
@@ -1427,7 +1550,7 @@ This currently supports only the *Hungarian* and the *English* abbreviations by 
             Anu.Intl.abbreviateNumber(-10234):                   // -10.23K
             ```
 
-            ***Example - _abbreviating with custom options_***:
+            <strong>Example</strong> - <i>abbreviating with custom options</i>:
 
             ```javascript
             const option = {
@@ -1443,17 +1566,19 @@ This currently supports only the *Hungarian* and the *English* abbreviations by 
             Anu.Intl.abbreviateNumber(-10234, option):           // -10,234 E.
             ```
 
-## Switching features on / off - ***The Feature API***:
+<br>
 
-- With feature toggle you can decide the circumstances a component should be rendered or not.
-This technique is typically used when some components should not be accessible due to lack of access rights or if the related backend logic is not implemented yet.
+<h2 id="feature-api">Switching features on / off - <strong>The Feature API</strong></h2>
+
+- With feature toggle you can decide the circumstances a component should be rendered or not.<br>
+This technique is typically used when some components should not be accessible due to lack of access rights or if the related backend logic is not implemented yet.<br>
 Other typical use-case is when you have a feature but you don't want to show it in production yet because you want to test it carefully first.
 
-### ***Setting features list:***
+<h3 id="setting-features-list">Setting the features list</h3>
 
 - Set up an object with its keys as the name of the allowed features with a boolean value.
-- Wrap the outermost element (this should contain all the features you want to toggle) within an `<Anu.Feature.Provider />`.
-    - It takes a `features` property which should be the defined features list.
+- Wrap the outermost element (this should contain all the features you want to toggle) within an <code>&lt;Anu.Feature.Provider /&gt;</code>.
+    - It takes a <code>features</code> property which should be the defined features list.
 
         ```javascript
         const myFeaturesList = { myFeature: true };
@@ -1466,14 +1591,14 @@ Other typical use-case is when you have a feature but you don't want to show it 
         };
         ```
 
-### ***Toggling features:***
+<h3 id="toggling-features">Toggling the features</h3>
 
-- Wrap your component you want to render if the desired feature is set to `true` within `<Anu.Feature.Toggle />`.
-    - It takes a `name` (string) property which should match with the name of the feature you added to the provider component.
-    If this property you refer with the value of the `name` attribute evaluates as true, the wrapped component can be rendered.
-    - You can also set an optional `defaultComponent`.
-    This will be rendered if the `name` evaluates as "falsy" (i.e.: either you set it to `false` or it wasn't even specified).
-    If `defaultComponent` is not set, `null` will be rendered instead.
+- Wrap your component you want to render if the desired feature is set to <code>true</code> within <code>&lt;Anu.Feature.Toggle /&gt;</code>.
+    - It takes a <code>name</code> (string) property which should match with the name of the feature you added to the provider component.
+    If this property you refer with the value of the <code>name</code> attribute evaluates as true, the wrapped component can be rendered.
+    - You can also set an optional <code>defaultComponent</code>.
+    This will be rendered if the <code>name</code> evaluates as "falsy" (i.e.: either you set it to <code>false</code> or it wasn't even specified).
+    If <code>defaultComponent</code> is not set, <code>null</code> will be rendered instead.
 
         ```javascript
         const ComponentWithFeatureToggle = () => {
@@ -1487,12 +1612,15 @@ Other typical use-case is when you have a feature but you don't want to show it 
         ```
 
 <br>
+<hr>
 
-# `<ANUVerzum />` UTILITIES:
+<h1><strong><code>&lt;ANUVerzum /&gt;</code> JS</strong> UTILITIES:</h1>
 
-## Deep equality check for objects using `Anu.utils.deepEqual()`:
+<br>
 
-- The `Anu.utils.deepEqual()` is a deep equality check utility that can check nested and complex objects if their structure and properties match (even if their references do not match).
+<h2 id="deep-equal">Deep equality check for objects using <code>Anu.utils.deepEqual()</code></h2>
+
+- The <code>Anu.utils.deepEqual()</code> is a deep equality check utility that can check nested and complex objects if their structure and properties match (even if their references don't).
 
     ```javascript
     const obj1 = {
@@ -1518,15 +1646,22 @@ Other typical use-case is when you have a feature but you don't want to show it 
     const answer = Anu.utils.deepEqual(obj1, obj2); // true
     ```
 
-## Asyncronous utilities:
+<br>
 
-### ***Asynchronous mapping:***
+<h2 id="asyncronous-utilities">Asyncronous utilities</h2>
 
-- The `Anu.utils.Async.map()` function is designed to loop through an array of `elemList` and execute an `iterator` on each element asynchronously.
-After `iterator` ran on each element in `elemList`, the `resolveCallback` function is called which takes `results` as an argument:
-    - The first argument is `elemlist`: an array of elements on which we want to iterate.
-    - The second argument (the first callback) is the `iterator` that should be called for all elements in `elemList` (argument: element of `elemList`).
-    - The third argument (second callback) is the `resolveCallback` that takes the list of modified elements returned by `iterator` calls (argument: array of modified elements).
+- Asyncronous utilities are useful functionalities to handle result(s) of asyncronous queries, like XHR calls.
+- There are two types bundled within <strong><code>&lt;ANUVerzum /&gt;</code> JS</strong>:
+    - <code>Anu.utils.Async.map()</code> to iterate through an array of elements and process them asyncronously.<br>
+    The algorithm accumulates each return values the <code>iterator</code>
+
+<h3 id="asynchronous-mapping">Asynchronous mapping</h3>
+
+- The <code>Anu.utils.Async.map()</code> function is designed to loop through an array of <code>elemList</code> and execute an <code>iterator</code> on each element asynchronously.<br>
+After <code>iterator</code> ran on each element in <code>elemList</code>, the <code>resolveCallback</code> function is called which takes <code>results</code> as an argument:
+    - The first argument is <code>elemlist</code>: an array of elements on which we want to iterate.
+    - The second argument (the first callback) is the <code>iterator</code> that should be called for all elements in <code>elemList</code> (argument: element of <code>elemList</code>).
+    - The third argument (second callback) is the <code>resolveCallback</code> that takes the list of modified elements returned by <code>iterator</code> calls (argument: array of modified elements).
 
         ```javascript
         const elemList = [ /* elem1, elem2, elem3, ... */ ];
@@ -1540,15 +1675,15 @@ After `iterator` ran on each element in `elemList`, the `resolveCallback` functi
         Anu.utils.Async.map(elemList, iterator, resolveCallback);
         ```
 
-### ***Promise:***
+<h3 id="promise">Promise</h3>
 
 - The "producing code" is code that can take some time.
 - The "consuming code" is code that must wait for the result.
 - A promise is an object that asynchronously connects producing and consuming code.
 
-#### ***Instantiation:***
+<h4 id="instantiation">Instantiation</h4>
 
-- The constructor takes a callback function which describes the logic that might take some time
+- The constructor takes a callback function which describes the logic that might take some time.
 
     ```javascript
     const myProducingCallback = (resolve, reject) => {
@@ -1563,12 +1698,12 @@ After `iterator` ran on each element in `elemList`, the `resolveCallback` functi
     const myPromise = new Anu.utils.Async.Promise(myProducingCallback);
     ```
 
-#### ***Usage of _`Anu.utils.Async.Promise.prototype.then()`_ instance method:***
+<h4 id="promise-then">Usage of <code>Anu.utils.Async.Promise.prototype.then()</code> instance method</h4>
 
-- The `Anu.utils.Async.Promise.prototype.then()` method runs right after the producing code inside the Promise was finished.
+- The <code>Anu.utils.Async.Promise.prototype.then()</code> method runs right after the producing code inside the Promise was finished.
 - It takes two callbacks:
-    - The first one (`successCallback`) is called when the producing code was completed successfully, taking the argument we passed to it in the producing code
-    - The second one (`failCallback`) is called when the producing code fails, taking the argument we passed to it in the producing code fail branch.
+    - The first one (<code>successCallback</code>) is called when the producing code was completed successfully, taking the argument we passed to it in the producing code
+    - The second one (<code>failCallback</code>) is called when the producing code fails, taking the argument we passed to it in the producing code fail branch.
     - Both callbacks are optional.
     - It can also return another Promise.
 
@@ -1582,7 +1717,7 @@ After `iterator` ran on each element in `elemList`, the `resolveCallback` functi
         myPromise.then(successCallback, failCallback)
         ```
 
-        ***Example - _file loader_***:
+        <strong>Example</strong> - <i>file loader</i>:
 
         ```javascript
         // Displayer logic:
@@ -1620,12 +1755,12 @@ After `iterator` ran on each element in `elemList`, the `resolveCallback` functi
         myPromise.then(successHandler, failHandler);
         ```
 
-#### ***The _`Anu.utils.Async.Promise.prototype.catch()`_ instance method:***
+<h4 id="promise-catch">The <code>Anu.utils.Async.Promise.prototype.catch()</code> instance method</h4>
 
-- The `Anu.utils.Async.Promise.prototype.catch()` method runs right after the producing code inside the `Anu.utils.Async.Promise` was finished if it failed.
-- It behaves the same way as if `Anu.utils.Async.Promise.prototype.then(undefined, onRejected)` was called
-(in fact, calling `Anu.utils.Async.Promise.prototype.catch(onRejected)` internally calls `Anu.utils.Async.Promise.prototype.then(undefined, onRejected)`).
-- This means that you have to provide an `onRejected` function even if you want to fall back to an undefined result value - for example `Anu.utils.Async.Promise.prototype.catch(() => {})`.
+- The <code>Anu.utils.Async.Promise.prototype.catch()</code> method runs right after the producing code inside the <code>Anu.utils.Async.Promise</code> was finished if it failed.
+- It behaves the same way as if <code>Anu.utils.Async.Promise.prototype.then(undefined, onRejected)</code> was called<br>
+(in fact, calling <code>Anu.utils.Async.Promise.prototype.catch(onRejected)</code> internally calls <code>Anu.utils.Async.Promise.prototype.then(undefined, onRejected)</code>).
+- This means that you have to provide an <code>onRejected</code> function even if you want to fall back to an undefined result value - for example <code>Anu.utils.Async.Promise.prototype.catch(() => {})</code>.
 
     ```javascript
     const promise = new Anu.utils.Async.Promise((resolve, reject) => {
@@ -1636,12 +1771,12 @@ After `iterator` ran on each element in `elemList`, the `resolveCallback` functi
     });
     ```
 
-#### ***The _`Anu.utils.Async.Promise.all()`_ static method:***
+<h4 id="promise-all">The <code>Anu.utils.Async.Promise.all()</code> static method</h4>
 
-- The `Anu.utils.Async.Promise.all()` static method takes multiple `Anu.utils.Async.Promise`-s as an array and returns a single `Anu.utils.Async.Promise` instance that resolves to an array of the results of the input `Anu.utils.Async.Promise`-s
-- This returned `Anu.utils.Async.Promise` will resolve when all of the input's promises have resolved, or if the input iterable contains no promises.
-- If one of the `Anu.utils.Async.Promise`-s fail, it rejects immediately.
-- This method can be useful for aggregating the results of multiple `Anu.utils.Async.Promise`-s.
+- The <code>Anu.utils.Async.Promise.all()</code> static method takes multiple <code>Anu.utils.Async.Promise</code>-s as an array and returns a single <code>Anu.utils.Async.Promise</code> instance that resolves to an array of the results of the input <code>Anu.utils.Async.Promise</code>-s
+- This returned <code>Anu.utils.Async.Promise</code> will resolve when all of the input's promises have resolved, or if the input iterable contains no promises.
+- If one of the <code>Anu.utils.Async.Promise</code>-s fail, it rejects immediately.
+- This method can be useful for aggregating the results of multiple <code>Anu.utils.Async.Promise</code>-s.<br>
 It is typically used when there are multiple related asynchronous tasks that the overall code relies on to work successfully — all of whom we want to fulfill before the code execution continues.
 
     ```javascript
@@ -1656,7 +1791,7 @@ It is typically used when there are multiple related asynchronous tasks that the
     // Logs: [3, 42, "foo"]
     ```
 
-    ***Example - _fail-fast behavior_***:
+    <strong>Example</strong> - <i>fail-fast behavior</i>:
 
     ```javascript
     // Example to "fail-fast" - if either one fails, it will be rejected immediately:
@@ -1686,13 +1821,13 @@ It is typically used when there are multiple related asynchronous tasks that the
     // logs (as error): "I am rejected."
     ```
 
-#### ***The _`Anu.utils.Async.Promise.race()`_ static method:***
+<h4 id="promise-race">The <code>Anu.utils.Async.Promise.race()</code> static method</h4>
 
-- The `Anu.utils.Async.Promise.race()` settles as long as one of the input promises settles (either resolved or rejected).
-In other words, The `Anu.utils.Async.Promise.race()` method returns a promise that fulfills or rejects as soon as one of the promises in an iterable fulfills or rejects, with the value or reason from that promise.
-- The static function returns an `Anu.utils.Async.Promise` that is settled the same way (and takes the same value) as the first promise that settles amongst the promises of the iterable passed as an argument.
+- The <code>Anu.utils.Async.Promise.race()</code> settles as long as one of the input promises settles (either resolved or rejected).<br>
+In other words, The <code>Anu.utils.Async.Promise.race()</code> method returns a promise that fulfills or rejects as soon as one of the promises in an iterable fulfills or rejects, with the value or reason from that promise.
+- The static function returns an <code>Anu.utils.Async.Promise</code> that is settled the same way (and takes the same value) as the first promise that settles amongst the promises of the iterable passed as an argument.
     - If the iterable passed is empty, the promise returned will be forever pending.
-    - If the iterable contains one or more non-promise value and/or an already settled promise, then `Anu.utils.Async.Promise.race()` will resolve to the first of these values found in the iterable.
+    - If the iterable contains one or more non-promise value and/or an already settled promise, then <code>Anu.utils.Async.Promise.race()</code> will resolve to the first of these values found in the iterable.
     
         ```javascript
         const promise1 = new Anu.utils.Async.Promise((resolve, reject) => {
@@ -1710,7 +1845,7 @@ In other words, The `Anu.utils.Async.Promise.race()` method returns a promise th
         // logs: "two"
         ```
 
-        ***Example - _forever pending promise_***:
+        <strong>Example</strong> - <i>forever pending promise</i>:
 
         ```javascript
         const foreverPendingPromise = Anu.utils.Async.Promise.race([]);
@@ -1725,7 +1860,7 @@ In other words, The `Anu.utils.Async.Promise.race()` method returns a promise th
         // Promise { <state>: "pending" }
         ```
 
-        ***Example - _if the iterable contains one or more non-promise value and/or an already settled promise, then `Anu.utils.Async.Promise.race()` will resolve to the first of these values found in the array_***:
+        <strong>Example</strong> - <i>if the iterable contains one or more non-promise value and/or an already settled promise, then <code>Anu.utils.Async.Promise.race()</code> will resolve to the first of these values found in the array</i>:
 
         ```javascript
         const foreverPendingPromise = Anu.utils.Async.Promise.race([]);
@@ -1749,11 +1884,11 @@ In other words, The `Anu.utils.Async.Promise.race()` method returns a promise th
         // Promise { <state>: "fulfilled", <value>: "non-Promise value" }
         ```
 
-#### ***The _`Anu.utils.Async.Promise.resolve()`_ static method:***
+<h4 id="promise-resolve">The <code>Anu.utils.Async.Promise.resolve()</code> static method</h4>
 
-- The `Anu.utils.Async.Promise.resolve()` method returns an `Anu.utils.Async.Promise` object that is resolved with a given value.
+- The <code>Anu.utils.Async.Promise.resolve()</code> method returns an <code>Anu.utils.Async.Promise</code> object that is resolved with a given value.
 - If the value is a promise, that promise is returned.
-- If the value is a "thenable" (has a `then` method), the returned promise will "follow" that thenable, adopting its eventual state.
+- If the value is a "thenable" (has a <code>then</code> method), the returned promise will "follow" that thenable, adopting its eventual state.<br>
 Otherwise, the returned promise will be fulfilled with the value.
     
     ```javascript
@@ -1763,7 +1898,7 @@ Otherwise, the returned promise will be fulfilled with the value.
     // logs: "Success"
     ```
 
-    ***Example - _resolving an `Anu.utils.Async.Promise`_***:
+    <strong>Example</strong> - <i>resolving an <code>Anu.utils.Async.Promise</code></i>:
 
     ```javascript
     const original = Anu.utils.Async.Promise.resolve(33);
@@ -1777,7 +1912,7 @@ Otherwise, the returned promise will be fulfilled with the value.
     // value: 33
     ```
 
-    ***Example - _resolving thenables and throwing errors_***:
+    <strong>Example</strong> - <i>resolving thenables and throwing errors</i>:
 
     ```javascript
     // Resolving a thenable object
@@ -1817,9 +1952,9 @@ Otherwise, the returned promise will be fulfilled with the value.
     // "Resolving3"
     ```
 
-#### ***The _`Anu.utils.Async.Promise.reject()`_ static method:***:
+<h4 id="promise-reject">The <code>Anu.utils.Async.Promise.reject()</code> static method</h4>
 
-- The `Anu.utils.Async.Promise.reject()` method returns an `Anu.utils.Async.Promise` object that is rejected with a given reason
+- The <code>Anu.utils.Async.Promise.reject()</code> method returns an <code>Anu.utils.Async.Promise</code> object that is rejected with a given reason
 - For debugging purposes and selective error catching, it is useful to make reason an instanceof Error.
 
     ```javascript
@@ -1834,108 +1969,4 @@ Otherwise, the returned promise will be fulfilled with the value.
     ```
 
 <br>
-
-# A couple of words about Accessibility (**"a11y"**):
-
-## Semantic HTML:
-
-- Avoid elements like `<div>` or `<span>` and replace with HTML elements those **clearly define the document** (like `<article>`, `<button>`, ...).
-- Use **landmarks** (`<header>`, `<nav>`, `<main>`, `<section>`, `<aside>`, `<footer>`) to **define different parts of a web page**.
-Use only one of each landmarks per page.
-**`<aside>`** for example is **related to the main content**, `<section>` on the other hand is not.
-If you use **more than only one** landmark per page, use **`aria-label`** attribute.
-
-## Role, name and value:
-
-- Use **`role`**, **`name`** and sometimes - when applicable - **`value`** properties for assistive technologies (like screen readers):
-    - Use **`role`** when there is a technical limitation to use proper element.
-    In this case, you can add this attribute to describe the role you want to apply to the given element ("custom control").
-    - Use **accessible names** where it is possible.
-    An **inner text** content **of `<a>`** for example is **accessible**.
-    For an **`<img>`**, you should **always use** an **`alt`** attribute to make it accessible.
-    If you use a **`<label>`**, then use the **`for`** - here, it is done via **`htmlFor`** - attribute (and **refer it** in the **`id`** attribute of the corresponding **`<input>`** element).
-    To give accessible name for elements like `<select>`, use **`aria-label`**.
-    - Some components might have **value** or **state**.
-    If using a **custom element** (like an accordion - which is not a native HTML element), use **`role="button"`** and **`aria-expanded={isExpanded ? 'true' : 'false'}`**.
-
-
-## Buttons:
-
-- **`<button>`** should **perform an action** on the page, **`<a>`** is for **navigation purpose**.
-Accessibility doesn't care about its look so, it is OK to style `<a>` to look like a `<button>`.
-
-## Color:
-
-- Use good **contrast** for **text** and **graphical** components:
-- **Contrast** between **text or graphics** is measured against the **background color**.
-This is called **contrast ratio**. A **white** text on a **white** background has a contrast ratio of **1** (impossible to perceive).
-**Black** text on a **white** background has a contrast ratio of **21**.
-- En general, use a contrast ratio minimum of **4.5** but **7** is preferred.
-- When using **text on image** and the **text** is **white**, **compare it** to the **brightest area** of the **image**.
-If the contrast ratio is not sufficient, use a **color overlay** on that part of the picture with text.
-- **Do not** use **color** as the **only visual indicator** of a meaning.
-
-## Images:
-
-- Use **`alt`** attribute for **meaningful `<img>`** that screen readers can read.
-    - If you can remove an `<img>` from the page without impact, then the **`<img>`** is **decorative**.
-    In this case, use an **empty `alt` attribute** or **set** it as **`background-image`**.
-    - When using **font icons** (**`<i>`**), set **`role="img"`** and **`aria-hidden="true"`**.
-    - If you add a **decorative SVG** image with the **`<img>`** element, you must add an **empty `alt`** attribute as described.
-    SVG images are often inserted **inline**, using the **`<svg>`** element.
-    In this case, **`aria-hidden="true"`** will make your image decorative.
-    - The method are the same for both **background images**, **font icons** and **`<svg>`**:
-        - Add **`role="img"`**
-        - Add a **descriptive** **`aria-label`** or **`aria-labelledby`** attribute.
-    - The value of the **`alt`** attribute should **describe** the **image**, or even **better** the **intention** of the **image**.
-    - For **font icons**, the **`aria-label`** should describe its **function**.
-
-## Links:
-
-- A **link** is **always** for navigation purpose.
-- Use **proper attributes** for elements like **`href`** for **`<a>`**.
-If possible, **open the link in the current window**.
-- **Hyperlinks** are **underlined** by default for a reason.
-If you want to change it, better use **`text-underline-offset`** and **`text-decoration-color`**.
-- **Different `<a>` states** help users interact with the links.
-A **visited** state can help a person with **short-term memory loss** to understand which content has been read.
-A **hover** state can help a person with **reduced muscle control** to know when to click.
-A **focused** link helps **keyboard users** to know which link they are about to activate.
-    - The **major states** of **`<ä>`** (also known as **CSS pseudo-classes**) are:
-        - **unvisited**,
-        - **active**,
-        - **visited**,
-        - **hover** and
-        - **focus**
-    - **Don't remove** the **`text-decoration: underline;`** at least for **active** and **visited** links.
-    - All the states must have enough **contrast**.
-    In addition, a **focused** link must have sufficient **contrast** to the **unfocused** state.
-    Use the **`outline-offset`** CSS property to keep larger distance between outline ant the text and **`outline-color`** to set it to have bigger contrast from the rest of the content around (background, other texts, ...).
-    - A clear **hover** state is helpful for everyone, especially people with **motor impairments** (different color, bolder text).
-    - Use **accessible link text** which is a text that makes sense without any context.
-    A link text should explain clearly what information the reader will get by clicking on that link.
-    Google Search also prefers descriptive links.
-
-## Headings:
-
-- A **heading** is **text** that **describes the content** that follows it.
-- Headings are **important** for **accessible navigation**.
-Sighted users scan a web page to understand the structure of the page.
-The same way, **screen reader** users use **headings** to **navigate and scan** the page.
-- The headings must be **clear**, both **visually** and use **clear wording**.
-The heading structure of a page forms the **outline of the page**, like the "skeleton".
-
-<br>
-
-# Credits:
-
-- React:
-    - [Paul O Shannessy - Building React From Scratch](https://www.youtube.com/watch?v=_MAD4Oly9yg)
-    - [Building our own React-like implementation](https://swennemans.gitbooks.io/building-your-own-react-js/content/02-building_basic_vdom/01-getting-started.html)
-    - [Ofir Dagan - Build Your Own React](https://hackernoon.com/build-your-own-react-48edb8ed350d)
-    - [Didact: a DIY guide to build your own React](https://engineering.hexacta.com/didact-learning-how-react-works-by-building-it-from-scratch-51007984e5c5)
-    - [Rodrigo Pombo - Build your own React](https://pomb.us/build-your-own-react/)
-- Redux, React-Redux:
-    - [Build Yourself a Redux](https://zapier.com/engineering/how-to-build-redux/)
-    - [Learn Redux by coding a Mini-Redux](https://blog.jakoblind.no/learn-redux-by-coding-a-mini-redux/)
-    - [Implement React Redux from Scratch](https://medium.com/netscape/implementation-of-react-redux-part-1-411b971a9b5b)
+<hr>
