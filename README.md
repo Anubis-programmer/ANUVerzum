@@ -7,7 +7,7 @@
 
 <br>
 
-<h2>Framework usage:</h2>
+<h2>Framework Usage:</h2>
 
 <ul>
     <li>
@@ -224,8 +224,6 @@ Supports both <i>HTML</i> and <i>inline-SVG</i> element creation, "stateful" (or
         <circle cx="5" cy="5" r="4" />
     </svg>
     ```
-
-<br>
 
 <h3 id="function-components">Function components</h3>
 
