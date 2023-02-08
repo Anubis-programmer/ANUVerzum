@@ -1490,7 +1490,7 @@ This component takes three props:
         };
         ```
     
-<h3 id="abbreviating-numbers">Abbreviating numbers</a>
+<h3 id="abbreviating-numbers">Abbreviating numbers</h3>
 
 - If you want to abbreviate a large number, the <code>Anu.Intl.abbreviateNumber()</code> function comes handy.
 - This function is also part of the <strong>INTL API</strong> so, it is able to read the language set within <code>&lt;Anu.IntlProvider /&gt;</code> (and you must use it within <code>&lt;Anu.IntlProvider /&gt;</code>).<br>
