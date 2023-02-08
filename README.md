@@ -928,7 +928,7 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
     - The <code>data</code> object sent to the server looks like the following:
 
         ```javascript
-        {
+        type Data = {
             events: array<Event>,
             startDate: Date,
             endDate: Date,
@@ -943,27 +943,30 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
                 }
             },
             user: User
-        }
+        };
         ```
     
-    - The <code>Event</code> type is an object which <strong>key attribute</strong> is the <strong>name of the event</strong> (a string that represents the event, action type or a link if it was fired by navigation).
-    The value of the Event object contains three properties: <code>eventType</code>, <code>timestamp</code> and <code>properties</code>:
-        - The <code>eventType</code> is a string that is always set.
-        It can have the following values: <code>'initialization'</code>, <code>'navigation'</code>, <code>'userAction'</code>, <code>'stateChange'</code> or <code>'pageLeave'</code>:
-            - <code>'initialization'</code> is always set once the page loaded.
-            - <code>'pageLeave'</code> is always set once the user focuses on another tab or closes the application (i.e.: leaving the current / actual page).
-            - <code>'navigation'</code> is set on inner navigation (if user clicks on a <code>&lt;Anu.History.Link /&gt;</code>, the <code>Anu.History.goTo()</code> was called or the user got redirected via <code>&lt;Anu.History.Redirect /&gt;</code>).
-            - <code>'userAction'</code> is set when <code>Anu.Anulytics.trackEvent()</code> has been used.
-                - This is the only public API of <strong>Anulytics API</strong>
-            - <code>'stateChange'</code> is automatically called when an <strong>action</strong> gets dispatched.
+    - The <code>Event</code> type is an object which <strong>key</strong> attribute is the <strong>type</strong> of the event (a string that represents the event, action type or a link if it was fired by navigation).<br>
+    These are the possible event keys <code>'initialization'</code>, <code>'navigation'</code>, <code>'userAction'</code>, <code>'stateChange'</code> or <code>'pageLeave'</code>:
+        - <code>'initialization'</code> is always set once the page loaded.
+        - <code>'navigation'</code> is set on inner navigation (if user clicks on a <code>&lt;Anu.History.Link /&gt;</code>, the <code>Anu.History.goTo()</code> was called or the user got redirected via <code>&lt;Anu.History.Redirect /&gt;</code>).
+        - <code>'userAction'</code> is set when <code>Anu.Anulytics.trackEvent()</code> has been used.<br>
+        This is the only public API of <strong>Anulytics API</strong>, typically used for tracking user events (events triggered by user interactions).
+        - <code>'stateChange'</code> is automatically called when an <strong>action</strong> gets dispatched.
+        - <code>'pageLeave'</code> is always set once the user focuses on another tab or closes the application (i.e.: leaving the current / actual page).
+
+    - The value of the Event object contains three properties: <code>eventType</code>, <code>timestamp</code> and <code>properties</code>:
+        - The <code>eventType</code> is a string that represents the event fired (e.g.: a <strong>user event</strong> (mouse event, keyboard event, etc.), a <strong>URI</strong> where the user navigated or an <strong>action type</strong> the user dispatched).
+            - Note that the <code>eventType</code> property of <code>'initialization'</code>, <code>'navigation'</code> and <code>'pageLeave'</code> will always be a <strong>URI</strong>!
         - The <code>timestamp</code> is always set: it is the POSIX timestamp of the fired event.
         - The <code>properties</code> can either be an empty object (typically when the event was fired by navigation) or a <code>Property</code> type.
-        The <code>properties</code> are typically set when <code>Anu.Anulytics.trackEvent()</code> has been used.
+        The <code>properties</code> are typically set when <code>Anu.Anulytics.trackEvent()</code> has been used or an action was dispatched.<br>
+        The <code>properties</code> are empty on <code>'initialization'</code>, <code>'navigation'</code> and <code>'pageLeave'</code>.
 
             ```javascript
-            type Event {
-                [name]: {
-                    eventType: 'initialization' | 'navigation' | 'userAction' | 'stateChange' | 'pageLeave',
+            interface Event {
+                [key]: { // "key" is always 'initialization', 'navigation', 'userAction', 'stateChange' or 'pageLeave'
+                    eventType: UserEvent | ActionType | URI,
                     timestamp: Date,
                     properties: UserActionProperties | StateChangeProperties | {}
                 }
@@ -983,19 +986,19 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
         - The <code>url</code> is the URL of the page that contains the DOM element with the given event handler tracked.
 
             ```javascript
-            type UserActionProperties {
+            type UserActionProperties = {
                 id: string,
                 name: string,
                 nodeName: string,
                 keyCode: number | null,
-                value: string,
+                value?: string,
                 pageX: number,
 				pageY: number,
                 scrollTop: number,
                 scrollLeft: number,
                 url: string,
-                passedProps: object | null
-            }
+                props: Object | null // User-defined props, 2nd argument passed to Anu.Anulytics.trackEvent()
+            };
             ```
     
     - The <code>StateChangeProperties</code> type can have four properties: <code>url</code>, <code>prevState</code>, <code>action</code> and <code>nextState</code>:
@@ -1005,7 +1008,7 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
         - The <code>nextState</code> is the global state object after the action was performed.
 
             ```javascript
-            type UserActionProperties {
+            type StateChangeProperties {
                 url: string,
                 prevState: Object,
                 action: Object,
