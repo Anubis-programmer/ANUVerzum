@@ -60,61 +60,9 @@
 		});
 	};
 
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	// ANUVERZUM UTILS
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	const utils = (() => {
-		const deepEqual = (() => {
-			const isObject = object =>
-				object !== null && typeof object === 'object';
-
-			const deepEqual = (object1, object2) => {
-				const keys1 = Object.keys(object1);
-				const keys2 = Object.keys(object2);
-
-				if (keys1.length !== keys2.length) {
-					return false;
-				}
-
-				for (const key of keys1) {
-					const val1 = object1[key];
-					const val2 = object2[key];
-					const areObjects = isObject(val1) && isObject(val2);
-
-					if (
-						areObjects && !deepEqual(val1, val2) ||
-						!areObjects && val1 !== val2
-					) {
-						return false;
-					}
-				}
-
-				return true;
-			};
-
-			return deepEqual;
-		})();
-
-		const { asyncMap, AnuPromise } = (() => {
-			const asyncMap = (coll, iteratee, callback) => {
-				const collection = Array.isArray(coll) ? coll : [coll];
-				const collNo = collection.length - 1;
-				const results = [];
-
-				for (let i = 0; i < collection.length; i++) {
-					(index => {
-						const result = iteratee(collection[i]);
-						results.push(result);
-
-						if (index === collNo) {
-							callback(results);
-						}
-					})(i);
-				}
-			};
-
+	window.Promise =
+		window.Promise ||
+		(() => {
 			const PromiseStates = {
 				PENDING: 'Pending',
 				FULFILLED: 'Fulfilled',
@@ -306,18 +254,78 @@
 				}
 			}
 
-			return {
-				asyncMap,
-				AnuPromise
-			};
+			return AnuPromise;
 		})();
 
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// ANUVERZUM UTILS
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	const Utils = (() => {
+		const deepEqual = (() => {
+			const isObject = object =>
+				object !== null && typeof object === 'object';
+
+			const deepEqual = (object1, object2) => {
+				const keys1 = Object.keys(object1);
+				const keys2 = Object.keys(object2);
+
+				if (keys1.length !== keys2.length) {
+					return false;
+				}
+
+				for (const key of keys1) {
+					const val1 = object1[key];
+					const val2 = object2[key];
+					const areObjects = isObject(val1) && isObject(val2);
+
+					if (
+						areObjects && !deepEqual(val1, val2) ||
+						!areObjects && val1 !== val2
+					) {
+						return false;
+					}
+				}
+
+				return true;
+			};
+
+			return deepEqual;
+		})();
+
+
+
 		return {
-			Async: {
-				map: asyncMap,
-				Promise: AnuPromise,
-			},
 			deepEqual
+		};
+	})();
+
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// ANUVERZUM ASYNC
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	const Async = (() => {
+		const asyncMap = (coll, iteratee, callback) => {
+			const collection = Array.isArray(coll) ? coll : [coll];
+			const collNo = collection.length - 1;
+			const results = [];
+
+			for (let i = 0; i < collection.length; i++) {
+				(index => {
+					const result = iteratee(collection[i]);
+					results.push(result);
+
+					if (index === collNo) {
+						callback(results);
+					}
+				})(i);
+			}
+		};
+
+		return {
+			map: asyncMap
 		};
 	})();
 
@@ -478,7 +486,7 @@
 				return name.startsWith('on');
 			};
 			const isAttribute = name =>
-				!isEvent(name) && name !== 'children' && name !== 'style' && name !== 'ref';
+				!isEvent(name) && name !== 'children' && name !== 'style' && name !== 'ref' && name !== 'key';
 			const isNew = (prev, next) => key => prev[key] !== next[key];
 			const isGone = (prev, next) => key => !(key in next);
 
@@ -519,7 +527,6 @@
 						} else {
 							dom[name] = nextProps[name];
 						}
-
 					}
 				});
 
@@ -1215,11 +1222,11 @@
 		};
 
 		const ServerAPI = {
-			get: (url, params) => new utils.Async.Promise(_serverGetAPI(url, params)),
-			post: (url, data) => new utils.Async.Promise(_serverPostAPI(url, data)),
-			put: (url, data) => new utils.Async.Promise(_serverPutAPI(url, data)),
-			delete: (url, params) => new utils.Async.Promise(_serverDeleteAPI(url, params)),
-			file: (url, file, data) => new utils.Async.Promise(_serverFileAPI(url, file, data)),
+			get: (url, params) => new Promise(_serverGetAPI(url, params)),
+			post: (url, data) => new Promise(_serverPostAPI(url, data)),
+			put: (url, data) => new Promise(_serverPutAPI(url, data)),
+			delete: (url, params) => new Promise(_serverDeleteAPI(url, params)),
+			file: (url, file, data) => new Promise(_serverFileAPI(url, file, data)),
 		};
 
 		return ServerAPI;
@@ -1230,7 +1237,7 @@
 	// ANUVERZUM ANALYTICS API
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	const { AnalyticsProvider, onRouteChange, trackEvent, trackStateChange } = ((Component, ServerAPI) => {
+	const { AnalyticsProvider, trackRouteChange, trackEvent, trackStateChange } = ((Component, ServerAPI) => {
 		const EventTypes = {
 			INITIALIZATION: 'initialization',
 			USER_ACTION: 'userAction',
@@ -1253,8 +1260,8 @@
 			let _anulytics = {
 				startDate: initStart,
 				events: [{
-					[window.location.pathname]: {
-						eventType: EventTypes.INITIALIZATION,
+					[EventTypes.INITIALIZATION]: {
+						eventType: window.location.pathname,
 						timestamp: initStart,
 						properties: {}
 					}
@@ -1292,8 +1299,8 @@
 						: null;
 
 					const event = {
-						[type]: {
-							eventType: EventTypes.USER_ACTION,
+						[EventTypes.USER_ACTION]: {
+							eventType: type,
 							timestamp: new Date().getTime(),
 							properties: {
 								id,
@@ -1315,8 +1322,8 @@
 				},
 				trackStateChange: (prevState, action, nextState) => {
 					const event = {
-						[action.type]: {
-							eventType: EventTypes.STATE_CHANGE,
+						[EventTypes.STATE_CHANGE]: {
+							eventType: action.type,
 							timestamp: new Date().getTime(),
 							properties: {
 								url: window.location.pathname,
@@ -1367,16 +1374,16 @@
 			}
 		};
 
-		const onRouteChange = path => {
+		const trackRouteChange = path => {
 			if (AnulyticsState.getAnulyticsInstanceExist()) {
 				const url = path || window.location.pathname;
 				const event = {
-					eventType: EventTypes.NAVIGATION,
+					eventType: url,
 					timestamp: new Date().getTime(),
 					properties: {}
 				};
 
-				AnulyticsState.addEvent(url, event);
+				AnulyticsState.addEvent(EventTypes.NAVIGATION, event);
 			}
 		};
 
@@ -1410,8 +1417,14 @@
 
 				if (document.visibilityState === 'hidden') {
 					const url = window.location.pathname;
-
+					const event = {
+						eventType: url,
+						timestamp: new Date().getTime(),
+						properties: {}
+					};
 					let ua;
+
+					AnulyticsState.addEvent(EventTypes.PAGE_LEAVE, event);
 
 					if (window.navigator.userAgentData) {
 						const { brands, mobile, platform } = window.navigator.userAgentData;
@@ -1424,9 +1437,6 @@
 							platform: ''
 						};
 					}
-
-					const event = { eventType: EventTypes.PAGE_LEAVE, timestamp: new Date().getTime(), properties: {} };
-					AnulyticsState.addEvent(url, event);
 
 					const data = {
 						...AnulyticsState.getAnulyticsData(),
@@ -1464,7 +1474,7 @@
 
 		return {
 			AnalyticsProvider,
-			onRouteChange,
+			trackRouteChange,
 			trackEvent,
 			trackStateChange
 		};
@@ -1475,7 +1485,7 @@
 	// ANUVERZUM HISTORY API
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	const History = ((createElement, Component, onRouteChange) => {
+	const History = ((createElement, Component, trackRouteChange) => {
 		const instances = [];
 
 		const register = comp => {
@@ -1487,7 +1497,7 @@
 		};
 
 		const historyPush = path => {
-			onRouteChange(path);
+			trackRouteChange(path);
 			history.pushState({}, null, path);
 			instances.forEach(instance => {
 				instance.setState();
@@ -1495,7 +1505,7 @@
 		};
 
 		const historyReplace = path => {
-			onRouteChange(path);
+			trackRouteChange(path);
 			history.replaceState({}, null, path);
 			instances.forEach(instance => {
 				instance.setState();
@@ -1628,7 +1638,7 @@
 			Redirect: HistoryRedirect,
 			Route: HistoryRoute,
 		}
-	})(createElement, Component, onRouteChange);
+	})(createElement, Component, trackRouteChange);
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1724,7 +1734,7 @@
 				ContextConsumer
 			};
 		};
-	})(utils.deepEqual, Component);
+	})(Utils.deepEqual, Component);
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2288,6 +2298,8 @@
 		Connector,
 		ServerAPI,
 		store,
-		utils
+		// Utilities
+		Async,
+		Utils
 	};
 })();
