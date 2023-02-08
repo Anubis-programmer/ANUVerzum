@@ -993,7 +993,7 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
                 keyCode: number | null,
                 value?: string,
                 pageX: number,
-				pageY: number,
+		pageY: number,
                 scrollTop: number,
                 scrollLeft: number,
                 url: string,
