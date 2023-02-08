@@ -937,7 +937,7 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
                 innerWidth: number,
                 isMobileAppInstalled: boolean,
                 userAgentData: {
-                    userAgent: string | array<UserAgent>
+                    userAgent: string | array<UserAgent>,
                     mobile: boolean,
                     platform: string | null
                 }
@@ -991,13 +991,13 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
                 name: string,
                 nodeName: string,
                 keyCode: number | null,
-                value?: string,
                 pageX: number,
-		pageY: number,
+                pageY: number,
                 scrollTop: number,
                 scrollLeft: number,
                 url: string,
-                props: Object | null // User-defined props, 2nd argument passed to Anu.Anulytics.trackEvent()
+                props: Object | null, // User-defined props, 2nd argument passed to Anu.Anulytics.trackEvent()
+                value?: string
             };
             ```
     
