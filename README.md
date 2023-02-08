@@ -159,42 +159,18 @@
 
 <ul>
     <li>
-        <a href="#deep-equal">Deep equality check for objects using Anu.utils.deepEqual()</a>
+        <a href="#deep-equal">Deep equality check for objects using Anu.Utils.deepEqual()</a>
     </li>
+</ul>
+
+<br>
+
+<h2>Asyncronous Helpers:</h2>
+
+<ul>
     <li>
-        <a href="#asyncronous-utilities">Asyncronous utilities</a>
+        <a href="#asynchronous-mapping">Asynchronous mapping through multiple elements using Anu.Async.map()</a>
     </li>
-    <ul>
-        <li>
-            <a href="#asynchronous-mapping">Asyncronous mapping</a>
-        </li>
-        <li>
-            <a href="#promise">Promise</a>
-        </li>
-        <ul>
-            <li>
-                <a href="#instantiation">Instantiation</a>
-            </li>
-            <li>
-                <a href="#promise-then">Usage of Anu.utils.Async.Promise.prototype.then() instance method</a>
-            </li>
-            <li>
-                <a href="#promise-catch">The Anu.utils.Async.Promise.prototype.catch() instance method</a>
-            </li>
-            <li>
-                <a href="#promise-all">The Anu.utils.Async.Promise.all() static method</a>
-            </li>
-            <li>
-                <a href="#promise-race">The Anu.utils.Async.Promise.race() static method</a>
-            </li>
-            <li>
-                <a href="#promise-resolve">The Anu.utils.Async.Promise.resolve() static method</a>
-            </li>
-            <li>
-                <a href="#promise-reject">The Anu.utils.Async.Promise.reject() static method</a>
-            </li>
-        </ul>
-    </ul>
 </ul>
 
 <br>
@@ -852,14 +828,14 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
 <h2 id="server-api">Calling the server asynchronously - <strong>The Server API</strong></h2>
 
-The <code>Anu.ServerAPI</code> is basically built on top of <code>Anu.utils.Async.Promise</code> and currently has 5 methods <code>get()</code>, <code>post()</code>, <code>put()</code>, <code>delete()</code> and <code>file()</code>.
+The <code>Anu.ServerAPI</code> is basically built on top of <code>Promise</code> and currently has 5 methods <code>get()</code>, <code>post()</code>, <code>put()</code>, <code>delete()</code> and <code>file()</code>.
 
 <h3 id="get-and-delete-methods">The <strong>GET</strong> and <strong>DELETE</strong> HTTP methods</h3>
 
 - The <code>Anu.ServerAPI.get()</code> and <code>Anu.ServerAPI.delete()</code> perform a <strong>GET</strong> or <strong>DELETE</strong> HTTP method respectively to get data from the server or delete a specific data from the server
 (usually referenced by an <code>id</code> attribute in both cases but not necessarily when using <strong>GET</strong>).<br>
 They are faster than the <strong>POST</strong> or <strong>PUT</strong> HTTP methods but lack the security as well.
-- Can take a <code>url</code> (string - <strong>MUST ALWAYS START WITH "<code>/app</code>"!</strong>) and an optional <code>params</code> (object) argument and return an <code>Anu.utils.Async.Promise</code> object.
+- Can take a <code>url</code> (string - <strong>MUST ALWAYS START WITH "<code>/app</code>"!</strong>) and an optional <code>params</code> (object) argument and return a <code>Promise</code> object.
 You can send params within the URL <strong>AND/OR</strong> as URI query parameters, e.g.:
         
     ```javascript
@@ -886,7 +862,7 @@ You can send params within the URL <strong>AND/OR</strong> as URI query paramete
 <h3 id="post-and-put-methods">The <strong>POST</strong> and <strong>PUT</strong> HTTP methods</h3>
 
 - The <code>Anu.ServerAPI.post()</code> and <code>Anu.ServerAPI.put()</code> perform an <strong>POST</strong> or <strong>PUT</strong> HTTP method respectively to send large data to the server and optionally get other data back.
-- It takes a <code>url</code> (string) and a <code>data</code> (object) argument and returns an <code>Anu.utils.Async.Promise</code> object:
+- It takes a <code>url</code> (string) and a <code>data</code> (object) argument and returns a <code>Promise</code> object:
 
     ```javascript
     const dataForPost = { /* ... */ };
@@ -907,7 +883,7 @@ You can send params within the URL <strong>AND/OR</strong> as URI query paramete
 <h3 id="file-method">The <strong>FILE</strong> HTTP method</h3>
 
 - The <code>Anu.ServerAPI.file()</code> performs a POST HTTP method and encodes one or more files to send them to the server.
-- It takes an <code>url</code> (string), a <code>file</code> (one <code>File</code> object or an <strong>ARRAY</strong> of <code>File</code> objects) argument and an optional <code>data</code> (object) and returns an <code>Anu.utils.Async.Promise</code> object:
+- It takes an <code>url</code> (string), a <code>file</code> (one <code>File</code> object or an <strong>ARRAY</strong> of <code>File</code> objects) argument and an optional <code>data</code> (object) and returns a <code>Promise</code> object:
 
     ```javascript
     const data = { /* ... */ };
@@ -1645,17 +1621,17 @@ Other typical use-case is when you have a feature but you don't want to show it 
     ```
 
 <br>
+<hr>
 
-<h2 id="asyncronous-utilities">Asyncronous utilities</h2>
+<h1><strong><code>&lt;ANUVerzum /&gt;</code> JS</strong> ASYNCRONOUS HELPERS:</h1>
 
-- Asyncronous utilities are useful functionalities to handle result(s) of asyncronous queries, like XHR calls.
-- There are two types bundled within <strong><code>&lt;ANUVerzum /&gt;</code> JS</strong>:
-    - <code>Anu.utils.Async.map()</code> to iterate through an array of elements and process them asyncronously.<br>
-    The algorithm accumulates each return values the <code>iterator</code>
+<br>
 
-<h3 id="asynchronous-mapping">Asynchronous mapping</h3>
+<h2 id="asynchronous-mapping">Asynchronous mapping through multiple elements using <code>Anu.Async.map()</code></h2>
 
-- The <code>Anu.utils.Async.map()</code> function is designed to loop through an array of <code>elemList</code> and execute an <code>iterator</code> on each element asynchronously.<br>
+- Asyncronous utilities are useful functionalities to handle result(s) of asyncronous queries, like XHR calls.<br>
+There is an asyncronous helper function bundled within <strong><code>&lt;ANUVerzum /&gt;</code> JS</strong> <code>Anu.Async.map()</code>
+- The <code>Anu.Async.map()</code> function is designed to loop through an array of <code>elemList</code> and execute an <code>iterator</code> on each element asynchronously.<br>
 After <code>iterator</code> ran on each element in <code>elemList</code>, the <code>resolveCallback</code> function is called which takes <code>results</code> as an argument:
     - The first argument is <code>elemlist</code>: an array of elements on which we want to iterate.
     - The second argument (the first callback) is the <code>iterator</code> that should be called for all elements in <code>elemList</code> (argument: element of <code>elemList</code>).
@@ -1670,301 +1646,8 @@ After <code>iterator</code> ran on each element in <code>elemList</code>, the <c
         const resolveCallback = results => {
             // do something with the results (array of "element" -s)
         }
-        Anu.utils.Async.map(elemList, iterator, resolveCallback);
+        Anu.Async.map(elemList, iterator, resolveCallback);
         ```
-
-<h3 id="promise">Promise</h3>
-
-- The "producing code" is code that can take some time.
-- The "consuming code" is code that must wait for the result.
-- A promise is an object that asynchronously connects producing and consuming code.
-
-<h4 id="instantiation">Instantiation</h4>
-
-- The constructor takes a callback function which describes the logic that might take some time.
-
-    ```javascript
-    const myProducingCallback = (resolve, reject) => {
-        setTimeout(() => {
-            try {
-                resolve('Resolved!');
-            } catch(error) {
-                reject(error);
-            }
-        }, 300)
-    };
-    const myPromise = new Anu.utils.Async.Promise(myProducingCallback);
-    ```
-
-<h4 id="promise-then">Usage of <code>Anu.utils.Async.Promise.prototype.then()</code> instance method</h4>
-
-- The <code>Anu.utils.Async.Promise.prototype.then()</code> method runs right after the producing code inside the Promise was finished.
-- It takes two callbacks:
-    - The first one (<code>successCallback</code>) is called when the producing code was completed successfully, taking the argument we passed to it in the producing code
-    - The second one (<code>failCallback</code>) is called when the producing code fails, taking the argument we passed to it in the producing code fail branch.
-    - Both callbacks are optional.
-    - It can also return another Promise.
-
-        ```javascript
-        const successCallback = success => {
-            // do something if producing code was successful
-        };
-        const failCallback = error => {
-            // Do something if producing code failed
-        };
-        myPromise.then(successCallback, failCallback)
-        ```
-
-        <strong>Example</strong> - <i>file loader</i>:
-
-        ```javascript
-        // Displayer logic:
-        const display = some => {
-            console.log(some);
-        };
-        // Producing code:
-        const fetchAPI = (resolve, reject) => {
-            setTimeout(() => {
-                const req = new XMLHttpRequest();
-                req.open('GET', "car.html");
-                req.onload = () => {
-                    if (req.status === 200) {
-                        resolve(req.response);
-                    } else {
-                        reject("File not Found");
-                    }
-                };
-                req.send();
-            }, 3000);
-        }
-        // Consuming code - Success handler:
-        const successHandler = value => {
-            display(value);
-        };
-        // Fail handler:
-        const failHandler = error => {
-            display(error);
-        };
-        // Instantiation (triggering producing code):
-        const myPromise = new Anu.utils.Async.Promise(fetchAPI);
-        // Showing a loading indicator:
-        display("Loading...");
-        // Running consuming code when ready or handling fail scenario:
-        myPromise.then(successHandler, failHandler);
-        ```
-
-<h4 id="promise-catch">The <code>Anu.utils.Async.Promise.prototype.catch()</code> instance method</h4>
-
-- The <code>Anu.utils.Async.Promise.prototype.catch()</code> method runs right after the producing code inside the <code>Anu.utils.Async.Promise</code> was finished if it failed.
-- It behaves the same way as if <code>Anu.utils.Async.Promise.prototype.then(undefined, onRejected)</code> was called<br>
-(in fact, calling <code>Anu.utils.Async.Promise.prototype.catch(onRejected)</code> internally calls <code>Anu.utils.Async.Promise.prototype.then(undefined, onRejected)</code>).
-- This means that you have to provide an <code>onRejected</code> function even if you want to fall back to an undefined result value - for example <code>Anu.utils.Async.Promise.prototype.catch(() => {})</code>.
-
-    ```javascript
-    const promise = new Anu.utils.Async.Promise((resolve, reject) => {
-        throw 'Uh-oh!';
-    });
-    promise.catch((error) => {
-        console.error(error);
-    });
-    ```
-
-<h4 id="promise-all">The <code>Anu.utils.Async.Promise.all()</code> static method</h4>
-
-- The <code>Anu.utils.Async.Promise.all()</code> static method takes multiple <code>Anu.utils.Async.Promise</code>-s as an array and returns a single <code>Anu.utils.Async.Promise</code> instance that resolves to an array of the results of the input <code>Anu.utils.Async.Promise</code>-s
-- This returned <code>Anu.utils.Async.Promise</code> will resolve when all of the input's promises have resolved, or if the input iterable contains no promises.
-- If one of the <code>Anu.utils.Async.Promise</code>-s fail, it rejects immediately.
-- This method can be useful for aggregating the results of multiple <code>Anu.utils.Async.Promise</code>-s.<br>
-It is typically used when there are multiple related asynchronous tasks that the overall code relies on to work successfully — all of whom we want to fulfill before the code execution continues.
-
-    ```javascript
-    const promise1 = Anu.utils.Async.Promise.resolve(3);
-    const promise2 = 42;
-    const promise3 = new Anu.utils.Async.Promise((resolve, reject) => {
-        setTimeout(resolve, 100, 'foo');
-    });
-    Anu.utils.Async.Promise.all([promise1, promise2, promise3]).then((values) => {
-        console.log(values);
-    });
-    // Logs: [3, 42, "foo"]
-    ```
-
-    <strong>Example</strong> - <i>fail-fast behavior</i>:
-
-    ```javascript
-    // Example to "fail-fast" - if either one fails, it will be rejected immediately:
-    const p1 = new Anu.utils.Async.Promise((resolve, reject) => {
-        setTimeout(() => resolve('one'), 1000);
-    });
-    const p2 = new Anu.utils.Async.Promise((resolve, reject) => {
-        setTimeout(() => resolve('two'), 2000);
-    });
-    const p3 = new Anu.utils.Async.Promise((resolve, reject) => {
-        setTimeout(() => resolve('three'), 3000);
-    });
-    const p4 = new Anu.utils.Async.Promise((resolve, reject) => {
-        setTimeout(() => resolve('four'), 4000);
-    });
-    const p5 = new Anu.utils.Async.Promise((resolve, reject) => {
-        reject(new Error('I am rejected.'));
-    });
-    // Using .catch:
-    Anu.utils.Async.Promise.all([p1, p2, p3, p4, p5])
-        .then(values => {
-            console.log(values);
-        })
-        .catch(error => {
-            console.error(error.message)
-        });
-    // logs (as error): "I am rejected."
-    ```
-
-<h4 id="promise-race">The <code>Anu.utils.Async.Promise.race()</code> static method</h4>
-
-- The <code>Anu.utils.Async.Promise.race()</code> settles as long as one of the input promises settles (either resolved or rejected).<br>
-In other words, The <code>Anu.utils.Async.Promise.race()</code> method returns a promise that fulfills or rejects as soon as one of the promises in an iterable fulfills or rejects, with the value or reason from that promise.
-- The static function returns an <code>Anu.utils.Async.Promise</code> that is settled the same way (and takes the same value) as the first promise that settles amongst the promises of the iterable passed as an argument.
-    - If the iterable passed is empty, the promise returned will be forever pending.
-    - If the iterable contains one or more non-promise value and/or an already settled promise, then <code>Anu.utils.Async.Promise.race()</code> will resolve to the first of these values found in the iterable.
-    
-        ```javascript
-        const promise1 = new Anu.utils.Async.Promise((resolve, reject) => {
-            setTimeout(resolve, 500, 'one');
-        });
-        const promise2 = new Anu.utils.Async.Promise((resolve, reject) => {
-            setTimeout(resolve, 100, 'two');
-        });
-        Anu.utils.Async.Promise.race([promise1, promise2])
-            .then(value => {
-                console.log(value);
-                // Both resolve, but promise2 is faster
-            }, err => console.log(err)
-        );
-        // logs: "two"
-        ```
-
-        <strong>Example</strong> - <i>forever pending promise</i>:
-
-        ```javascript
-        const foreverPendingPromise = Anu.utils.Async.Promise.race([]);
-        console.log(foreverPendingPromise);
-        setTimeout(() => {
-            console.log('the stack is now empty');
-            console.log(foreverPendingPromise);
-        });
-        // logs, in order:
-        // Promise { <state>: "pending" }
-        // the stack is now empty
-        // Promise { <state>: "pending" }
-        ```
-
-        <strong>Example</strong> - <i>if the iterable contains one or more non-promise value and/or an already settled promise, then <code>Anu.utils.Async.Promise.race()</code> will resolve to the first of these values found in the array</i>:
-
-        ```javascript
-        const foreverPendingPromise = Anu.utils.Async.Promise.race([]);
-        const alreadyFulfilledProm = Anu.utils.Async.Promise.resolve(100);
-        const arr = [foreverPendingPromise, alreadyFulfilledProm, "non-Promise value"];
-        const arr2 = [foreverPendingPromise, "non-Promise value", Anu.utils.Async.Promise.resolve(100)];
-        const p = Anu.utils.Async.Promise.race(arr);
-        const p2 = Anu.utils.Async.Promise.race(arr2);
-        console.log(p);
-        console.log(p2);
-        setTimeout(() => {
-            console.log('the stack is now empty');
-            console.log(p);
-            console.log(p2);
-        });
-        // logs, in order:
-        // Promise { <state>: "pending" }
-        // Promise { <state>: "pending" }
-        // the stack is now empty
-        // Promise { <state>: "fulfilled", <value>: 100 }
-        // Promise { <state>: "fulfilled", <value>: "non-Promise value" }
-        ```
-
-<h4 id="promise-resolve">The <code>Anu.utils.Async.Promise.resolve()</code> static method</h4>
-
-- The <code>Anu.utils.Async.Promise.resolve()</code> method returns an <code>Anu.utils.Async.Promise</code> object that is resolved with a given value.
-- If the value is a promise, that promise is returned.
-- If the value is a "thenable" (has a <code>then</code> method), the returned promise will "follow" that thenable, adopting its eventual state.<br>
-Otherwise, the returned promise will be fulfilled with the value.
-    
-    ```javascript
-    Anu.utils.Async.Promise.resolve('Success').then((value) => {
-		console.log(value);
-	});
-    // logs: "Success"
-    ```
-
-    <strong>Example</strong> - <i>resolving an <code>Anu.utils.Async.Promise</code></i>:
-
-    ```javascript
-    const original = Anu.utils.Async.Promise.resolve(33);
-    const cast = Anu.utils.Async.Promise.resolve(original);
-    cast.then((value) => {
-        console.log('value: ' + value);
-    });
-    console.log('original === cast ? ' + (original === cast));
-    // logs, in order:
-    // original === cast ? true
-    // value: 33
-    ```
-
-    <strong>Example</strong> - <i>resolving thenables and throwing errors</i>:
-
-    ```javascript
-    // Resolving a thenable object
-    const p1 = Anu.utils.Async.Promise.resolve({
-        then: (onFulfill) => { onFulfill('fulfilled!'); }
-    });
-    console.log(p1 instanceof Anu.utils.Async.Promise)
-    p1.then((v) => {
-        console.log(v);
-    });
-    const thenable2 = {
-        then: (resolve) => {
-            throw new TypeError('Throwing2');
-            resolve('Resolving2');
-        }
-    };
-    const p2 = Anu.utils.Async.Promise.resolve(thenable2);
-    p2.then((v) => {
-        // not called
-    }, (e) => {
-        console.error(e);
-    });
-    const thenable3 = {
-        then: (resolve) => {
-            resolve('Resolving3');
-            throw new TypeError('Throwing3');
-        }
-    };
-    const p3 = Anu.utils.Async.Promise.resolve(thenable3);
-    p3.then((v) => {
-        console.log(v);
-    });
-    // logs, in order:
-    // true
-    // "fulfilled!"
-    // TypeError: Throwing2
-    // "Resolving3"
-    ```
-
-<h4 id="promise-reject">The <code>Anu.utils.Async.Promise.reject()</code> static method</h4>
-
-- The <code>Anu.utils.Async.Promise.reject()</code> method returns an <code>Anu.utils.Async.Promise</code> object that is rejected with a given reason
-- For debugging purposes and selective error catching, it is useful to make reason an instanceof Error.
-
-    ```javascript
-    const resolved = (result) => {
-        console.log('Resolved');
-    }
-    const rejected = (result) => {
-        console.error(result);
-    }
-    Anu.utils.Async.Promise.reject(new Error('fail')).then(resolved, rejected);
-    // logs: Error: fail
-    ```
 
 <br>
 <hr>
