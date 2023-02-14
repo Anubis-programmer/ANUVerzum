@@ -499,7 +499,10 @@ when you want to imperatively modify a child outside of the typical dataflow.
                     <ul>
                         {files.length > 0 && files.map(({ name, file }) => (
                             <li>
-                                <img src={name} alt={`Uploaded file name: ${file.name}, type: ${file.type}, size: ${file.size}`} />
+                                <img
+				    src={name}
+				    alt={`Uploaded file name: ${file.name}, type: ${file.type}, size: ${file.size}`}
+				/>
                             </li>
                         ))}
                     </ul>
