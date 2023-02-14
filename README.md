@@ -265,10 +265,17 @@ Supports both <i>HTML</i> and <i>inline-SVG</i> element creation, "stateful" (or
 - If the component receives <code>props</code> and you want to do additional settings inside the constructor (e.g. binding handlers or setting up initial state),
 <code>super(props)</code> should always be the first call inside the <code>constructor(props)</code>!
 - You can use <code>setState()</code> to re-render the component.
-It takes one argument which can be:
-    - Object which will be merged with the old state
-    - Callback which take the actual <code>state</code> and <code>props</code> as arguments (useful if <code>state</code> and <code>props</code> were updated asynchronously)
-- <strong>NEVER</strong> use <code>setState()</code> in <code>constructor()</code> or <code>componentWillUnmount()</code> (can be called in <code>componentDidMount()</code> and <code>componentDidUpdate()</code>, but only in condition - as you would do in React)!
+It takes <strong>ONE</strong> argument which can either be:
+    - A <code>state</code> object which will be merged with the old state
+    - A <code>setStateCallback</code> function which takes the actual <code>state</code> and <code>props</code> as arguments (useful if <code>state</code> and <code>props</code> were updated asynchronously) and returns the new <code>state</code> value.
+
+        ```javascript
+        type SetStateCallbackType = (prevState: Object, props: Object) => Object;
+        setState(state: Object | SetStateCallbackType): void => { /* ... */ };
+        ```
+
+- <strong>NEVER</strong> use <code>setState()</code> in <code>constructor()</code> or <code>componentWillUnmount()</code>!
+- The <code>setState()</code> can be called in <code>componentDidMount()</code> and <code>componentDidUpdate()</code>, but only in condition - as you would do in React
 
     ```javascript
     class ClassComponent extends Anu.Component {
@@ -701,6 +708,278 @@ when you want to imperatively modify a child outside of the typical dataflow.
         }
     }
     ```
+
+    <strong>Example</strong> - <i>laser pointer</i>:
+
+    ```javascript
+    const canvasStyle = {
+        height: '500px',
+        width: '100%',
+        border: '1px solid black'
+    };
+    const laserPointerStyle = {
+        position: 'absolute',
+        backgroundColor: 'pink',
+        borderRadius: '50%',
+        opacity: '0.6',
+        pointerEvents: 'none',
+        left: '-20px',
+        top: '-20px',
+        width: '40px',
+        height: '40px',
+        zIndex: '10'
+    };
+    class LaserPointer extends Anu.Component {
+        constructor(props) {
+            super(props);
+            this.state = {
+                layerX: 0,
+                layerY: 0
+            };
+            this.handleMove = this.handleMove.bind(this);
+        }
+        handleMove({ layerX, layerY }) {
+            this.setState({
+                layerX,
+                layerY
+            });
+        }
+        render() {
+            const { layerX, layerY } = this.state;
+            return (
+                <div
+                    style={canvasStyle}
+                    onMouseMove={this.handleMove}
+                >
+                    <div
+                        id="laser-pointer"
+                        style={{
+                            ...laserPointerStyle,
+                            transform: `translate(${layerX}px, ${layerY}px)`
+                        }}
+                    />
+                </div>
+            );
+        }
+    }
+    ```
+
+    <strong>Example</strong> - <i>paint application with preview (image can be saved as PNG) with <code>canvas</code> API</i>:
+
+    ```javascript
+    const canvasHeight = 500;
+    const canvasWidth = 975;
+    const canvasContainer = {
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
+        width: '100%',
+        alignItems: 'center'
+    };
+    const drawArea = {
+        width: '100%',
+        height: '552px',
+        border: '1px solid #808080',
+        position: 'relative',
+        backgroundColor: 'white'
+    };
+    const canvasMenuStyle = {
+        width: '650px',
+        height: '50px',
+        display: 'flex',
+        justifyContent: 'space-evenly',
+        borderRadius: '5px',
+        alignItems: 'center',
+        backgroundColor: '#a3a3a32d',
+        margin: '0 auto'
+    };
+    const canvas = {
+        height: `${canvasHeight}px`,
+        width: `${canvasWidth}px`,
+        cursor: 'crosshair'
+    };
+    const imgStyle = {
+        height: `${canvasHeight}px`,
+        width: `${canvasWidth}px`,
+        border: '1px solid black'
+    };
+    const BRUSH_MODES = {
+        PEN: 'Pen',
+        ERASER: 'Eraser'
+    };
+    class Canvas extends Anu.Component {
+        constructor(props) {
+            super(props);
+            this.state = {
+                isDrawing: false,
+                lineWidth: 1,
+                lineColor: 'black',
+                lineOpacity: 1,
+                brushMode: BRUSH_MODES.PEN,
+                dataUrl: undefined
+            };
+            this.canvasRef = Anu.createRef();
+            this.ctxRef = Anu.createRef();
+            this.imageRef = Anu.createRef();
+            this._reRender = this._reRender.bind(this);
+            this.startDrawing = this.startDrawing.bind(this);
+            this.endDrawing = this.endDrawing.bind(this);
+            this.draw = this.draw.bind(this);
+            this.setLineWidth = this.setLineWidth.bind(this);
+            this.setLineColor = this.setLineColor.bind(this);
+            this.setOpacity = this.setOpacity.bind(this);
+            this.setBrushMode = this.setBrushMode.bind(this);
+            this.handleSave = this.handleSave.bind(this);
+        }
+        _reRender() {
+            const {
+                lineWidth,
+                lineColor,
+                lineOpacity,
+                brushMode
+            } = this.state;
+            const canvasContext = this.canvasRef.current &&
+                this.canvasRef.current.getContext &&
+                this.canvasRef.current.getContext('2d');
+            canvasContext.lineCap = "round";
+            canvasContext.lineJoin = "round";
+            canvasContext.globalAlpha = lineOpacity;
+            canvasContext.strokeStyle = lineColor;
+            canvasContext.lineWidth = lineWidth;
+            this.ctxRef.current = canvasContext;
+            this.ctxRef.brushMode = brushMode;
+        }
+        componentDidMount() {
+            this._reRender();
+        }
+        componentDidUpdate() {
+            this._reRender();
+        }
+        startDrawing(event) {
+            const rect = event.target.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            this.ctxRef.current.beginPath();
+            this.ctxRef.current.moveTo(x, y);
+
+            this.setState({ isDrawing: true });
+        }
+        endDrawing() {
+            this.setState({ isDrawing: false });
+        }
+        draw(event) {
+            const { lineWidth, brushMode, isDrawing } = this.state;
+
+            if (!isDrawing) {
+                return;
+            }
+            const rect = event.target.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            if (brushMode === BRUSH_MODES.PEN) {
+                this.ctxRef.current.lineTo(x, y);
+                this.ctxRef.current.stroke();
+            } else {
+                this.ctxRef.current.clearRect(
+                    x - lineWidth / 2,
+                    y - lineWidth / 2,
+                    lineWidth,
+                    lineWidth
+                );
+            }
+        }
+        setLineWidth({ target: { value } }) {
+            this.setState({ lineWidth: value });
+        }
+        setLineColor({ target: { value } }) {
+            this.setState({ lineColor: value });
+        }
+        setOpacity({ target: { value } }) {
+            this.setState({ lineOpacity: value / 100 });
+        }
+        setBrushMode() {
+            this.setState(prevState => ({
+                ...prevState,
+                brushMode:
+                    prevState.brushMode === BRUSH_MODES.PEN
+                        ? BRUSH_MODES.ERASER
+                        : BRUSH_MODES.PEN
+            }));
+        }
+        handleSave() {
+            const dataUrl = this.canvasRef.current.toDataURL();
+            this.setState({ dataUrl });
+        }
+        render() {
+            const {
+                lineWidth,
+                lineColor,
+                lineOpacity,
+                brushMode,
+                dataUrl
+            } = this.state;
+            return (
+                <div style={canvasContainer}>
+                    <h1>Paint App</h1>
+                    <div style={drawArea}>
+                        <div style={canvasMenuStyle}>
+                            <label>
+                                Brush Color
+                                <input
+                                    type="color"
+                                    value={lineColor}
+                                    onChange={this.setLineColor}
+                                />
+                            </label>
+                            <label>
+                                Brush Width
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="20"
+                                    value={lineWidth}
+                                    onChange={this.setLineWidth}
+                                />
+                            </label>
+                            <label>
+                                Brush Opacity
+                                <input
+                                    type="range"
+                                    min="1"
+                                    max="100"
+                                    value={lineOpacity * 100}
+                                    onChange={this.setOpacity}
+                                />
+                            </label>
+                            <label>
+                                Selected brush type:
+                                <button onClick={this.setBrushMode}>
+                                    {brushMode}
+                                </button>
+                            </label>
+                            <button onClick={this.handleSave}>Save</button>
+                        </div>
+                        <canvas
+                            style={canvas}
+                            onMouseDown={this.startDrawing}
+                            onMouseUp={this.endDrawing}
+                            onMouseMove={this.draw}
+                            ref={this.canvasRef}
+                            height={canvasHeight}
+                            width={canvasWidth}
+                        />
+                        <img
+                            style={imgStyle}
+                            src={dataUrl}
+                            ref={this.imageRef}
+                        />
+                    </div>
+                </div>
+            );
+        }
+    }
+    ```
     
 <h3 id="rendering-application">Rendering your application</h3>
 
@@ -937,7 +1216,7 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
                 innerWidth: number,
                 isMobileAppInstalled: boolean,
                 userAgentData: {
-                    userAgent: string | array<UserAgent>,
+                    userAgent: string | array<UserAgent>
                     mobile: boolean,
                     platform: string | null
                 }
@@ -991,13 +1270,13 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
                 name: string,
                 nodeName: string,
                 keyCode: number | null,
+                value?: string,
                 pageX: number,
-                pageY: number,
+				pageY: number,
                 scrollTop: number,
                 scrollLeft: number,
                 url: string,
-                props: Object | null, // User-defined props, 2nd argument passed to Anu.Anulytics.trackEvent()
-                value?: string
+                props: Object | null // User-defined props, 2nd argument passed to Anu.Anulytics.trackEvent()
             };
             ```
     
