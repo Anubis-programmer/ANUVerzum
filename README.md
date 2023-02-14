@@ -291,20 +291,23 @@ It takes <strong>ONE</strong> argument which can either be:
             /**
              *  - Will be called after mounting - if component is inserted in the tree within this loop
              *  - Call "setState()"
-             *  - Set up subscriptions -- Destroy them in "componentWillUnmount()"!
+             *  - Set up subscriptions
+	     *    -- Destroy them in "componentWillUnmount()"!
              *  - Instantiate network request (load data)
              */
         }
         componentDidUpdate(prevProps, prevState) {
             /**
              *  - Will be called after mounting - if component is updated within this loop
-             *  - Call "setState()" -- Only in condition!
+             *  - Call "setState()"
+	     *    -- Only in condition!
              */
         }
         componentWillUnmount() {
             /**
              *  - Will be called before component is removed from the tree
-             *  - Perform necessary cleanup -- destroy subscriptions set in "componentDidMount()"!
+             *  - Perform necessary cleanup
+	     *    -- destroy subscriptions set in "componentDidMount()"!
              */
         }
         // Custom method:
@@ -312,7 +315,8 @@ It takes <strong>ONE</strong> argument which can either be:
             /**
              *  - "setState()" can be used.
              *  - Possible params for "setState()":
-             *    - partialState -- object | callback -- The new state object or a callback with params "prevState" and "prevProps"
+             *    - partialState: object | callback
+	     *      -- The new state object or a callback with params "prevState" and "prevProps"
              */
         }
         render() {
