@@ -2093,28 +2093,35 @@
 			return true;
 		};
 
-		const memoize = func => {
-			const cache = {
-				inputs: {},
-				outputs: {}
-			};
+		const memoize = (func, maxSize = 100) => {
+			const cache = new Map(); // Use Map for better performance
+			const accessOrder = []; // Track access order for LRU
 
 			return (...args) => {
 				const key = JSON.stringify(args);
 
-				if (!cache.inputs[key]) {
-					const val = func.apply(null, args);
-					cache.outputs[key] = val;
-				} else {
-					if (!areArgumentsEqual(cache.inputs[key], args)) {
-						const val = func.apply(null, args);
-						cache.outputs[key] = val;
-					}
+				if (cache.has(key)) {
+					// Move to end (most recently used)
+					const index = accessOrder.indexOf(key);
+					accessOrder.splice(index, 1);
+					accessOrder.push(key);
+					return cache.get(key);
 				}
 
-				cache.inputs[key] = args;
+				// Execute function and cache result
+				const result = func.apply(null, args);
+				
+				// Add to cache
+				cache.set(key, result);
+				accessOrder.push(key);
 
-				return cache.outputs[key];
+				// Remove oldest entries if cache is too large
+				if (cache.size > maxSize) {
+					const oldestKey = accessOrder.shift();
+					cache.delete(oldestKey);
+				}
+
+				return result;
 			};
 		};
 
