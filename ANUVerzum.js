@@ -1987,7 +1987,7 @@
 				unsubscribe: listenerToRemove => {
 					const index = subscribers.indexOf(listenerToRemove);
 
-					if (index > 0) {
+					if (index >= 0) {
 						subscribers.splice(index, 1);
 					}
 				}

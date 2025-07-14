@@ -512,7 +512,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
     <strong>Example</strong> - <i>handling <code>onClick</code> event outside of the referenced element</i>:
 
     ```javascript
-    class ClickOutsideComponent exttends Anu.Component {
+    class ClickOutsideComponent extends Anu.Component {
         constructor(props) {
             super(props);
             this.state = {
@@ -672,7 +672,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
                 this.handleObserver,
                 options
             );
-            this.observer.observe(this.loadingRef);
+            this.observer.observe(this.loadingRef.current);
         }
         handleObserver(entities, observer) {
             const y = entities[0].boundingClientRect.y;
