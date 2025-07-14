@@ -2298,7 +2298,10 @@
 
 			removeNestedSub(listener) {
 				this.tryUnsubscribe();
-				this.listeners.splice(this.listeners.indexOf(listener), 1);
+				const index = this.listeners.indexOf(listener);
+				if (index >= 0) {
+					this.listeners.splice(index, 1);
+				}
 			}
 		}
 
