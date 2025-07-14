@@ -1141,7 +1141,15 @@
 				if (SUCCESS_STATUS_CODES.indexOf(status) > -1) {
 					successHandler({
 						status,
-						response: response ? JSON.parse(response) : null
+						response: response ? (() => {
+							try {
+								return JSON.parse(response);
+							} catch (e) {
+								console.error('Invalid JSON response:', e.message);
+								return null;  // or return { error: 'Invalid JSON' }
+							}
+						})() : null
+
 					});
 				} else if (CLIENT_ERROR_STATUS_CODES.indexOf(status) > -1 || SERVER_ERROR_STATUS_CODES.indexOf(status) > -1) {
 					errorHandler({
