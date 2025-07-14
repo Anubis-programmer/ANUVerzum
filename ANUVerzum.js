@@ -2094,12 +2094,44 @@
 		};
 
 		const memoize = (func, maxSize = 100) => {
-			const cache = new Map(); // Use Map for better performance
-			const accessOrder = []; // Track access order for LRU
+			const cache = new Map();
+			const accessOrder = [];
+
+			// Robust key generation
+			const generateKey = (args) => {
+				const parts = [];
+				
+				for (let i = 0; i < args.length; i++) {
+					const arg = args[i];
+					const type = typeof arg;
+					
+					if (arg === null) {
+						parts.push('null');
+					} else if (arg === undefined) {
+						parts.push('undefined');
+					} else if (type === 'function') {
+						parts.push(`function:${arg.name || 'anonymous'}:${arg.toString().slice(0, 100)}`);
+					} else if (type === 'symbol') {
+						parts.push(`symbol:${arg.toString()}`);
+					} else if (type === 'object') {
+						try {
+							// Use a more robust serialization
+							parts.push(`object:${JSON.stringify(arg)}`);
+						} catch (e) {
+							// Handle circular references
+							parts.push(`object:circular:${Object.prototype.toString.call(arg)}`);
+						}
+					} else {
+						parts.push(`${type}:${arg}`);
+					}
+				}
+				
+				return parts.join('|');
+			};
 
 			return (...args) => {
-				const key = JSON.stringify(args);
-
+				const key = generateKey(args);
+				
 				if (cache.has(key)) {
 					// Move to end (most recently used)
 					const index = accessOrder.indexOf(key);
@@ -2108,14 +2140,11 @@
 					return cache.get(key);
 				}
 
-				// Execute function and cache result
 				const result = func.apply(null, args);
 				
-				// Add to cache
 				cache.set(key, result);
 				accessOrder.push(key);
 
-				// Remove oldest entries if cache is too large
 				if (cache.size > maxSize) {
 					const oldestKey = accessOrder.shift();
 					cache.delete(oldestKey);
