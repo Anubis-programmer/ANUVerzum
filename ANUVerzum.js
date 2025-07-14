@@ -35,7 +35,7 @@
 	if (typeof Object.assign !== 'function') {
 		Object.defineProperty(Object, 'assign', {
 			value: function assign(target, varArgs) {
-				if (target === null) {
+				if (target == null) { // Checks both null and undefined
 					throw new TypeError('Cannot convert undefined or null to object');
 				}
 
