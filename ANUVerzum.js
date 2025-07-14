@@ -1120,6 +1120,7 @@
 					return children;
 				} catch (err) {
 					console.error(err);
+					return []; // Empty fragment fallback
 				}
 			}
 		}
