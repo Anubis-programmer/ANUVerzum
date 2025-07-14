@@ -355,12 +355,17 @@
 	const { TEXT_ELEMENT, createElement } = (() => {
 		const TEXT_ELEMENT = 'TEXT_ELEMENT';
 
-		const createTextElement = value => createElement(TEXT_ELEMENT, { nodeValue: value });
+		// Direct text element creation - no circular dependency
+		const createTextElement = value => ({
+			type: TEXT_ELEMENT,
+			props: { nodeValue: value }
+		});
 
 		const createElement = (type, config, ...args) => {
 			const props = Object.assign({}, config);
 			const hasChildren = args.length > 0;
 			const rawChildren = hasChildren ? [].concat(...args) : [];
+			
 			props.children = rawChildren
 				.filter(c => c !== null && c !== false)
 				.map(c => (
@@ -369,7 +374,7 @@
 						: (
 							c instanceof Object
 								? c
-								: createTextElement(c)
+								: createTextElement(c)  // Now safe - no circular call
 						)
 				));
 
