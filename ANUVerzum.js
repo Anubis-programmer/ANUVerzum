@@ -214,15 +214,28 @@
 
 				static all(promises) {
 					return new AnuPromise((resolve, reject) => {
+						// Input validation
+						if (!Array.isArray(promises)) {
+							reject(new TypeError('Promise.all expects an array'));
+							return;
+						}
+
+						// Handle empty array case
+						if (promises.length === 0) {
+							resolve([]);
+							return;
+						}
+
 						let counter = 0;
 						const result = [];
+						const length = promises.length;
 
-						for (let i = 0; i < promises.length; i++) {
+						for (let i = 0; i < length; i++) {
 							AnuPromise.resolve(promises[i]).then(res => {
 								result[i] = res;
 								counter += 1;
 
-								if (counter === promises.length) {
+								if (counter === length) {
 									resolve(result);
 								}
 							}, err => {
