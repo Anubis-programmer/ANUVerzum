@@ -1529,9 +1529,18 @@
 			}
 		};
 
-		const historyPush = path => {
+		// Environment detection - add this before the functions
+		const hasHistoryAPI = typeof window !== 'undefined' &&
+			typeof window.history !== 'undefined' &&
+			typeof window.history.pushState === 'function';
+			const historyPush = path => {
 			trackRouteChange(path);
-			history.pushState({}, null, path);
+			if (hasHistoryAPI) {
+				history.pushState({}, null, path);
+			} else {
+				// Fallback for non-browser environments
+				console.warn('History API not available - running in non-browser environment');
+			}
 			instances.forEach(instance => {
 				instance.setState();
 			});
@@ -1539,7 +1548,11 @@
 
 		const historyReplace = path => {
 			trackRouteChange(path);
-			history.replaceState({}, null, path);
+			if (hasHistoryAPI) {
+				history.replaceState({}, null, path);
+			} else {
+				console.warn('History API not available - running in non-browser environment');
+			}
 			instances.forEach(instance => {
 				instance.setState();
 			});
