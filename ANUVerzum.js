@@ -1079,7 +1079,7 @@
 				let partialStateCallback;
 
 				if (typeof partialState === 'object') {
-					partialStateObject = { partialStateObject, ...partialState }
+					partialStateObject = { ...partialStateObject, ...partialState }
 				} else if (typeof partialState === 'function') {
 					partialStateCallback = partialState;
 				}
