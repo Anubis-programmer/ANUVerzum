@@ -314,11 +314,14 @@
 
 			for (let i = 0; i < collection.length; i++) {
 				(index => {
-					const result = iteratee(collection[i]);
-					results.push(result);
+					const result = iteratee(collection[index]);
+					results[index] = result;
 
 					if (index === collNo) {
 						callback(results);
+					} catch (error) {
+						console.error('Error in asyncMap:', error);
+						callback([]);
 					}
 				})(i);
 			}
