@@ -370,7 +370,7 @@
 				.filter(c => c !== null && c !== false)
 				.map(c => (
 					typeof c === 'function'
-						? createElement(c, { ...c.props })
+						? createElement(c, { ...(c.props || {}) })
 						: (
 							c instanceof Object
 								? c
