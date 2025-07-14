@@ -1159,7 +1159,6 @@
 				}
 			};
 
-			XHR.onload();
 
 			return XHR;
 		};
