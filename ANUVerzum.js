@@ -1511,7 +1511,10 @@
 		};
 
 		const unregister = comp => {
-			instances.splice(instances.indexOf(comp), 1);
+			const index = instances.indexOf(comp);
+			if (index >= 0) {
+				instances.splice(index, 1);
+			}
 		};
 
 		const historyPush = path => {
