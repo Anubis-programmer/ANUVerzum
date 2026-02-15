@@ -35,7 +35,7 @@
 	if (typeof Object.assign !== 'function') {
 		Object.defineProperty(Object, 'assign', {
 			value: function assign(target, varArgs) {
-				if (target === null) {
+				if (target === null || target === undefined) {
 					throw new TypeError('Cannot convert undefined or null to object');
 				}
 
@@ -214,15 +214,28 @@
 
 				static all(promises) {
 					return new AnuPromise((resolve, reject) => {
+						if (!Array.isArray(promises)) {
+							reject(new TypeError('Promise.all expects an array'));
+
+							return;
+						}
+
+						if (promises.length === 0) {
+							resolve([]);
+
+							return;
+						}
+
 						let counter = 0;
+						const promiseLength = promiseLength;
 						const result = [];
 
-						for (let i = 0; i < promises.length; i++) {
+						for (let i = 0; i < promiseLength; i++) {
 							AnuPromise.resolve(promises[i]).then(res => {
 								result[i] = res;
 								counter += 1;
 
-								if (counter === promises.length) {
+								if (counter === promiseLength) {
 									resolve(result);
 								}
 							}, err => {
@@ -309,15 +322,15 @@
 	const Async = (() => {
 		const asyncMap = (coll, iteratee, callback) => {
 			const collection = Array.isArray(coll) ? coll : [coll];
-			const collNo = collection.length - 1;
+			const collLastIndex = collection.length - 1;
 			const results = [];
 
 			for (let i = 0; i < collection.length; i++) {
 				(index => {
-					const result = iteratee(collection[i]);
+					const result = iteratee(collection[index]);
 					results.push(result);
 
-					if (index === collNo) {
+					if (index === collLastIndex) {
 						callback(results);
 					}
 				})(i);
@@ -337,7 +350,10 @@
 	const { TEXT_ELEMENT, createElement } = (() => {
 		const TEXT_ELEMENT = 'TEXT_ELEMENT';
 
-		const createTextElement = value => createElement(TEXT_ELEMENT, { nodeValue: value });
+		const createTextElement = value => ({
+			type: TEXT_ELEMENT,
+			props: { nodeValue: value }
+		});
 
 		const createElement = (type, config, ...args) => {
 			const props = Object.assign({}, config);
@@ -347,7 +363,7 @@
 				.filter(c => c !== null && c !== false)
 				.map(c => (
 					typeof c === 'function'
-						? createElement(c, { ...c.props })
+						? createElement(c, { ...(c.props || {}) })
 						: (
 							c instanceof Object
 								? c
@@ -369,7 +385,7 @@
 	// ANUVERZUM DOM-UTILS
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	const { createDomElement, updateDomProperties, SVG_ELEMENT_LIST } = ((TEXT_ELEMENT) => {
+	const { createDomElement, updateDomProperties, SVG_ELEMENT_LIST, getHTMLValidSvgTag } = ((TEXT_ELEMENT) => {
 		const SVG_ELEMENT_LIST = [
 			'anchor',
 			'animate',
@@ -441,42 +457,23 @@
 			'use',
 			'view'
 		];
-
-		const createDomElement = fiber => {
-			const isTextElement = fiber.type === TEXT_ELEMENT;
-			const isSvgElement = SVG_ELEMENT_LIST.indexOf(fiber.type) > -1;
-			const getHTMLValidSvgTag = fiberType => {
-				switch (fiberType) {
-					case 'anchor': {
-						return 'a';
-					}
-					case 'svgStyle': {
-						return 'style';
-					}
-					case 'svgTitle': {
-						return 'title';
-					}
-					default: {
-						return fiberType;
-					}
+		const getHTMLValidSvgTag = fiberType => {
+			switch (fiberType) {
+				case 'anchor': {
+					return 'a';
 				}
-			};
-
-			let dom;
-
-			if (isTextElement) {
-				dom = document.createTextNode('');
-			} else if (isSvgElement) {
-				dom = document.createElementNS('http://www.w3.org/2000/svg', getHTMLValidSvgTag(fiber.type));
-			} else {
-				dom = document.createElement(fiber.type);
+				case 'svgStyle': {
+					return 'style';
+				}
+				case 'svgTitle': {
+					return 'title';
+				}
+				default: {
+					return fiberType;
+				}
 			}
-
-			updateDomProperties(dom, {}, fiber.props, isSvgElement);
-
-			return dom;
 		};
-
+		
 		const updateDomProperties = (dom, prevProps, nextProps, isSvgElement = false) => {
 			const isEvent = name => {
 				if (!String.prototype.startsWith) {
@@ -554,10 +551,29 @@
 				});
 		};
 
+		const createDomElement = fiber => {
+			const isTextElement = fiber.type === TEXT_ELEMENT;
+			const isSvgElement = SVG_ELEMENT_LIST.indexOf(fiber.type) > -1;
+			let dom;
+
+			if (isTextElement) {
+				dom = document.createTextNode('');
+			} else if (isSvgElement) {
+				dom = document.createElementNS('http://www.w3.org/2000/svg', getHTMLValidSvgTag(fiber.type));
+			} else {
+				dom = document.createElement(fiber.type);
+			}
+
+			updateDomProperties(dom, {}, fiber.props, isSvgElement);
+
+			return dom;
+		};
+
 		return {
 			createDomElement,
 			updateDomProperties,
-			SVG_ELEMENT_LIST
+			SVG_ELEMENT_LIST,
+			getHTMLValidSvgTag
 		};
 	})(TEXT_ELEMENT);
 
@@ -1061,7 +1077,7 @@
 				let partialStateCallback;
 
 				if (typeof partialState === 'object') {
-					partialStateObject = { partialStateObject, ...partialState }
+					partialStateObject = { ...partialStateObject, ...partialState }
 				} else if (typeof partialState === 'function') {
 					partialStateCallback = partialState;
 				}
@@ -1097,6 +1113,8 @@
 					return children;
 				} catch (err) {
 					console.error(err);
+
+					return [];
 				}
 			}
 		}
@@ -1123,7 +1141,15 @@
 				if (SUCCESS_STATUS_CODES.indexOf(status) > -1) {
 					successHandler({
 						status,
-						response: response ? JSON.parse(response) : null
+						response: response ? (() => {
+							try {
+								return JSON.parse(response);
+							} catch (e) {
+								console.error('Invalid JSON response:', e.message);
+
+								return null;
+							}
+						})() : null
 					});
 				} else if (CLIENT_ERROR_STATUS_CODES.indexOf(status) > -1 || SERVER_ERROR_STATUS_CODES.indexOf(status) > -1) {
 					errorHandler({
@@ -1133,15 +1159,15 @@
 				}
 			};
 
-			XHR.onload();
-
 			return XHR;
 		};
+
+		const _trimUrlFromSpaces = (url) => `${url.replace(/\s/g, '_')}`;
 
 		const _serverGetAPI = (url, params = {}) => (successHandler, errorHandler) => {
 			const XHR = _setXHR(successHandler, errorHandler);
 
-			let urlWithParams = `${url}`;
+			let urlWithParams = _trimUrlFromSpaces(url);
 			const urlParamKeys = Object.keys(params)
 
 			if (urlParamKeys.length > 0) {
@@ -1184,7 +1210,7 @@
 		const _serverDeleteAPI = (url, params = {}) => (successHandler, errorHandler) => {
 			const XHR = _setXHR(successHandler, errorHandler);
 
-			let urlWithParams = `${url}`;
+			let urlWithParams = _trimUrlFromSpaces(url);
 			const urlParamKeys = Object.keys(params)
 
 			if (urlParamKeys.length > 0) {
@@ -1493,12 +1519,26 @@
 		};
 
 		const unregister = comp => {
-			instances.splice(instances.indexOf(comp), 1);
+			const index = instances.indexOf(comp);
+
+			if (index >= 0) {
+				instances.splice(index, 1);
+			}
 		};
+
+		const hasHistoryAPI = typeof window !== 'undefined' &&
+			typeof window.history !== 'undefined' &&
+			typeof window.history.pushState === 'function';
 
 		const historyPush = path => {
 			trackRouteChange(path);
-			history.pushState({}, null, path);
+
+			if (hasHistoryAPI) {
+				history.pushState({}, null, path);
+			} else {
+				console.warn('History API not available - running in non-browser environment');
+			}
+
 			instances.forEach(instance => {
 				instance.setState();
 			});
@@ -1506,7 +1546,13 @@
 
 		const historyReplace = path => {
 			trackRouteChange(path);
-			history.replaceState({}, null, path);
+			
+			if (hasHistoryAPI) {
+				history.replaceState({}, null, path);
+			} else {
+				console.warn('History API not available - running in non-browser environment');
+			}
+			
 			instances.forEach(instance => {
 				instance.setState();
 			});
@@ -1955,40 +2001,44 @@
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	const store = ((trackStateChange) => {
 		const createStore = (reducer, initialState, middleware) => {
-			const currentReducer = reducer;
-			let currentState = initialState;
-			const subscribers = [];
+			const _currentReducer = reducer;
+			let _currentState = initialState;
+			const _subscribers = [];
 
-			const validateAction = action => {
+			const _validateAction = action => {
 				if (!action || typeof action !== 'object' || Array.isArray(action)) {
 					throw new Error('Action must be an object!');
 				}
+
 				if (typeof action.type === 'undefined') {
 					throw new Error('Action must have a type!');
 				}
 			};
 
-			const coreDispatch = action => {
-				validateAction(action);
-				currentState = currentReducer(currentState, action);
-				subscribers.forEach(subscriber => {
+			const _coreDispatch = action => {
+				_validateAction(action);
+				const prevState = { ..._currentState };
+				_currentState = _currentReducer(_currentState, action);
+				trackStateChange(prevState, action, _currentState);
+
+				_subscribers.forEach(subscriber => {
 					subscriber();
 				});
 			};
 
-			const getState = () => currentState;
+			const getState = () => _currentState;
 
 			const store = {
 				getState,
-				dispatch: coreDispatch,
+				dispatch: _coreDispatch,
 				subscribe: newListener => {
-					subscribers.push(newListener)
+					_subscribers.push(newListener)
 				},
 				unsubscribe: listenerToRemove => {
-					const index = subscribers.indexOf(listenerToRemove);
+					const index = _subscribers.indexOf(listenerToRemove);
 
-					if (index > 0) {
-						subscribers.splice(index, 1);
+					if (index >= 0) {
+						_subscribers.splice(index, 1);
 					}
 				}
 			};
@@ -1998,7 +2048,7 @@
 				store.dispatch = middleware({
 					dispatch,
 					getState
-				})(coreDispatch);
+				})(_coreDispatch);
 			}
 
 			return store;
@@ -2030,7 +2080,6 @@
 			const prevState = { ...getState() };
 			const result = next(action);
 			const nextState = { ...getState() };
-			trackStateChange(prevState, action, nextState);
 
 			console.log('\n-----');
 			console.log('Previous state:', prevState);
@@ -2059,54 +2108,68 @@
 			}
 		};
 
-		const areArgumentsEqual = (prev, next) => {
-			if (
-				prev === null ||
-				next === null ||
-				prev.length !== next.length
-			) {
-				return false;
-			}
+		const _generateKey = (args) => {
+			const parts = [];
 
-			for (let i = 0; i < prev.length; i++) {
-				if (prev[i] !== next[i]) {
-					return false;
+			for (let i = 0; i < args.length; i++) {
+				const arg = args[i];
+				const type = typeof arg;
+
+				if (arg === null) {
+					parts.push('null');
+				} else if (arg === undefined) {
+					parts.push('undefined');
+				} else if (type === 'function') {
+					parts.push(`function:${arg.name || 'anonymous'}:${arg.toString().slice(0, 100)}`);
+				} else if (type === 'symbol') {
+					parts.push(`symbol:${arg.toString()}`);
+				} else if (type === 'object') {
+					try {
+						parts.push(`object:${JSON.stringify(arg)}`);
+					} catch (e) {
+						parts.push(`object:circular:${Object.prototype.toString.call(arg)}`);
+					}
+				} else {
+					parts.push(`${type}:${arg}`);
 				}
 			}
 
-			return true;
+			return parts.join('|');
 		};
 
-		const memoize = func => {
-			const cache = {
-				inputs: {},
-				outputs: {}
-			};
+		const _memoize = (func, maxSize = 100) => {
+			const cache = new Map();
+			const accessOrder = [];
 
 			return (...args) => {
-				const key = JSON.stringify(args);
+				const key = _generateKey(args);
 
-				if (!cache.inputs[key]) {
-					const val = func.apply(null, args);
-					cache.outputs[key] = val;
-				} else {
-					if (!areArgumentsEqual(cache.inputs[key], args)) {
-						const val = func.apply(null, args);
-						cache.outputs[key] = val;
-					}
+				if (cache.has(key)) {
+					const index = accessOrder.indexOf(key);
+					accessOrder.splice(index, 1);
+					accessOrder.push(key);
+
+					return cache.get(key);
 				}
 
-				cache.inputs[key] = args;
+				const result = func.apply(null, args);
+				cache.set(key, result);
+				accessOrder.push(key);
 
-				return cache.outputs[key];
+				if (cache.size > maxSize) {
+					const oldestKey = accessOrder.shift();
+					cache.delete(oldestKey);
+				}
+
+				return result;
 			};
 		};
 
 		const createSelector = (dependenciesInput, transformation) => {
 			const dependencies = Array.isArray(dependenciesInput) ? dependenciesInput : [dependenciesInput];
-			const memoizedTransformation = memoize(transformation);
+			const memoizedTransformation = _memoize(transformation);
 
-			return memoize(input => {
+			return _memoize(input => {
 				const params = [];
 
 				dependencies.forEach(func => {
@@ -2216,7 +2279,11 @@
 
 			removeNestedSub(listener) {
 				this.tryUnsubscribe();
-				this.listeners.splice(this.listeners.indexOf(listener), 1);
+				const index = this.listeners.indexOf(listener);
+
+				if (index >= 0) {
+					this.listeners.splice(index, 1);
+				}
 			}
 		}
 
