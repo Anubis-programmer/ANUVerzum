@@ -211,6 +211,12 @@
 				catch(onRejected) {
 					return this.then(undefined, onRejected)
 				}
+				finally(onFinally) {
+					return this.then(
+						value => AnuPromise.resolve(onFinally()).then(() => value),
+						reason => AnuPromise.resolve(onFinally()).then(() => { throw reason; })
+					);
+				}
 
 				static all(promises) {
 					return new AnuPromise((resolve, reject) => {
@@ -227,7 +233,7 @@
 						}
 
 						let counter = 0;
-						const promiseLength = promiseLength;
+						const promiseLength = promises.length;
 						const result = [];
 
 						for (let i = 0; i < promiseLength; i++) {
@@ -263,6 +269,46 @@
 				static reject(reason) {
 					return new AnuPromise((resolve, reject) => {
 						reject(reason);
+					});
+				}
+				static allSettled(promises) {
+					return new AnuPromise((resolve, reject) => {
+						if (!Array.isArray(promises)) {
+							reject(new TypeError('Promise.allSettled expects an array'));
+
+							return;
+						}
+
+						if (promises.length === 0) {
+							resolve([]);
+
+							return;
+						}
+
+						let counter = 0;
+						const promiseLength = promises.length;
+						const result = [];
+
+						for (let i = 0; i < promiseLength; i++) {
+							AnuPromise.resolve(promises[i]).then(
+								value => {
+									result[i] = { status: 'fulfilled', value };
+									counter += 1;
+
+									if (counter === promiseLength) {
+										resolve(result);
+									}
+								},
+								reason => {
+									result[i] = { status: 'rejected', reason };
+									counter += 1;
+
+									if (counter === promiseLength) {
+										resolve(result);
+									}
+								}
+							);
+						}
 					});
 				}
 			}
@@ -320,6 +366,11 @@
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	const Async = (() => {
+		// Note: despite the name, this implementation is fully synchronous.
+		// The iteratee is called synchronously for each item, and the callback
+		// is invoked synchronously after all items have been processed.
+		// If the iteratee performs asynchronous work (e.g. returns a Promise),
+		// asyncMap does not await it; it simply collects the return values.
 		const asyncMap = (coll, iteratee, callback) => {
 			const collection = Array.isArray(coll) ? coll : [coll];
 			const collLastIndex = collection.length - 1;
@@ -499,10 +550,10 @@
 				.filter(isAttribute)
 				.filter(isGone(prevProps, nextProps))
 				.forEach(name => {
-					if (name === 'className') {
-						dom['class'] = null;
-					} else if (name === 'htmlFor') {
-						dom['for'] = null;
+					const attrName = name === 'className' ? 'class' : name === 'htmlFor' ? 'for' : name;
+
+					if (isSvgElement || name === 'className' || name === 'htmlFor') {
+						dom.removeAttribute(attrName);
 					} else {
 						dom[name] = null;
 					}
@@ -728,8 +779,10 @@
 		};
 
 		const createFunctionComponent = fiber => {
-			const instance = fiber.type(fiber.props);
-			instance.__fiber = fiber;
+			const instance = {
+				props: fiber.props,
+				render: fiber.type
+			};
 
 			return instance;
 		};
@@ -787,6 +840,8 @@
 			}
 
 			const nextProps = { ...wipFiber.props };
+			wipFiber.prevProps = instance.props;
+			wipFiber.prevState = instance.state;
 			let nextState = {};
 
 			if (!wipFiber.partialStateCallback) {
@@ -922,7 +977,7 @@
 
 			if (fiber.parent) {
 				const childEffects = fiber.effects || [];
-				const thisEffect = fiber.effectTag !== null ? [fiber] : [];
+				const thisEffect = fiber.effectTag != null ? [fiber] : [];
 				const parentEffects = fiber.parent.effects || [];
 				fiber.parent.effects = parentEffects.concat(childEffects, thisEffect);
 			} else {
@@ -1008,8 +1063,8 @@
 							componentLifecyclesQueue.push({
 								fn: effect.stateNode.componentDidUpdate,
 								params: {
-									prevProps: effect.stateNode.props,
-									prevState: effect.stateNode.state
+									prevProps: effect.prevProps,
+									prevState: effect.prevState
 								}
 							});
 						}
@@ -1156,6 +1211,11 @@
 						status,
 						response: null
 					});
+				} else {
+					errorHandler({
+						status,
+						response: null
+					});
 				}
 			};
 
@@ -1173,9 +1233,9 @@
 			if (urlParamKeys.length > 0) {
 				urlParamKeys.forEach((key, index) => {
 					if (index === 0) {
-						urlWithParams += `?${key}=${params[key]}`;
+						urlWithParams += `?${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
 					} else {
-						urlWithParams += `&${key}=${params[key]}`;
+						urlWithParams += `&${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
 					}
 				})
 			}
@@ -1186,6 +1246,8 @@
 
 		const _serverPostAPI = (url, data) => (successHandler, errorHandler) => {
 			if (!data) {
+				errorHandler({ status: 400, response: null });
+
 				return;
 			}
 
@@ -1198,6 +1260,8 @@
 
 		const _serverPutAPI = (url, data) => (successHandler, errorHandler) => {
 			if (!data) {
+				errorHandler({ status: 400, response: null });
+
 				return;
 			}
 
@@ -1216,9 +1280,9 @@
 			if (urlParamKeys.length > 0) {
 				urlParamKeys.forEach((key, index) => {
 					if (index === 0) {
-						urlWithParams += `?${key}=${params[key]}`;
+						urlWithParams += `?${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
 					} else {
-						urlWithParams += `&${key}=${params[key]}`;
+						urlWithParams += `&${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
 					}
 				})
 			}
@@ -1530,7 +1594,13 @@
 			typeof window.history !== 'undefined' &&
 			typeof window.history.pushState === 'function';
 
+		let _currentPath = hasHistoryAPI ? window.location.pathname : '/';
+
 		const historyPush = path => {
+			if (path === _currentPath) {
+				return;
+			}
+
 			trackRouteChange(path);
 
 			if (hasHistoryAPI) {
@@ -1538,6 +1608,8 @@
 			} else {
 				console.warn('History API not available - running in non-browser environment');
 			}
+
+			_currentPath = path;
 
 			instances.forEach(instance => {
 				instance.setState();
@@ -1553,6 +1625,8 @@
 				console.warn('History API not available - running in non-browser environment');
 			}
 			
+			_currentPath = path;
+
 			instances.forEach(instance => {
 				instance.setState();
 			});
@@ -1569,7 +1643,10 @@
 				};
 			}
 
-			const match = new RegExp(`^${path}`).exec(pathname);
+			// Security: `path` is expected to be a code-owned, trusted route pattern.
+			// Do not construct route paths directly from user input.
+			const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			const match = new RegExp(`^${escapedPath}`).exec(pathname);
 
 			if (!match) {
 				return null;
@@ -1744,10 +1821,14 @@
 			class ContextConsumer extends Component {
 				constructor(props) {
 					super(props);
+					this._lastContextValue = providerContext.value;
 				}
 
 				componentDidUpdate() {
-					if (providerContext.__notifySub) {
+					const currentValue = providerContext.value;
+
+					if (currentValue !== this._lastContextValue) {
+						this._lastContextValue = currentValue;
 						this.setState();
 					}
 				}
@@ -1918,6 +1999,10 @@
 			};
 
 			if (typeof value === 'number' && !isNaN(value)) {
+				if (!isFinite(value)) {
+					return value;
+				}
+
 				const defaultAbbreviateNumberOptions = {
 					units: getByLocale(UNITS),
 					decimalPlaces: 2,
@@ -1982,7 +2067,7 @@
 			FeaturesContext.ContextConsumer,
 			{},
 			({ value: { features } }) => (
-				features[name] === true ?
+				!!features[name] ?
 					children :
 					defaultComponent
 			)
@@ -2168,16 +2253,22 @@
 		const createSelector = (dependenciesInput, transformation) => {
 			const dependencies = Array.isArray(dependenciesInput) ? dependenciesInput : [dependenciesInput];
 			const memoizedTransformation = _memoize(transformation);
+			let _lastParams = null;
+			let _lastResult;
 
-			return _memoize(input => {
-				const params = [];
+			return input => {
+				const params = dependencies.map(func => func(input));
+				const paramsChanged = _lastParams === null || params.some((p, i) => p !== _lastParams[i]);
 
-				dependencies.forEach(func => {
-					params.push(func(input));
-				});
+				if (!paramsChanged) {
+					return _lastResult;
+				}
 
-				return memoizedTransformation.apply(null, params);
-			});
+				_lastParams = params;
+				_lastResult = memoizedTransformation.apply(null, params);
+
+				return _lastResult;
+			};
 		};
 
 		return {
@@ -2217,6 +2308,11 @@
 				this.store = props.store;
 				this.context.store = props.store;
 				this.context.parentSub = null;
+				const existingStore = providerStore.getContext().store;
+				if (existingStore && existingStore !== this.store) {
+					console.warn('ANUVerzum Connector: Multiple Provider instances detected. Only one Provider is supported at a time.');
+				}
+
 				providerStore.setContext({ ...this.context });
 			}
 
@@ -2278,11 +2374,14 @@
 			}
 
 			removeNestedSub(listener) {
-				this.tryUnsubscribe();
 				const index = this.listeners.indexOf(listener);
 
 				if (index >= 0) {
 					this.listeners.splice(index, 1);
+				}
+
+				if (this.listeners.length === 0) {
+					this.tryUnsubscribe();
 				}
 			}
 		}
