@@ -2,7 +2,7 @@
 
 <br>
 
-<h3>@author: <strong>Anubis</strong></h3>
+<h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
 
 <br>
