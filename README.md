@@ -44,6 +44,104 @@ const App = () => (
 Anu.render(<App />, document.getElementById('root'));
 ```
 
+<h3>TypeScript setup</h3>
+
+The library is written in TypeScript and ships with declaration files (`.d.ts`) out of the box —
+no extra `@types` package is needed. If your project uses TypeScript, add the following to your
+`tsconfig.json` so the compiler understands JSX produced by ANUVerzum:
+
+```json
+{
+    "compilerOptions": {
+        "jsx": "react",
+        "jsxFactory": "Anu.createElement",
+        "jsxFragmentFactory": "Anu.Fragment"
+    }
+}
+```
+
+Every JSX file must still import `Anu` so that `Anu.createElement` is in scope at runtime (same
+as the plain JavaScript case).
+
+#### Typed class components
+
+Use the exported `Component<P, S>` base class to get fully-typed props and state:
+
+```typescript
+import Anu, { Component, AnuElement } from 'anu-verzum';
+
+interface CounterProps {
+    initialCount: number;
+}
+
+interface CounterState {
+    count: number;
+}
+
+class Counter extends Component<CounterProps, CounterState> {
+    constructor(props: CounterProps) {
+        super(props);
+        this.state = { count: props.initialCount };
+    }
+
+    render(): AnuElement {
+        return (
+            <div>
+                <p>Count: {this.state.count}</p>
+                <button onClick={() => this.setState({ count: this.state.count + 1 })}>
+                    Increment
+                </button>
+            </div>
+        );
+    }
+}
+```
+
+#### Typed function components
+
+```typescript
+import Anu, { AnuElement, Props } from 'anu-verzum';
+
+interface GreetingProps extends Props {
+    name: string;
+}
+
+const Greeting = ({ name }: GreetingProps): AnuElement => <p>Hello, {name}!</p>;
+```
+
+#### Exported types
+
+The following types are exported from `anu-verzum` for use in consumer projects:
+
+| Type | Description |
+|------|-------------|
+| `AnuElement` | The virtual-DOM element descriptor (return type of `createElement`) |
+| `Props` | Base props type — all component prop objects should extend this |
+| `Ref<T>` | Reference object created by `Anu.createRef<T>()` |
+| `Component<P, S>` | Abstract base class for class components |
+| `FunctionComponent<P>` | Function component signature |
+| `ElementType` | String tag, function component, or class component constructor |
+| `Store<S, A>` | Store instance returned by `Anu.store.createStore` |
+| `Reducer<S, A>` | Reducer function signature |
+| `Middleware<S, A>` | Middleware function signature |
+| `Dispatch<A>` | Dispatch function signature |
+| `Action` | Base action type `{ type: string; [key: string]: any }` |
+| `ThunkAction<S>` | Thunk action `(dispatch, getState) => any` |
+| `SelectorFn<TInput, TOutput>` | Selector function signature for `createSelector` |
+| `ApiSuccessResponse<T>` | Successful HTTP response `{ status: number; response: T \| null }` |
+| `ApiErrorResponse` | Error HTTP response `{ status: number; response: null }` |
+
+#### Library development scripts
+
+These scripts are available when working on the library itself:
+
+```bash
+npm run build       # Compile TypeScript sources to dist/ and emit .d.ts files
+npm run typecheck   # Type-check without emitting any output
+npm run lint        # Run ESLint on all source files
+npm run format      # Format all source files with Prettier
+```
+
 <br>
 <hr>
 
@@ -204,16 +302,6 @@ Anu.render(<App />, document.getElementById('root'));
 </ul>
 
 <br>
-
-<h2>Asyncronous Helpers:</h2>
-
-<ul>
-    <li>
-        <a href="#asynchronous-mapping">Asynchronous mapping through multiple elements using Anu.Async.map()</a>
-    </li>
-</ul>
-
-<br>
 <hr>
 
 <h1><strong><code>&lt;ANUVerzum /&gt;</code> JS</strong> USAGE</h1>
@@ -228,7 +316,7 @@ Supports both <i>HTML</i> and <i>inline-SVG</i> element creation, "stateful" (or
 - When creating <code>&lt;svg&gt;</code> tag, you don't have to define the <code>xmlns</code> attribute. 
 - Adding style definition inside <code>&lt;svgStyle&gt;</code> should be done as a string template as <code>children</code>, e.g.:
 
-    ```javascript
+    ```typescript
     <svg viewBox="0 0 10 10">
         <svgStyle>
             {`circle {
@@ -246,8 +334,10 @@ Supports both <i>HTML</i> and <i>inline-SVG</i> element creation, "stateful" (or
 - Function components are functions which can receive <code>props</code> and must always return either an <i>HTML element</i>, an <i>inline-SVG element</i>, a <i>Component</i> or <code>NULL</code>.
 - Both class-based and function component names must start with a capital letter, inline-SVG-s and HTML element names are lower-case!
 
-    ```javascript
-    const FunctionComponent = props => {
+    ```typescript
+    import Anu, { Props, AnuElement } from 'anu-verzum';
+
+    const FunctionComponent = (props: Props): AnuElement => {
         // ...
         return (
             <HTMLElement_inlineSVGElement_or_Component />
@@ -257,46 +347,44 @@ Supports both <i>HTML</i> and <i>inline-SVG</i> element creation, "stateful" (or
 
     <strong>Example</strong> - <i>returning HTML elements</i>:
 
-    ```javascript
-    const MyTitleBar = props => {
-        return (
-            <div>
-                <h1>{props.title}</h1>
-            </div>
-        );
-    };
+    ```typescript
+    interface TitleBarProps extends Props {
+        title: string;
+    }
+
+    const MyTitleBar = ({ title }: TitleBarProps): AnuElement => (
+        <div>
+            <h1>{title}</h1>
+        </div>
+    );
     ```
 
     <strong>Example</strong> - <i>returning inline-SVG elements</i>:
 
-    ```javascript
-    const MyCircle = () => {
-        return (
-            <svg viewBox="0 0 10 10">
-                <svgStyle>
-                    {`circle {
-                        fill: gold;
-                        stroke: maroon;
-                        stroke-width: 2px;
-                    }`}
-                </svgStyle>
-                <circle cx="5" cy="5" r="4" />
-            </svg>
-        );
-    };
+    ```typescript
+    const MyCircle = (): AnuElement => (
+        <svg viewBox="0 0 10 10">
+            <svgStyle>
+                {`circle {
+                    fill: gold;
+                    stroke: maroon;
+                    stroke-width: 2px;
+                }`}
+            </svgStyle>
+            <circle cx="5" cy="5" r="4" />
+        </svg>
+    );
     ```
 
     <strong>Example</strong> - <i>returning composed elements</i>:
 
-    ```javascript
-    const TitleWithCircle = () => {
-        return (
-            <div>
-                <MyTitleBar title="Hello ANUVerzum!" />
-                <MyCircle />
-            </div>
-        );
-    };
+    ```typescript
+    const TitleWithCircle = (): AnuElement => (
+        <div>
+            <MyTitleBar title="Hello ANUVerzum!" />
+            <MyCircle />
+        </div>
+    );
     ```
 
 <h3 id="class-based-components">Class-based components</h3>
@@ -309,17 +397,27 @@ It takes <strong>ONE</strong> argument which can either be:
     - A <code>state</code> object which will be merged with the old state
     - A <code>setStateCallback</code> function which takes the actual <code>state</code> and <code>props</code> as arguments (useful if <code>state</code> and <code>props</code> were updated asynchronously) and returns the new <code>state</code> value.
 
-        ```javascript
-        type SetStateCallbackType = (prevState: Object, props: Object) => Object;
-        setState(state: Object | SetStateCallbackType): void => { /* ... */ };
+        ```typescript
+        type SetStateCallbackType<S, P> = (prevState: S, props: P) => S;
+        setState(partialState: Partial<S> | SetStateCallbackType<S, P>): void;
         ```
 
 - <strong>NEVER</strong> use <code>setState()</code> in <code>constructor()</code> or <code>componentWillUnmount()</code>!
 - The <code>setState()</code> can be called in <code>componentDidMount()</code> and <code>componentDidUpdate()</code>, but only in condition - as you would do in React
 
-    ```javascript
-    class ClassComponent extends Anu.Component {
-        constructor(props) {
+    ```typescript
+    import Anu, { Props, AnuElement, Component } from 'anu-verzum';
+
+    interface MyProps extends Props {
+        // declare your props here
+    }
+
+    interface MyState {
+        // declare your state shape here
+    }
+
+    class ClassComponent extends Component<MyProps, MyState> {
+        constructor(props: MyProps) {
             super(props);
             // ALWAYS bind methods if passed down to component / HTML element because of "this" keyword:
             this.customMethodName = this.customMethodName.bind(this);
@@ -327,7 +425,7 @@ It takes <strong>ONE</strong> argument which can either be:
             this.state = { /* ... */ };
         }
         // Lifecycle-methods:
-        componentDidMount() {
+        componentDidMount(): void {
             /**
              *  - Will be called after mounting - if component is inserted in the tree within this loop
              *  - Call "setState()"
@@ -335,27 +433,27 @@ It takes <strong>ONE</strong> argument which can either be:
              *  - Instantiate network request (load data)
              */
         }
-        componentDidUpdate(prevProps, prevState) {
+        componentDidUpdate(prevProps: MyProps, prevState: MyState): void {
             /**
              *  - Will be called after mounting - if component is updated within this loop
              *  - Call "setState()" -- Only in condition!
              */
         }
-        componentWillUnmount() {
+        componentWillUnmount(): void {
             /**
              *  - Will be called before component is removed from the tree
              *  - Perform necessary cleanup -- destroy subscriptions set in "componentDidMount()"!
              */
         }
         // Custom method:
-        customMethodName() {
+        customMethodName(): void {
             /**
              *  - "setState()" can be used.
              *  - Possible params for "setState()":
              *    - partialState -- object | callback -- The new state object or a callback with params "prevState" and "prevProps"
              */
         }
-        render() {
+        render(): AnuElement {
             return (
                 <HTMLElement_inline-SVGElement_or_Component
                     onCustomEvent={this.customMethodName}
@@ -369,12 +467,14 @@ It takes <strong>ONE</strong> argument which can either be:
 
 - To render props, store an HTML element, inline-SVG element or component in a variable and when rendering, insert it, e.g.:
 
-    ```javascript
-    const PropsRenderer1 = props => {
-        return <div>{props.children}</div>;
-    };
+    ```typescript
+    interface TextProps extends Props {
+        text: string;
+    }
+
+    const PropsRenderer1 = ({ children }: Props): AnuElement => <div>{children}</div>;
     // Short syntax:
-    const PropsRenderer2 = ({ text }) => <p>{text}</p>;
+    const PropsRenderer2 = ({ text }: TextProps): AnuElement => <p>{text}</p>;
     ```
 
 <h3 id="wrapper-components-and-sub-components">Wrapper components and related sub-components</h3>
@@ -384,17 +484,17 @@ It takes <strong>ONE</strong> argument which can either be:
     - Then, create wrapped / sub-components.
     - Add the sub-component to the wrapper as a property.
 
-        ```javascript
+        ```typescript
+        // Declare the wrapper type so TypeScript knows about the .Elem sub-component:
+        interface ElemWrapperComponent {
+            (props: Props): AnuElement;
+            Elem: (props: Props) => AnuElement;
+        }
+
         // Wrapper element
-        const ElemWrapper = props => {
-            return <div>{props.children}</div>;
-        };
+        const ElemWrapper = (({ children }: Props): AnuElement => <div>{children}</div>) as ElemWrapperComponent;
         // Sub-component
-        const Elem = props => {
-            return <p>{props.children}</p>;
-        };
-        // Adding sub-component to the wrapper component
-        ElemWrapper.Elem = Elem;
+        ElemWrapper.Elem = ({ children }: Props): AnuElement => <p>{children}</p>;
         // Usage:
         <ElemWrapper>
             <ElemWrapper.Elem>
@@ -410,24 +510,25 @@ It takes <strong>ONE</strong> argument which can either be:
 
 - When rendering array, you don't return a nested structure but rather an array of elements / components, e.g.:
 
-    ```javascript
-    const ArrayRenderer = props => {
-        return [
-            <p>{props.firstParagraph}</p>,
-            <p>{props.secondParagraph}</p>,
-        ];
-    };
-    // Usage:
-    const ArrayRendererWrapper = props => {
-        return (
-            <div>
-                <ArrayRenderer
-                    firstParagraph={props.firstParagraph}
-                    secondParagraph={props.secondParagraph}
-                />
-            </div>
-        );
-    };
+    ```typescript
+    interface ParagraphsProps extends Props {
+        firstParagraph: string;
+        secondParagraph: string;
+    }
+
+    const ArrayRenderer = ({ firstParagraph, secondParagraph }: ParagraphsProps): AnuElement[] => [
+        <p>{firstParagraph}</p>,
+        <p>{secondParagraph}</p>
+    ];
+
+    const ArrayRendererWrapper = ({ firstParagraph, secondParagraph }: ParagraphsProps): AnuElement => (
+        <div>
+            <ArrayRenderer
+                firstParagraph={firstParagraph}
+                secondParagraph={secondParagraph}
+            />
+        </div>
+    );
     ```
 
 <h3 id="avoiding-unnecessary-wrapper-elements">Avoiding unnecessary wrapper elements</h3>
@@ -437,28 +538,28 @@ It takes <strong>ONE</strong> argument which can either be:
     - <code>&lt;Anu.Fragment&gt;...&lt;/Anu.Fragment&gt;</code> — explicit form
     - <code>&lt;&gt;...&lt;/&gt;</code> — shorthand form (available when using the <code>anu-verzum/babel-preset</code>)
 
-    ```javascript
+    ```typescript
+    interface ListProps extends Props {
+        somethingToLoop: string[];
+    }
+
     // Explicit form:
-    const ElemList = props => {
-        return (
-            <Anu.Fragment>
-                {props.somethingToLoop.map(prop => <li>{prop}</li>)}
-            </Anu.Fragment>
-        );
-    };
+    const ElemList = ({ somethingToLoop }: ListProps): AnuElement => (
+        <Anu.Fragment>
+            {somethingToLoop.map(prop => <li>{prop}</li>)}
+        </Anu.Fragment>
+    );
 
     // Shorthand form — identical result:
-    const ElemList = props => {
-        return (
-            <>
-                {props.somethingToLoop.map(prop => <li>{prop}</li>)}
-            </>
-        );
-    };
+    const ElemList = ({ somethingToLoop }: ListProps): AnuElement => (
+        <>
+            {somethingToLoop.map(prop => <li>{prop}</li>)}
+        </>
+    );
 
     // Usage:
-    const OrderedElemList = () => {
-        const somethingToLoop = ['Coffee', 'Tea', 'Pálinka'];
+    const OrderedElemList = (): AnuElement => {
+        const somethingToLoop: string[] = ['Coffee', 'Tea', 'Pálinka'];
         return (
             <div>
                 <h4>Ordered list:</h4>
@@ -483,16 +584,20 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
     <strong>Example</strong> - <i>focusing an input element</i>:
 
-    ```javascript
-    class RefTestClass extends Anu.Component {
-        constructor(props) {
+    ```typescript
+    import Anu, { Props, AnuElement, Component, Ref } from 'anu-verzum';
+
+    class RefTestClass extends Component {
+        input: Ref<HTMLInputElement>;
+
+        constructor(props: Props) {
             super(props);
-            this.input = Anu.createRef();
+            this.input = Anu.createRef<HTMLInputElement>();
         }
-        componentDidMount() {
-            this.input.current.focus();
+        componentDidMount(): void {
+            this.input.current!.focus();
         }
-        render() {
+        render(): AnuElement {
             return (
                 <label>
                     <input ref={this.input} />
@@ -504,35 +609,44 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
     <strong>Example</strong> - <i>file uploader with preview</i>:
 
-    ```javascript
-    class FileUploader extends Anu.Component {
-        constructor(props) {
+    ```typescript
+    interface FilePreview {
+        name: string;
+        file: File;
+    }
+
+    interface FileUploaderState {
+        files: FilePreview[];
+    }
+
+    class FileUploader extends Component<Props, FileUploaderState> {
+        fileInput: Ref<HTMLInputElement>;
+
+        constructor(props: Props) {
             super(props);
-            this.fileInput = Anu.createRef();
+            this.fileInput = Anu.createRef<HTMLInputElement>();
             this.state = {
                 files: []
             };
             this.uploadFiles = this.uploadFiles.bind(this);
             this.handleFileUploaderClick = this.handleFileUploaderClick.bind(this);
         }
-        handleFileUploaderClick() {
-            this.fileInput.current.click();
+        handleFileUploaderClick(): void {
+            this.fileInput.current!.click();
         }
-        uploadFiles({ target }) {
-            const nextState = {
-                files: []
-            };
-            for (let i = 0; i < target.files.length; i++) {
+        uploadFiles({ target }: { target: HTMLInputElement }): void {
+            const nextState: FileUploaderState = { files: [] };
+            for (let i = 0; i < target.files!.length; i++) {
                 nextState.files.push({
                     // Creates a name for preview.
                     // Use it as 'src' attribute value in image:
-                    name: URL.createObjectURL(target.files[i]),
-                    file: target.files[i]
+                    name: URL.createObjectURL(target.files![i]),
+                    file: target.files![i]
                 });
             }
             this.setState(nextState);
         }
-        render() {
+        render(): AnuElement {
             const { files } = this.state;
             return (
                 <Anu.Fragment>
@@ -564,33 +678,32 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
     <strong>Example</strong> - <i>handling <code>onClick</code> event outside of the referenced element</i>:
 
-    ```javascript
-    class ClickOutsideComponent extends Anu.Component {
-        constructor(props) {
+    ```typescript
+    interface ClickOutsideState {
+        show: boolean;
+    }
+
+    class ClickOutsideComponent extends Component<Props, ClickOutsideState> {
+        myRef: Ref<HTMLDivElement>;
+
+        constructor(props: Props) {
             super(props);
-            this.state = {
-                show: true
-            };
-            this.myRef = Anu.createRef();
+            this.state = { show: true };
+            this.myRef = Anu.createRef<HTMLDivElement>();
             this.handleClickOutside = this.handleClickOutside.bind(this);
         }
-        componentDidMount() {
+        componentDidMount(): void {
             document.addEventListener('mousedown', this.handleClickOutside);
         }
-        componentWillUnmount() {
+        componentWillUnmount(): void {
             document.removeEventListener('mousedown', this.handleClickOutside);
         }
-        handleClickOutside({ target }) {
-            if(
-                this.myRef.current &&
-                !this.myRef.current.contains(target)
-            ) {
-                this.setState({
-                    show: false
-                });
+        handleClickOutside({ target }: MouseEvent): void {
+            if (this.myRef.current && !this.myRef.current.contains(target as Node)) {
+                this.setState({ show: false });
             }
         }
-        render() {
+        render(): AnuElement | null {
             const { show } = this.state;
             return show ? (
                 <div ref={this.myRef}>
@@ -603,13 +716,25 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
     <strong>Example</strong> - <i>drag-and-drop todo list</i>:
 
-    ```javascript
+    ```typescript
     const TODO_STATUS = {
-        PENDING: 'pending',
-        COMPLETED: 'completed'
+        PENDING: 'pending' as const,
+        COMPLETED: 'completed' as const
     };
-    class DraggableTodoList extends Anu.Component {
-        constructor(props) {
+
+    type TodoStatus = typeof TODO_STATUS[keyof typeof TODO_STATUS];
+
+    interface TodoItem {
+        name: string;
+        status: TodoStatus;
+    }
+
+    interface DraggableTodoListState {
+        todoList: TodoItem[];
+    }
+
+    class DraggableTodoList extends Component<Props, DraggableTodoListState> {
+        constructor(props: Props) {
             super(props);
             this.state = {
                 todoList: [
@@ -624,26 +749,24 @@ when you want to imperatively modify a child outside of the typical dataflow.
             this.handleDragOver = this.handleDragOver.bind(this);
             this.handleDrop = this.handleDrop.bind(this);
         }
-        handleDragStart({ dataTransfer }, taskName) {
-            dataTransfer.setData('id', taskName);
+        handleDragStart({ dataTransfer }: DragEvent, taskName: string): void {
+            dataTransfer!.setData('id', taskName);
         }
-        handleDragOver(event) {
+        handleDragOver(event: DragEvent): void {
             event.preventDefault();
         }
-        handleDrop({ dataTransfer }, status) {
+        handleDrop({ dataTransfer }: DragEvent, status: TodoStatus): void {
             const { todoList } = this.state;
-            const id = dataTransfer.getData('id');
+            const id = dataTransfer!.getData('id');
             const list = todoList.map(task => {
                 if (task.name === id) {
                     task.status = status;
                 }
                 return task;
             });
-            this.setState({
-                todoList: list
-            });
+            this.setState({ todoList: list });
         }
-        render() {
+        render(): AnuElement {
             const { todoList } = this.state;
             const todoStatus = {
                 [TODO_STATUS.PENDING]: [],
@@ -690,44 +813,56 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
     <strong>Example</strong> - <i>infinite scroll</i>:
 
-    ```javascript
-    class ScrollComponent extends Anu.Component {
-        constructor(props) {
+    ```typescript
+    interface Photo {
+        url: string;
+        albumId: number;
+    }
+
+    interface PhotosResponse {
+        data: Photo[];
+    }
+
+    interface ScrollComponentState {
+        photos: Photo[];
+        loading: boolean;
+        page: number;
+        prevY: number;
+    }
+
+    class ScrollComponent extends Component<Props, ScrollComponentState> {
+        loadingRef: Ref<HTMLDivElement>;
+        observer?: IntersectionObserver;
+
+        constructor(props: Props) {
             super(props);
-            this.state = {
-                photos: [],
-                loading: false,
-                page: 0,
-                prevY: 0
-            };
-            this.loadingRef = Anu.createRef();
+            this.state = { photos: [], loading: false, page: 0, prevY: 0 };
+            this.loadingRef = Anu.createRef<HTMLDivElement>();
             this.handleObserver = this.handleObserver.bind(this);
             this.getPhotos = this.getPhotos.bind(this);
         }
-        getPhotos(page) {
+        getPhotos(page: number): void {
             this.setState({ loading: true });
             Anu
                 .ServerAPI
-                .get('/app/my/server/url', { page, limit: 10 })
-                .then(res => {
-                    this.setState({ photos: [...this.state.photos, ...res.data] });
+                .get<PhotosResponse>('/app/my/server/url', { page, limit: 10 })
+                .then(({ response }) => {
+                    const photos = response?.data ?? [];
+                    this.setState({ photos: [...this.state.photos, ...photos] });
                     this.setState({ loading: false });
                 });
         }
-        componentDidMount() {
+        componentDidMount(): void {
             this.getPhotos(this.state.page);
-            const options = {
+            const options: IntersectionObserverInit = {
                 root: null,
-                rootMargin: "0px",
+                rootMargin: '0px',
                 threshold: 1.0
             };
-            this.observer = new IntersectionObserver(
-                this.handleObserver,
-                options
-            );
-            this.observer.observe(this.loadingRef.current);
+            this.observer = new IntersectionObserver(this.handleObserver, options);
+            this.observer.observe(this.loadingRef.current!);
         }
-        handleObserver(entities, observer) {
+        handleObserver(entities: IntersectionObserverEntry[]): void {
             const y = entities[0].boundingClientRect.y;
             if (this.state.prevY > y) {
                 const lastPhoto = this.state.photos[this.state.photos.length - 1];
@@ -737,24 +872,18 @@ when you want to imperatively modify a child outside of the typical dataflow.
             }
             this.setState({ prevY: y });
         }
-        render() {
-            const loadingCSS = {
-                height: "100px",
-                margin: "30px"
-            };
-            const loadingTextCSS = { display: this.state.loading ? "block" : "none" };
+        render(): AnuElement {
+            const loadingCSS = { height: '100px', margin: '30px' };
+            const loadingTextCSS = { display: this.state.loading ? 'block' : 'none' };
             return (
                 <div className="container">
-                    <div style={{ minHeight: "800px" }}>
+                    <div style={{ minHeight: '800px' }}>
                         {this.state.photos.map(user => (
                             <img src={user.url} height="100px" width="200px" />
                         ))}
                     </div>
-                    <div
-                        ref={this.loadingRef}
-                        style={loadingCSS}
-                    >
-                    <span style={loadingTextCSS}>Loading...</span>
+                    <div ref={this.loadingRef} style={loadingCSS}>
+                        <span style={loadingTextCSS}>Loading...</span>
                     </div>
                 </div>
             );
@@ -764,13 +893,13 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
     <strong>Example</strong> - <i>laser pointer</i>:
 
-    ```javascript
-    const canvasStyle = {
+    ```typescript
+    const canvasStyle: Partial<CSSStyleDeclaration> = {
         height: '500px',
         width: '100%',
         border: '1px solid black'
     };
-    const laserPointerStyle = {
+    const laserPointerStyle: Partial<CSSStyleDeclaration> = {
         position: 'absolute',
         backgroundColor: 'pink',
         borderRadius: '50%',
@@ -782,28 +911,25 @@ when you want to imperatively modify a child outside of the typical dataflow.
         height: '40px',
         zIndex: '10'
     };
-    class LaserPointer extends Anu.Component {
-        constructor(props) {
+
+    interface LaserPointerState {
+        layerX: number;
+        layerY: number;
+    }
+
+    class LaserPointer extends Component<Props, LaserPointerState> {
+        constructor(props: Props) {
             super(props);
-            this.state = {
-                layerX: 0,
-                layerY: 0
-            };
+            this.state = { layerX: 0, layerY: 0 };
             this.handleMove = this.handleMove.bind(this);
         }
-        handleMove({ layerX, layerY }) {
-            this.setState({
-                layerX,
-                layerY
-            });
+        handleMove({ layerX, layerY }: MouseEvent & { layerX: number; layerY: number }): void {
+            this.setState({ layerX, layerY });
         }
-        render() {
+        render(): AnuElement {
             const { layerX, layerY } = this.state;
             return (
-                <div
-                    style={canvasStyle}
-                    onMouseMove={this.handleMove}
-                >
+                <div style={canvasStyle} onMouseMove={this.handleMove}>
                     <div
                         id="laser-pointer"
                         style={{
@@ -819,7 +945,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
 
     <strong>Example</strong> - <i>paint application with preview (image can be saved as PNG) with <code>canvas</code> API</i>:
 
-    ```javascript
+    ```typescript
     const canvasHeight = 500;
     const canvasWidth = 975;
     const canvasContainer = {
@@ -857,11 +983,27 @@ when you want to imperatively modify a child outside of the typical dataflow.
         border: '1px solid black'
     };
     const BRUSH_MODES = {
-        PEN: 'Pen',
-        ERASER: 'Eraser'
+        PEN: 'Pen' as const,
+        ERASER: 'Eraser' as const
     };
-    class Canvas extends Anu.Component {
-        constructor(props) {
+
+    type BrushMode = typeof BRUSH_MODES[keyof typeof BRUSH_MODES];
+
+    interface CanvasState {
+        isDrawing: boolean;
+        lineWidth: number;
+        lineColor: string;
+        lineOpacity: number;
+        brushMode: BrushMode;
+        dataUrl?: string;
+    }
+
+    class Canvas extends Component<Props, CanvasState> {
+        canvasRef: Ref<HTMLCanvasElement>;
+        ctxRef: Ref<CanvasRenderingContext2D>;
+        imageRef: Ref<HTMLImageElement>;
+
+        constructor(props: Props) {
             super(props);
             this.state = {
                 isDrawing: false,
@@ -871,9 +1013,9 @@ when you want to imperatively modify a child outside of the typical dataflow.
                 brushMode: BRUSH_MODES.PEN,
                 dataUrl: undefined
             };
-            this.canvasRef = Anu.createRef();
-            this.ctxRef = Anu.createRef();
-            this.imageRef = Anu.createRef();
+            this.canvasRef = Anu.createRef<HTMLCanvasElement>();
+            this.ctxRef = Anu.createRef<CanvasRenderingContext2D>();
+            this.imageRef = Anu.createRef<HTMLImageElement>();
             this._reRender = this._reRender.bind(this);
             this.startDrawing = this.startDrawing.bind(this);
             this.endDrawing = this.endDrawing.bind(this);
@@ -884,87 +1026,67 @@ when you want to imperatively modify a child outside of the typical dataflow.
             this.setBrushMode = this.setBrushMode.bind(this);
             this.handleSave = this.handleSave.bind(this);
         }
-        _reRender() {
-            const {
-                lineWidth,
-                lineColor,
-                lineOpacity,
-                brushMode
-            } = this.state;
-            const canvasContext = this.canvasRef.current &&
-                this.canvasRef.current.getContext &&
-                this.canvasRef.current.getContext('2d');
+        _reRender(): void {
+            const { lineWidth, lineColor, lineOpacity } = this.state;
+            const canvasContext = this.canvasRef.current?.getContext('2d');
+            if (!canvasContext) return;
             canvasContext.lineCap = "round";
             canvasContext.lineJoin = "round";
             canvasContext.globalAlpha = lineOpacity;
             canvasContext.strokeStyle = lineColor;
             canvasContext.lineWidth = lineWidth;
             this.ctxRef.current = canvasContext;
-            this.ctxRef.brushMode = brushMode;
         }
-        componentDidMount() {
+        componentDidMount(): void {
             this._reRender();
         }
-        componentDidUpdate() {
+        componentDidUpdate(): void {
             this._reRender();
         }
-        startDrawing(event) {
-            const rect = event.target.getBoundingClientRect();
+        startDrawing(event: MouseEvent): void {
+            const rect = (event.target as HTMLCanvasElement).getBoundingClientRect();
             const x = event.clientX - rect.left;
             const y = event.clientY - rect.top;
-            this.ctxRef.current.beginPath();
-            this.ctxRef.current.moveTo(x, y);
-
+            this.ctxRef.current!.beginPath();
+            this.ctxRef.current!.moveTo(x, y);
             this.setState({ isDrawing: true });
         }
-        endDrawing() {
+        endDrawing(): void {
             this.setState({ isDrawing: false });
         }
-        draw(event) {
+        draw(event: MouseEvent): void {
             const { lineWidth, brushMode, isDrawing } = this.state;
-
-            if (!isDrawing) {
-                return;
-            }
-            const rect = event.target.getBoundingClientRect();
+            if (!isDrawing) return;
+            const rect = (event.target as HTMLCanvasElement).getBoundingClientRect();
             const x = event.clientX - rect.left;
             const y = event.clientY - rect.top;
-
             if (brushMode === BRUSH_MODES.PEN) {
-                this.ctxRef.current.lineTo(x, y);
-                this.ctxRef.current.stroke();
+                this.ctxRef.current!.lineTo(x, y);
+                this.ctxRef.current!.stroke();
             } else {
-                this.ctxRef.current.clearRect(
-                    x - lineWidth / 2,
-                    y - lineWidth / 2,
-                    lineWidth,
-                    lineWidth
-                );
+                this.ctxRef.current!.clearRect(x - lineWidth / 2, y - lineWidth / 2, lineWidth, lineWidth);
             }
         }
-        setLineWidth({ target: { value } }) {
-            this.setState({ lineWidth: value });
+        setLineWidth({ target }: { target: HTMLInputElement }): void {
+            this.setState({ lineWidth: Number(target.value) });
         }
-        setLineColor({ target: { value } }) {
-            this.setState({ lineColor: value });
+        setLineColor({ target }: { target: HTMLInputElement }): void {
+            this.setState({ lineColor: target.value });
         }
-        setOpacity({ target: { value } }) {
-            this.setState({ lineOpacity: value / 100 });
+        setOpacity({ target }: { target: HTMLInputElement }): void {
+            this.setState({ lineOpacity: Number(target.value) / 100 });
         }
-        setBrushMode() {
+        setBrushMode(): void {
             this.setState(prevState => ({
                 ...prevState,
-                brushMode:
-                    prevState.brushMode === BRUSH_MODES.PEN
-                        ? BRUSH_MODES.ERASER
-                        : BRUSH_MODES.PEN
+                brushMode: prevState.brushMode === BRUSH_MODES.PEN ? BRUSH_MODES.ERASER : BRUSH_MODES.PEN
             }));
         }
-        handleSave() {
-            const dataUrl = this.canvasRef.current.toDataURL();
+        handleSave(): void {
+            const dataUrl = this.canvasRef.current!.toDataURL();
             this.setState({ dataUrl });
         }
-        render() {
+        render(): AnuElement {
             const {
                 lineWidth,
                 lineColor,
@@ -1040,11 +1162,11 @@ when you want to imperatively modify a child outside of the typical dataflow.
     - The first one is the component you want to add to the DOM tree.
     - The second one is a valid HTML element already in the DOM tree, to which you want to attach your component.
 
-        ```javascript
+        ```typescript
         const ID = 'root';
         Anu.render(
             <App />,
-            document.getElementById(ID)
+            document.getElementById(ID) as Element
         );
         ```
 
@@ -1060,15 +1182,23 @@ when you want to imperatively modify a child outside of the typical dataflow.
     - The <code>&lt;Anu.History.Route /&gt;</code> component has a <code>path</code> prop to match against the URL. If it has an <code>exact</code> prop, it doesn't allow partial matching.
     - The <code>&lt;Anu.History.Route /&gt;</code> can also have a <code>component</code> (must be a component) or a <code>render</code> prop (it must be a function that returns a component).
 
-        ```javascript
-        const Home = () => <h2>Home</h2>;
-        const About = () => <h2>About</h2>;
-        const Topic = ({ topicId }) => <h3>{topicId}</h3>;
-        const Topics = ({ match }) => {
-            const items = [
+        ```typescript
+        import Anu, { AnuElement, Props } from 'anu-verzum';
+
+        interface RouteMatch { path: string | null; url: string; isExact: boolean; }
+
+        const Home = (): AnuElement => <h2>Home</h2>;
+        const About = (): AnuElement => <h2>About</h2>;
+
+        interface TopicProps extends Props { topicId: string; }
+        const Topic = ({ topicId }: TopicProps): AnuElement => <h3>{topicId}</h3>;
+
+        interface TopicsProps extends Props { match: RouteMatch; }
+        const Topics = ({ match }: TopicsProps): AnuElement => {
+            const items: Array<{ name: string; slug: string }> = [
                 { name: 'Rendering with React', slug: 'rendering' },
                 { name: 'Components', slug: 'components' },
-                { name: 'Props v. State', slug: 'props-v-state' },
+                { name: 'Props v. State', slug: 'props-v-state' }
             ];
             return (
                 <div>
@@ -1081,7 +1211,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
                         ))}
                     </ul>
                     {items.map(({ name, slug }) => (
-                        <Anu.History.Route path={`${match.path}/${slug}`} render={() => (
+                        <Anu.History.Route path={`${match.path ?? ''}/${slug}`} render={() => (
                             <Topic topicId={name} />
                         )} />
                     ))}
@@ -1092,27 +1222,19 @@ when you want to imperatively modify a child outside of the typical dataflow.
             );
         };
         // Usage in application:
-        const RouterApp = () => {
-            return (
-                <div>
-                    <ul>
-                        <li>
-                            <Anu.History.Link to="/">Home</Anu.History.Link>
-                        </li>
-                        <li>
-                            <Anu.History.Link to="/about">About</Anu.History.Link>
-                        </li>
-                        <li>
-                            <Anu.History.Link to="/topics">Topics</Anu.History.Link>
-                        </li>
-                    </ul>
-                    <hr />
-                    <Anu.History.Route exact path="/" component={Home} />
-                    <Anu.History.Route path="/about" component={About} />
-                    <Anu.History.Route path="/topics" component={Topics} />
-                </div>
-            );
-        };
+        const RouterApp = (): AnuElement => (
+            <div>
+                <ul>
+                    <li><Anu.History.Link to="/">Home</Anu.History.Link></li>
+                    <li><Anu.History.Link to="/about">About</Anu.History.Link></li>
+                    <li><Anu.History.Link to="/topics">Topics</Anu.History.Link></li>
+                </ul>
+                <hr />
+                <Anu.History.Route exact path="/" component={Home} />
+                <Anu.History.Route path="/about" component={About} />
+                <Anu.History.Route path="/topics" component={Topics} />
+            </div>
+        );
         ```
 
 <h3 id="redirecting-with-history-redirect">Redirecting - <strong>The <code>&lt;Anu.History.Redirect /&gt;</code> component</strong></h3>
@@ -1122,22 +1244,22 @@ when you want to imperatively modify a child outside of the typical dataflow.
     This will tell the System to render the component which can be found on the <code>to</code> URL (which is basically an <code>&lt;Anu.History.Route /&gt;</code> which will render the corresponding component).
     If <code>push</code> is present, it will push the URL into the <strong>History API</strong> instead of replacing the current one.
 
-        ```javascript
-        const RouteredApp = () => {
-            return (
-                // ...
-                <Anu.History.Route
-                    path="/something"
-                    render={() => {
-                        if(loggedIn) {
-                            return <MainPageComponent />;
-                        } else {
-                            return <Anu.History.Redirect to="/" push />;
-                        }
-                    }}
-                />
-            );
-        };
+        ```typescript
+        declare const loggedIn: boolean;
+
+        const RouteredApp = (): AnuElement => (
+            // ...
+            <Anu.History.Route
+                path="/something"
+                render={() => {
+                    if (loggedIn) {
+                        return <MainPageComponent />;
+                    } else {
+                        return <Anu.History.Redirect to="/" push />;
+                    }
+                }}
+            />
+        );
         ```
 
 <h3 id="redirecting-with-history-goto">Redirecting from within the code - <strong>The <code>Anu.History.goTo()</code> method</strong></h3>
@@ -1149,7 +1271,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
     If set to <code>true</code>, it will replace the current URL. By default, it pushes into the History API.
     - Please only use <code>Anu.History.goTo()</code> if you need to redirect user inside the code based on functionality (like in <code>if</code> statement) for accessibility reasons.
 
-        ```javascript
+        ```typescript
         // Pushes URL into History API by default:
         Anu.History.goTo('/about');
         // Replaces current URL with the 'path' argument in History API:
@@ -1174,25 +1296,28 @@ They are faster than the <strong>POST</strong> or <strong>PUT</strong> HTTP meth
 - Returns a <code>Promise</code> object.
 You can send params within the URL <strong>AND/OR</strong> as URI query parameters, e.g.:
 
-    ```javascript
+    ```typescript
+    interface MyItem {
+        id: string;
+        name: string;
+    }
+
     const passedValueForGet = '1234'; // Represents an ID...
-    const paramsForGet = {
-        key: 'value',
-        nextKey: 'nextValue'
-    };
+    const paramsForGet = { key: 'value', nextKey: 'nextValue' };
     // In this case, the XHR URL will be `/app/my-server-url/1234?key=value&nextKey=nextValue`:
     Anu
         .ServerAPI
-        .get(`/app/my-server-url/${passedValueForGet}`, paramsForGet)
-        .then(({ response }) => { /* ... */ })
-        .catch(({ status }) => { /* ... */ });
+        .get<MyItem>(`/app/my-server-url/${passedValueForGet}`, paramsForGet)
+        .then(({ response }) => { /* response is MyItem | null */ })
+        .catch(({ status }) => { /* status is number */ });
+
     const passedValueForDelete = '1234'; // Represents an ID...
     // In this case, the XHR URL will be `/app/my-server-url/1234`:
     Anu
         .ServerAPI
-        .delete(`/app/my-server-url/${passedValueForDelete}`)
+        .delete<void>(`/app/my-server-url/${passedValueForDelete}`)
         .then(({ response }) => { /* ... */ })
-        .catch(({ status }) => { /* ... */ });
+        .catch(({ status }) => { /* status is number */ });
     ```
 
 <h3 id="post-and-put-methods">The <strong>POST</strong> and <strong>PUT</strong> HTTP methods</h3>
@@ -1200,20 +1325,30 @@ You can send params within the URL <strong>AND/OR</strong> as URI query paramete
 - The <code>Anu.ServerAPI.post()</code> and <code>Anu.ServerAPI.put()</code> perform an <strong>POST</strong> or <strong>PUT</strong> HTTP method respectively to send large data to the server and optionally get other data back.
 - It takes a <code>url</code> (string) and a <code>data</code> (object) argument and returns a <code>Promise</code> object:
 
-    ```javascript
-    const dataForPost = { /* ... */ };
+    ```typescript
+    interface CreateItemRequest {
+        name: string;
+    }
+
+    interface CreateItemResponse {
+        id: string;
+        name: string;
+    }
+
+    const dataForPost: CreateItemRequest = { name: 'My Item' };
     Anu
         .ServerAPI
-        .post('/app/my-server-url/', dataForPost)
-        .then(({ response }) => { /* ... */ })
-        .catch(({ status }) => { /* ... */ });
+        .post<CreateItemResponse>('/app/my-server-url/', dataForPost)
+        .then(({ response }) => { /* response is CreateItemResponse | null */ })
+        .catch(({ status }) => { /* status is number */ });
+
     const passedValue = '1234'; // Represents an ID...
-    const dataForPut = { /* ... */ };
+    const dataForPut: Partial<CreateItemRequest> = { name: 'Updated Name' };
     Anu
         .ServerAPI
-        .put(`/app/my-server-url/${passedValue}`, dataForPut)
-        .then(({ response }) => { /* ... */ })
-        .catch(({ status }) => { /* ... */ });
+        .put<CreateItemResponse>(`/app/my-server-url/${passedValue}`, dataForPut)
+        .then(({ response }) => { /* response is CreateItemResponse | null */ })
+        .catch(({ status }) => { /* status is number */ });
     ```
 
 <h3 id="file-method">The <strong>FILE</strong> HTTP method</h3>
@@ -1221,13 +1356,18 @@ You can send params within the URL <strong>AND/OR</strong> as URI query paramete
 - The <code>Anu.ServerAPI.file()</code> performs a POST HTTP method and encodes one or more files to send them to the server.
 - It takes an <code>url</code> (string), a <code>file</code> (one <code>File</code> object or an <strong>ARRAY</strong> of <code>File</code> objects) argument and an optional <code>data</code> (object) and returns a <code>Promise</code> object:
 
-    ```javascript
-    const data = { /* ... */ };
+    ```typescript
+    interface UploadResponse {
+        fileUrl: string;
+    }
+
+    const data: Record<string, string> = { category: 'documents' };
+    const file: File = /* ... */ new File([], 'example.pdf');
     Anu
         .ServerAPI
-        .file('/app/my-server-url/', File, data)
-        .then(({ response }) => { /* ... */ })
-        .catch(({ status }) => { /* ... */ });
+        .file<UploadResponse>('/app/my-server-url/', file, data)
+        .then(({ response }) => { /* response is UploadResponse | null */ })
+        .catch(({ status }) => { /* status is number */ });
     ```
 
 <br>
@@ -1253,8 +1393,13 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
     - <code>onSuccess</code> callback is a custom callback function that will be fired when data transmission ended successfully.
     - <code>onFail</code> callback is a custom callback function that will be fired when data transmission failed.
 
-        ```javascript
-        const App = () => (
+        ```typescript
+        declare const analyticsUrl: string;
+        declare const userData: Record<string, unknown>;
+        declare const handleSuccess: (response: unknown) => void;
+        declare const handleFail: (status: number) => void;
+
+        const App = (): AnuElement => (
             <Anu.Anulytics.Provider analyticsUrl={analyticsUrl} userData={userData} onSuccess={handleSuccess} onFail={handleFail}>
                 <Your_Site_Goes_Here />
             </Anu.Anulytics.Provider>
@@ -1263,22 +1408,22 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
 
     - The <code>data</code> object sent to the server looks like the following:
 
-        ```javascript
+        ```typescript
         type Data = {
-            events: array<Event>,
-            startDate: Date,
-            endDate: Date,
+            events: Event[];
+            startDate: Date;
+            endDate: Date;
             system: {
-                referrer: string | null,
-                innerWidth: number,
-                isMobileAppInstalled: boolean,
+                referrer: string | null;
+                innerWidth: number;
+                isMobileAppInstalled: boolean;
                 userAgentData: {
-                    userAgent: string | array<UserAgent>
-                    mobile: boolean,
-                    platform: string | null
-                }
-            },
-            user: User
+                    userAgent: string | UserAgent[];
+                    mobile: boolean;
+                    platform: string | null;
+                };
+            };
+            user: Record<string, unknown>;
         };
         ```
     
@@ -1299,15 +1444,15 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
         The <code>properties</code> are typically set when <code>Anu.Anulytics.trackEvent()</code> has been used or an action was dispatched.<br>
         The <code>properties</code> are empty on <code>'initialization'</code>, <code>'navigation'</code> and <code>'pageLeave'</code>.
 
-            ```javascript
-            type key = 'initialization' | 'navigation' | 'userAction' | 'stateChange' | 'pageLeave';
-            interface Event {
-                [key]: {
-                    eventType: UserEvent | ActionType | URI,
-                    timestamp: Date,
-                    properties: UserActionProperties | StateChangeProperties | {}
-                }
-            }
+            ```typescript
+            type EventKey = 'initialization' | 'navigation' | 'userAction' | 'stateChange' | 'pageLeave';
+            type Event = {
+                [K in EventKey]?: {
+                    eventType: string;
+                    timestamp: Date;
+                    properties: UserActionProperties | StateChangeProperties | Record<string, never>;
+                };
+            };
             ```
 
     - The <code>UserActionProperties</code> type can have various properties, like <code>id</code>, <code>name</code>, <code>url</code> and <code>value</code>:
@@ -1322,19 +1467,19 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
         - The <code>scrollLeft</code> is the amount the user scrolled from the left side of the page.
         - The <code>url</code> is the URL of the page that contains the DOM element with the given event handler tracked.
 
-            ```javascript
+            ```typescript
             type UserActionProperties = {
-                id: string,
-                name: string,
-                nodeName: string,
-                keyCode: number | null,
-                value?: string,
-                pageX: number,
-                pageY: number,
-                scrollTop: number,
-                scrollLeft: number,
-                url: string,
-                props: Object | null // User-defined props, 2nd argument passed to Anu.Anulytics.trackEvent()
+                id: string;
+                name: string;
+                nodeName: string;
+                keyCode: number | null;
+                value?: string;
+                pageX: number;
+                pageY: number;
+                scrollTop: number;
+                scrollLeft: number;
+                url: string;
+                props: Record<string, unknown> | null; // User-defined props passed to Anu.Anulytics.trackEvent()
             };
             ```
     
@@ -1344,13 +1489,13 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
         - The <code>action</code> is the dispatched action.
         - The <code>nextState</code> is the global state object after the action was performed.
 
-            ```javascript
-            type StateChangeProperties {
-                url: string,
-                prevState: Object,
-                action: Object,
-                nextState: Object
-            }
+            ```typescript
+            type StateChangeProperties = {
+                url: string;
+                prevState: Record<string, unknown>;
+                action: Record<string, unknown>;
+                nextState: Record<string, unknown>;
+            };
             ```
     
     - The <code>User</code> type is an object of the developer choice.
@@ -1373,9 +1518,13 @@ If you want to track additional elements, call <code>Anu.Anulytics.trackEvent(ev
 - To create a context provider and context consumer elements with default context, call the <code>Anu.createContext()</code>.
 It takes a <code>context</code> argument which can be reached later as <code>context.defaultContext.value</code> and returns a context provider and consumer:
 
-    ```javascript
+    ```typescript
+    interface ThemeContextValue {
+        theme: string;
+    }
+
     // This can be accessed as "context.defaultContext.value.theme":
-    const ThemedContext = Anu.createContext({ theme: 'Theme-1' });
+    const ThemedContext = Anu.createContext<ThemeContextValue>({ theme: 'Theme-1' });
     ```
 
 <h3 id="usage-of-context-provider-and-consumers">Usage of the context provider and its consumer(s)</h3>
@@ -1387,15 +1536,17 @@ It takes a <code>context</code> argument which can be reached later as <code>con
 No need to pass the <code>context</code> all the way down within the "props flow"; the function child of the context consumer will have access to it by default.<br>
 It allows you to create your "intermediate" components without depending from the <code>context</code> (they don't need to be aware of it if they have nothing to do with it...).
 
-    ```javascript
-    const ComponentWithContext = () => {
+    ```typescript
+    import Anu, { AnuElement, ContextValue } from 'anu-verzum';
+
+    const ComponentWithContext = (): AnuElement => {
         const theme2 = 'Theme-2';
         return (
             <ThemedContext.ContextProvider theme={theme2}>
                 <MyComponent1>
                     <MyComponentN>
                         <ThemedContext.ContextConsumer>
-                            {context => {
+                            {(context: ContextValue<ThemeContextValue>) => {
                                 const {
                                     value: {
                                         theme // "Theme-2"
@@ -1439,47 +1590,59 @@ It allows you to create your "intermediate" components without depending from th
         - That returned function takes 2 arguments: <code>dispatch</code> and <code>getState</code>
         - Here. you can do additional things (like getting out a value from the state using <code>getState()</code> or dispatching an action using <code>dispatch()</code>) before returning the final payload (most likely an AJAX request).
 
-            ```javascript
+            ```typescript
+            import Anu, { Action, ThunkAction, Dispatch } from 'anu-verzum';
+
             // Simple action creator:
-            const myActionCreator = passedProps => ({
-                type,                   // Must have!
-                payload: {
-                    passedProps
-                }
+            const myActionCreator = (passedProps: unknown): Action => ({
+                type: 'MY_ACTION',  // Must have!
+                payload: { passedProps }
             });
             // Async action creator - requires middleware:
-            const myAsyncActionCreator = value => (dispatch, getState) => {
+            const myAsyncActionCreator = (value: string): ThunkAction => (dispatch, getState) => {
                 // call a function that dispatches action(s) or returning a promise...
             };
             ```
                 
             <strong>Example</strong> - <i>creating a "simple" action creator</i>:
 
-            ```javascript
-            // Action type:
+            ```typescript
+            // Action type constants:
             const mySimpleActionTypes = {
-                ACTION: 'MY_SIMPLE_ACTION'
+                ACTION: 'MY_SIMPLE_ACTION' as const
             };
+
+            // Typed action interface:
+            interface MySimpleAction extends Action {
+                type: typeof mySimpleActionTypes.ACTION;
+                payload: { param: string };
+            }
+
             // Action creator:
-            const mySimpleActionCreator = param => ({
+            const mySimpleActionCreator = (param: string): MySimpleAction => ({
                 type: mySimpleActionTypes.ACTION,
-                payload: {
-                    param
-                }
+                payload: { param }
             });
             ```
 
             <strong>Example</strong> - <i>creating an "asynchronous" action creator</i>:
 
-            ```javascript
-            // Action type:
+            ```typescript
+            // Action type constants:
             const myAsyncActionTypes = {
-                PENDING: 'MY_PENDING_ACTION',
-                FULFILLED: 'MY_FULFILLED_ACTION',
-                REJECTED: 'MY_REJECTED_ACTION',
+                PENDING: 'MY_PENDING_ACTION' as const,
+                FULFILLED: 'MY_FULFILLED_ACTION' as const,
+                REJECTED: 'MY_REJECTED_ACTION' as const
             };
+
+            // Typed action interfaces:
+            interface PendingAction extends Action { type: typeof myAsyncActionTypes.PENDING; }
+            interface FulfilledAction extends Action { type: typeof myAsyncActionTypes.FULFILLED; payload: { response: unknown }; }
+            interface RejectedAction extends Action { type: typeof myAsyncActionTypes.REJECTED; payload: { status: number }; }
+            type MyAsyncAction = PendingAction | FulfilledAction | RejectedAction;
+
             // Async action creator:
-            const myAsyncActionCreator = value => dispatch => {
+            const myAsyncActionCreator = (value: string): ThunkAction => dispatch => {
                 dispatch({ type: myAsyncActionTypes.PENDING });
                 return Anu
                     .ServerAPI
@@ -1496,12 +1659,18 @@ it should return that part, with the updated desired values:
 - Note that the relationship between actions and reducers is M:N!
 - <strong>NEVER</strong> mutater the state directly!
 
-    ```javascript
+    ```typescript
+    import Anu, { Reducer } from 'anu-verzum';
+
+    interface MyReducerState {
+        statePart: { part1: string };
+    }
+
     // Initial state:
-    const initialStateForMyReducer1 = { statePart: { part1 = defaultValue } };
+    const initialStateForMyReducer1: MyReducerState = { statePart: { part1: 'defaultValue' } };
     // Reducer:
-    const myReducer1 = (state = initialStateForMyReducer1, action) => {
-        switch(action.type) {
+    const myReducer1: Reducer<MyReducerState> = (state = initialStateForMyReducer1, action) => {
+        switch (action.type) {
             case 'ACTION_1': {
                 return { statePart: { part1: action.payload.part1 } };
             }
@@ -1515,40 +1684,34 @@ it should return that part, with the updated desired values:
 
     <strong>Example</strong> - <i>handling the previous actions</i>:
 
-    ```javascript	
-    const defaultState = { /* ... */ };
-    const myReducerForSimpleActionCreator = (state = defaultState, { type, payload }) => {
-        switch(type) {
+    ```typescript
+    type LoadingStatus = 'PENDING' | 'FULFILLED' | 'REJECTED' | null;
+
+    interface MyFeatureState {
+        param: string;
+        status: LoadingStatus;
+        data: unknown;
+        errorCode: number | null;
+    }
+
+    const defaultState: MyFeatureState = { param: '', status: null, data: null, errorCode: null };
+
+    const myReducerForSimpleActionCreator: Reducer<MyFeatureState> = (state = defaultState, { type, payload }) => {
+        switch (type) {
             case mySimpleActionTypes.ACTION: {
-                const { param } = payload;
-                return {
-                    ...state,
-                    param
-                };
+                const { param } = payload as { param: string };
+                return { ...state, param };
             }
             case myAsyncActionTypes.PENDING: {
-                return {
-                    ...state,
-                    status: 'PENDING'
-                };
+                return { ...state, status: 'PENDING' };
             }
             case myAsyncActionTypes.FULFILLED: {
-                const { response } = payload;
-                return {
-                    ...state,
-                    status: 'FULFILLED',
-                    data: response,
-                    errorCode: null
-                };
+                const { response } = payload as { response: unknown };
+                return { ...state, status: 'FULFILLED', data: response, errorCode: null };
             }
             case myAsyncActionTypes.REJECTED: {
-                const { status } = payload;
-                return {
-                    ...state,
-                    status: 'REJECTED',
-                    data: null,
-                    errorCode: status
-                };
+                const { status } = payload as { status: number };
+                return { ...state, status: 'REJECTED', data: null, errorCode: status };
             }
             default: {
                 return state;
@@ -1566,32 +1729,29 @@ it should return that part, with the updated desired values:
     - The second argument is a "handler" function which take as many arguments as many "getter" functions you defined; these arguments are the return values of the "getter" functions.
     Their number and order is the same as of the "getters" within the first (array) argument of the <code>Anu.store.createSelector()</code>.
 
-        ```javascript
+        ```typescript
+        import Anu, { SelectorFn } from 'anu-verzum';
+
+        interface MyGlobalState {
+            myStatePart1: string;
+            myStatePart2: number[];
+        }
+
         // Getter functions:
-        const functionThatGetsSomePartOfState1 = state => {
-            return state[part1];
-        };
-        // ...
-        const functionThatGetsSomePartOfStateN = state => {
-            return state[partN];
-        };
-        // Store the getters within an array (this will be the first argument of the selector):
-        const getters = [
-            functionThatGetsSomePartOfState1,
-            // ...
-            functionThatGetsSomePartOfStateN
-        ];
-        // Define the second (function) argument of the selector:
-        const handler = (
-            partOfTheState1,
-            // ...
-            partOfTheStateN
-        ) => {
+        const getStatePart1: SelectorFn<MyGlobalState, string> = state => state.myStatePart1;
+        const getStatePart2: SelectorFn<MyGlobalState, number[]> = state => state.myStatePart2;
+
+        // Store the getters within an array:
+        const getters = [getStatePart1, getStatePart2];
+
+        // Define the transformation function:
+        const handler = (part1: string, part2: number[]): string => {
             // Do something with the state-parts and return the result:
-            return somethingDerivedFromStatePartsParams;
+            return `${part1}: ${part2.join(', ')}`;
         };
+
         // Selector:
-        const mySelector = Anu.store.createSelector(getters, handler);
+        const mySelector: SelectorFn<MyGlobalState, string> = Anu.store.createSelector(getters, handler);
         ```
 
 <h3 id="combining-reducers">Combining reducers</h3>
@@ -1600,11 +1760,17 @@ it should return that part, with the updated desired values:
     - The function receives one (object) argument - the "key" of the item will be the name of the corresponding state-part, the "value" is the reducer you want to add to the combined reducer.
     - <code>Anu.store.combineReducers()</code> can be used multiple times in the application.
 
-        ```javascript
-        const combinedReducer = Anu.store.combineReducers({
+        ```typescript
+        import Anu, { Reducer } from 'anu-verzum';
+
+        interface GlobalState {
+            myStatePart1: MyReducerState;
+            myStatePart2: MyFeatureState;
+        }
+
+        const combinedReducer: Reducer<GlobalState> = Anu.store.combineReducers<GlobalState>({
             myStatePart1: myReducer1,
-            // ...
-            myStatePartN: myReducerN
+            myStatePart2: myReducerForSimpleActionCreator
         });
         ```
     
@@ -1612,11 +1778,10 @@ it should return that part, with the updated desired values:
     - The "key" of this object must match with the corresponding "key" you used within the combined reducer, the "value" is the initial state (the one you (possibly) used for the "single" reducer).
     It is not mandatory however, it comes handy when your state object becomes large and complex:
 
-        ```javascript
-        const initialState = {
-            myStatePart1: myStatePart1
-            // ...
-            myStatePartN: myStatePartN
+        ```typescript
+        const initialState: GlobalState = {
+            myStatePart1: initialStateForMyReducer1,
+            myStatePart2: defaultState
         };
         ```
     
@@ -1636,13 +1801,15 @@ You will likely use the <code>store.getState()</code> and <code>store.dispatch()
             - The <code>Anu.store.middleware.loggingMiddleware()</code> is a logger; it comes handy when in development mode,
             - The <code>Anu.store.middleware.thunkMiddleware()</code> enables you to use asynchronous action creators (those returning functions instead of objects) as well.
 
-                ```javascript
+                ```typescript
+                import Anu, { Store } from 'anu-verzum';
+
                 // Assuming that the 'rootReducer' is the 'combinedReducer' created before:
-                const rootReducer = combinedReducer; 
+                const rootReducer = combinedReducer;
                 // If you don't use middleware (i.e. you don't need to handle asynchronous calls):
-                const syncStore = Anu.store.createStore(rootReducer, initialState);
+                const syncStore: Store<GlobalState> = Anu.store.createStore<GlobalState>(rootReducer, initialState);
                 // Otherwise, if you wish handle asynchronous calls, like AJAX requests:
-                const asyncStore = Anu.store.createStore(
+                const asyncStore: Store<GlobalState> = Anu.store.createStore<GlobalState>(
                     rootReducer,
                     initialState,
                     Anu.store.middleware.applyMiddleware(
@@ -1662,16 +1829,18 @@ This API is designed to connect your global store with elements within the prese
 
 - Wrap the outermost component (this should contain all your "container" components - see <a href="#create-container-component">Create container component</a> section) within <code>&lt;Anu.Connector.Provider /&gt;</code> and pass the store object:
 
-    ```javascript
-    class App extends Anu.Component {
-        render() {
+    ```typescript
+    import Anu, { Component, AnuElement } from 'anu-verzum';
+
+    class App extends Component {
+        render(): AnuElement {
             return (
                 <Anu.Connector.Provider store={store}>
                     <Your_Page />
                 </Anu.Connector.Provider>
             );
         }
-    };
+    }
     ```
 
 <h3 id="create-container-component">Create container component</h3>
@@ -1689,40 +1858,51 @@ The first function takes two arguments: the <code>mapStateToProps()</code> and <
         - It takes the <code>dispatch</code> as the first argument and an optional <code>ownProps</code> which is basically the object of the props you pass down from the caller component as part of the "props flow".
         - The function must return an object of props (functions-as-props those dispatch actions - call action creators) which can now be used by the wrapped component as if they were "regular" props.
 
-            ```javascript
-            // Create function component:
-            const WrappedComponent = props => {
-                return (
-                    <Component_to_render />
-                );
-            };
-            // Or class component:
-            class WrappedComponent extends Anu.Component {
-                render() {
-                    return (
-                        <Component_to_render />
-                    );
-                }
-            };
-            const mapStateToProps = (state, ownProps) => {
-                // Extracting part from global state:
-                const { statePart1 } = state;
+            ```typescript
+            import Anu, { Props, AnuElement, Component, Dispatch } from 'anu-verzum';
 
+            // Own props passed from the parent component:
+            interface OwnProps extends Props {
+                id: string;
+            }
+
+            // Props injected from the global state:
+            interface StateProps {
+                propName1: string;
+                propNameN: string;
+            }
+
+            // Props injected as dispatchers:
+            interface DispatchProps {
+                dispatcherPropName1: (passedProps: Record<string, unknown>) => void;
+            }
+
+            type AllProps = OwnProps & StateProps & DispatchProps;
+
+            // Create function component:
+            const WrappedComponent = (props: AllProps): AnuElement => (
+                <Component_to_render />
+            );
+            // Or class component:
+            class WrappedComponent extends Component<AllProps> {
+                render(): AnuElement {
+                    return <Component_to_render />;
+                }
+            }
+
+            const mapStateToProps = (state: GlobalState, ownProps: OwnProps): StateProps => {
+                const { myStatePart1 } = state;
                 return {
-                    propName1: statePart1,
-                    // ...
+                    propName1: myStatePart1.statePart.part1,
                     // Using selector to derive some parts of the global state - see 'Store API' section:
-                    propNameN: mySelector(state),
-                    {...ownProps}
+                    propNameN: mySelector(state)
                 };
             };
-            const mapDispatchToProps = (dispatch, ownProps) => { 
-                return {
-                    dispatcherPropName1: ({ ...passedProps }) => dispatch(myActionCreator1(passedProps)),
-                    // ...
-                    dispatcherPropNameN: ({ ...passedProps }) => dispatch(myActionCreatorN(passedProps))
-                };
-            };
+
+            const mapDispatchToProps = (dispatch: Dispatch, ownProps: OwnProps): DispatchProps => ({
+                dispatcherPropName1: (passedProps) => dispatch(mySimpleActionCreator(passedProps.param as string))
+            });
+
             // Connect:
             const ContainerComponent = Anu.Connector.connect(mapStateToProps, mapDispatchToProps)(WrappedComponent);
             ```
@@ -1734,7 +1914,7 @@ The first function takes two arguments: the <code>mapStateToProps()</code> and <
 The basic concept behind the <strong>Intl API</strong> is that you define different JSON objects for each languages you support in your application and
 you refer to the text-part you need.
 - Use the <code>&lt;Anu.Intl.Provider /&gt;</code> to set the supported language files for your "static texts" (no end-user-entered texts will be translated...) and the set the selected language in your app.
-- Then, use the <code>&lt;Anu.Intl.formattedMessage /&gt;</code> to place the text on the selected language referred by the <code>id</code> property.
+- Then, use the <code>&lt;Anu.Intl.FormattedMessage /&gt;</code> to place the text on the selected language referred by the <code>id</code> property.
 You can also use <code>Anu.Intl.formatMessage()</code> when you want to translate a property value only (e.g. the placeholder text in an input element).
 - If the text itself should also contain a dynamic text value, you can pass an optional <code>values</code> property which contains key-value pairs.
 - In the text inside the language file, you should refer for the key using the <code>{key}</code> format.
@@ -1748,20 +1928,22 @@ Don't forget that the IDs should match in each objects because they will be the 
 - Wrap these objects within one main object.
 This time, the keys will be the strings you mark the supported languages and the corresponding values will be the objects created before.
 
-    ```javascript
-    const messages_hu = {
+    ```typescript
+    type MessageMap = Record<string, string>;
+
+    const messages_hu: MessageMap = {
         'app.title': 'Üdvözöllek!',
         'app.description': 'Örülök, hogy újra itt vagy, {name}!',
-        'app.search.placeholder1': 'Ide írd be a keresett kulcsszót!'
+        'app.search.placeholder1': 'Ide írd be a keresett kulcsszót!',
         'app.search.placeholder2': 'Kedves {name}, ide írd be a keresett kulcsszót!'
     };
-    const messages_en = {
+    const messages_en: MessageMap = {
         'app.title': 'Welcome!',
         'app.description': 'I\'m glad that you are here again, {name}!', // 'name' is a placeholder
-        'app.search.placeholder1': 'Type search keyword here!'
+        'app.search.placeholder1': 'Type search keyword here!',
         'app.search.placeholder2': 'Dear {name}, type search keyword here!'
     };
-    const messages = {
+    const messages: Record<string, MessageMap> = {
         'hu': messages_hu,
         'en': messages_en
     };
@@ -1775,17 +1957,15 @@ This component takes three props:
     - The <code>locale</code> property is practically a short string that is the preferred language (it must match with one of the keys of the outermost object passed as <code>messages</code>).
     - The <code>defaultLocale</code> property is optional and will refer to the default language if <code>messages[locale]</code> couldn't be found.
 
-        ```javascript
+        ```typescript
         // This will use the first 2 letters of the language set in browser settings (e.g.: "en", "it", "hu", ...):
-        const locale = navigator.language.split(/[-_]/)[0];
-        const messages = { /* ... */ };
-        const LocaleContainer = () => {
-            return (
-                <Anu.Intl.Provider messages={messages} locale={locale} defaultLocale="hu">
-                    <Your_page />
-                </Anu.Intl.Provider>
-            );
-        };
+        const locale: string = navigator.language.split(/[-_]/)[0];
+        const messages: Record<string, MessageMap> = { /* ... */ };
+        const LocaleContainer = (): AnuElement => (
+            <Anu.Intl.Provider messages={messages} locale={locale} defaultLocale="hu">
+                <Your_page />
+            </Anu.Intl.Provider>
+        );
         ```
     
 <h3 id="formatting-component-texts">Formatting component texts</h3>
@@ -1796,9 +1976,9 @@ This component takes three props:
         - The key property must match the placeholder you want to replace with your dynamic value within the text inside your language object you refer (i.e. wrapped between <code>{</code> and <code>}</code>).
         - The value is what should be used to replace the placeholder.
 
-            ```javascript
-            const ComponentWithFormattedMessages = () => {
-                const name = "Anubis"
+            ```typescript
+            const ComponentWithFormattedMessages = (): AnuElement => {
+                const name = 'Anubis';
                 return (
                     <Anu.Fragment>
                         <h1>
@@ -1822,13 +2002,11 @@ This component takes three props:
     - It can also take an optional <code>defaultMessage</code> property which is used if the searched text couldn't been found.
     - If the ID can not be found and no <code>defaultMessage</code> is passed, the function will return the <code>id</code> value as a string.
 
-        ```javascript
-        const ComponentWithFormatMessageFunctionCall = () => {
-            return [
-                <input placeholder={Anu.Intl.formatMessage('app.search.placeholder1', null, 'Search...')} />,
-                <input placeholder={Anu.Intl.formatMessage('app.search.placeholder2', { name: 'Anubis' }, 'Search...')} />
-            ];
-        };
+        ```typescript
+        const ComponentWithFormatMessageFunctionCall = (): AnuElement[] => [
+            <input placeholder={Anu.Intl.formatMessage('app.search.placeholder1', undefined, 'Search...')} />,
+            <input placeholder={Anu.Intl.formatMessage('app.search.placeholder2', { name: 'Anubis' }, 'Search...')} />
+        ];
         ```
     
 <h3 id="abbreviating-numbers">Abbreviating numbers</h3>
@@ -1847,7 +2025,12 @@ This currently supports only the <i>Hungarian</i> and the <i>English</i> abbrevi
         - The third member is <code>decimalSign</code> - a string to replace the standard (at least in english speaking countries) dot (<code>.</code>) sign with the one of choice.<br>
         If not specified, the system will fall back to the default dot (<code>.</code>) sign.
 
-            ```javascript
+            ```typescript
+            import Anu, { AbbreviateNumberOptions } from 'anu-verzum';
+
+            declare const value: number;
+            declare const option: AbbreviateNumberOptions;
+
             // Usage with default options:
             Anu.Intl.abbreviateNumber(value);
             // Usage with custom options:
@@ -1856,19 +2039,21 @@ This currently supports only the <i>Hungarian</i> and the <i>English</i> abbrevi
 
             <strong>Example</strong> - <i>abbreviating a number using default (built-in) options</i>:
 
-            ```javascript
-            Anu.Intl.abbreviateNumber(10000000000):              // 10B
-            Anu.Intl.abbreviateNumber(100000000000):             // 100B
-            Anu.Intl.abbreviateNumber(1000000000000):            // 1T
-            Anu.Intl.abbreviateNumber(-10000000):                // -10M
-            Anu.Intl.abbreviateNumber(-10000):                   // -10K
-            Anu.Intl.abbreviateNumber(-10234):                   // -10.23K
+            ```typescript
+            Anu.Intl.abbreviateNumber(10000000000);   // → "10B"
+            Anu.Intl.abbreviateNumber(100000000000);  // → "100B"
+            Anu.Intl.abbreviateNumber(1000000000000); // → "1T"
+            Anu.Intl.abbreviateNumber(-10000000);     // → "-10M"
+            Anu.Intl.abbreviateNumber(-10000);        // → "-10K"
+            Anu.Intl.abbreviateNumber(-10234);        // → "-10.23K"
             ```
 
             <strong>Example</strong> - <i>abbreviating with custom options</i>:
 
-            ```javascript
-            const option = {
+            ```typescript
+            import Anu, { AbbreviateNumberOptions } from 'anu-verzum';
+
+            const option: AbbreviateNumberOptions = {
                 // The abbreviations to use (for each 3 digits, starting with the first element):
                 units: [' E.', ' Mio.', ' Mrd.', ' T.'],
                 // How many decimal digits to preserve:
@@ -1876,12 +2061,12 @@ This currently supports only the <i>Hungarian</i> and the <i>English</i> abbrevi
                 // Replace the default decimal sign (.) with a comma (,):
                 decimalSign: ','
             };
-            Anu.Intl.abbreviateNumber(10000000000, option):      // 10 Mrd.
-            Anu.Intl.abbreviateNumber(100000000000, option):     // 100 Mrd.
-            Anu.Intl.abbreviateNumber(1000000000000, option):    // 1 T.
-            Anu.Intl.abbreviateNumber(-10000000, option):        // -10 Mio.
-            Anu.Intl.abbreviateNumber(-10000, option):           // -10 E.
-            Anu.Intl.abbreviateNumber(-10234, option):           // -10,234 E.
+            Anu.Intl.abbreviateNumber(10000000000, option);   // → "10 Mrd."
+            Anu.Intl.abbreviateNumber(100000000000, option);  // → "100 Mrd."
+            Anu.Intl.abbreviateNumber(1000000000000, option); // → "1 T."
+            Anu.Intl.abbreviateNumber(-10000000, option);     // → "-10 Mio."
+            Anu.Intl.abbreviateNumber(-10000, option);        // → "-10 E."
+            Anu.Intl.abbreviateNumber(-10234, option);        // → "-10,234 E."
             ```
 
 <br>
@@ -1898,15 +2083,13 @@ Other typical use-case is when you have a feature but you don't want to show it 
 - Wrap the outermost element (this should contain all the features you want to toggle) within an <code>&lt;Anu.Feature.Provider /&gt;</code>.
     - It takes a <code>features</code> property which should be the defined features list.
 
-        ```javascript
-        const myFeaturesList = { myFeature: true };
-        const FeaturesWrapper = () => {
-            return (
-                <Anu.Feature.Provider features={myFeaturesList}>
-                    <Your_page />
-                </<Anu.Feature.Provider>
-            );
-        };
+        ```typescript
+        const myFeaturesList: Record<string, boolean> = { myFeature: true };
+        const FeaturesWrapper = (): AnuElement => (
+            <Anu.Feature.Provider features={myFeaturesList}>
+                <Your_page />
+            </Anu.Feature.Provider>
+        );
         ```
 
 <h3 id="toggling-features">Toggling the features</h3>
@@ -1918,8 +2101,8 @@ Other typical use-case is when you have a feature but you don't want to show it 
     This will be rendered if the <code>name</code> evaluates as "falsy" (i.e.: either you set it to <code>false</code> or it wasn't even specified).
     If <code>defaultComponent</code> is not set, <code>null</code> will be rendered instead.
 
-        ```javascript
-        const ComponentWithFeatureToggle = () => {
+        ```typescript
+        const ComponentWithFeatureToggle = (): AnuElement => {
             const fallbackComponent = <div>You are not authorized to see this content...</div>;
             return (
                 <Anu.Feature.Toggle name="myFeature" defaultComponent={fallbackComponent}>
@@ -1936,62 +2119,29 @@ Other typical use-case is when you have a feature but you don't want to show it 
 
 <br>
 
-<h2 id="deep-equal">Deep equality check for objects using <code>Anu.utils.deepEqual()</code></h2>
+<h2 id="deep-equal">Deep equality check for objects using <code>Anu.Utils.deepEqual()</code></h2>
 
-- The <code>Anu.utils.deepEqual()</code> is a deep equality check utility that can check nested and complex objects if their structure and properties match (even if their references don't).
+- The <code>Anu.Utils.deepEqual()</code> is a deep equality check utility that can check nested and complex objects if their structure and properties match (even if their references don't).
 
-    ```javascript
-    const obj1 = {
+    ```typescript
+    const obj1: Record<string, any> = {
         prop1: 'asdf',
         prop2: true,
         prop3: {
             prop3_1: 'asdfasdf',
-            prop3_2: [{
-                itemProp1: 'item'
-            }]
+            prop3_2: [{ itemProp1: 'item' }]
         }
     };
-    const obj2 = {
+    const obj2: Record<string, any> = {
         prop1: 'asdf',
         prop2: true,
         prop3: {
             prop3_1: 'asdfasdf',
-            prop3_2: [{
-                itemProp1: 'item'
-            }]
+            prop3_2: [{ itemProp1: 'item' }]
         }
     };
-    const answer = Anu.utils.deepEqual(obj1, obj2); // true
+    const answer: boolean = Anu.Utils.deepEqual(obj1, obj2); // true
     ```
-
-<br>
-<hr>
-
-<h1><strong><code>&lt;ANUVerzum /&gt;</code> JS</strong> ASYNCRONOUS HELPERS:</h1>
-
-<br>
-
-<h2 id="asynchronous-mapping">Asynchronous mapping through multiple elements using <code>Anu.Async.map()</code></h2>
-
-- Asyncronous utilities are useful functionalities to handle result(s) of asyncronous queries, like XHR calls.<br>
-There is an asyncronous helper function bundled within <strong><code>&lt;ANUVerzum /&gt;</code> JS</strong> <code>Anu.Async.map()</code>
-- The <code>Anu.Async.map()</code> function is designed to loop through an array of <code>elemList</code> and execute an <code>iterator</code> on each element asynchronously.<br>
-After <code>iterator</code> ran on each element in <code>elemList</code>, the <code>resolveCallback</code> function is called which takes <code>results</code> as an argument:
-    - The first argument is <code>elemlist</code>: an array of elements on which we want to iterate.
-    - The second argument (the first callback) is the <code>iterator</code> that should be called for all elements in <code>elemList</code> (argument: element of <code>elemList</code>).
-    - The third argument (second callback) is the <code>resolveCallback</code> that takes the list of modified elements returned by <code>iterator</code> calls (argument: array of modified elements).
-
-        ```javascript
-        const elemList = [ /* elem1, elem2, elem3, ... */ ];
-        const iterator = element => {
-            // do something with each "element" one-by-one and then, return (modified) "element"
-            return element;
-        };
-        const resolveCallback = results => {
-            // do something with the results (array of "element" -s)
-        }
-        Anu.Async.map(elemList, iterator, resolveCallback);
-        ```
 
 <br>
 <hr>

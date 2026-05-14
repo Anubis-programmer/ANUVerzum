@@ -1,7 +1,6 @@
-const isObject = object =>
-    object !== null && typeof object === 'object';
+const isObject = (object: unknown): object is Record<string, unknown> => object !== null && typeof object === 'object';
 
-const deepEqual = (object1, object2) => {
+export const deepEqual = (object1: Record<string, any>, object2: Record<string, any>): boolean => {
     const keys1 = Object.keys(object1);
     const keys2 = Object.keys(object2);
 
@@ -14,10 +13,7 @@ const deepEqual = (object1, object2) => {
         const val2 = object2[key];
         const areObjects = isObject(val1) && isObject(val2);
 
-        if (
-            areObjects && !deepEqual(val1, val2) ||
-            !areObjects && val1 !== val2
-        ) {
+        if ((areObjects && !deepEqual(val1, val2)) || (!areObjects && val1 !== val2)) {
             return false;
         }
     }

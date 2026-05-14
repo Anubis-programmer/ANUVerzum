@@ -1,4 +1,5 @@
-import { Component} from './Component';
+import { Component } from './Component';
+import { AnuElement, Props } from '../elements';
 import ServerAPI from '../../server-api/server-api';
 
 const EventTypes = {
@@ -7,59 +8,73 @@ const EventTypes = {
     STATE_CHANGE: 'stateChange',
     NAVIGATION: 'navigation',
     PAGE_LEAVE: 'pageLeave'
+} as const;
+
+type AnulyticsData = {
+    startDate: number;
+    events: Array<Record<string, any>>;
+    user: Record<string, any>;
+};
+
+type UserActionEvent = {
+    type: string;
+    keyCode?: number | null;
+    pageX?: number;
+    pageY?: number;
+    target?: {
+        id?: string;
+        name?: string;
+        nodeName?: string;
+        value?: string;
+    };
 };
 
 const AnulyticsState = (() => {
     const initStart = new Date().getTime();
     let _anulyticsInstanceExist = false;
 
-    const setAnulyticsInstanceExist = instanceExist => {
+    const setAnulyticsInstanceExist = (instanceExist: boolean): void => {
         _anulyticsInstanceExist = instanceExist;
-    }
+    };
 
-    const getAnulyticsInstanceExist = () =>
-        _anulyticsInstanceExist;
+    const getAnulyticsInstanceExist = (): boolean => _anulyticsInstanceExist;
 
-    let _anulytics = {
+    const _anulytics: AnulyticsData = {
         startDate: initStart,
-        events: [{
-            [EventTypes.INITIALIZATION]: {
-                eventType: window.location.pathname,
-                timestamp: initStart,
-                properties: {}
+        events: [
+            {
+                [EventTypes.INITIALIZATION]: {
+                    eventType: window.location.pathname,
+                    timestamp: initStart,
+                    properties: {}
+                }
             }
-        }],
+        ],
         user: {}
     };
 
     return {
         getAnulyticsInstanceExist,
         setAnulyticsInstanceExist,
-        addEvent: (key, val) => {
+        addEvent: (key: string, val: Record<string, any>): void => {
             _anulytics.events.push({ [key]: val });
         },
-        trackEvent: ({
-            type,
-            keyCode = null,
-            pageX = 0,
-            pageY = 0,
-            target: {
-                id,
-                name,
-                nodeName,
-                value
-            } = {
-                id: '',
-                name: '',
-                nodeName: '',
-                value: ''
-            }
-        }, rawProps) => {
+        trackEvent: (
+            {
+                type,
+                keyCode = null,
+                pageX = 0,
+                pageY = 0,
+                target: { id = '', name = '', nodeName = '', value = '' } = {}
+            }: UserActionEvent,
+            rawProps: unknown
+        ): void => {
             const scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
             const scrollLeft = document.body.scrollLeft || document.documentElement.scrollLeft;
-            const props = typeof rawProps === 'object' && !Array.isArray(rawProps)
-                ? rawProps
-                : null;
+            const props =
+                typeof rawProps === 'object' && !Array.isArray(rawProps) && rawProps !== null
+                    ? (rawProps as Record<string, any>)
+                    : null;
 
             const event = {
                 [EventTypes.USER_ACTION]: {
@@ -83,10 +98,14 @@ const AnulyticsState = (() => {
 
             _anulytics.events.push(event);
         },
-        trackStateChange: (prevState, action, nextState) => {
+        trackStateChange: (
+            prevState: Record<string, any>,
+            action: Record<string, any>,
+            nextState: Record<string, any>
+        ): void => {
             const event = {
                 [EventTypes.STATE_CHANGE]: {
-                    eventType: action.type,
+                    eventType: action['type'],
                     timestamp: new Date().getTime(),
                     properties: {
                         url: window.location.pathname,
@@ -99,22 +118,23 @@ const AnulyticsState = (() => {
 
             _anulytics.events.push(event);
         },
-        setUser: user => {
+        setUser: (user: Record<string, any> | null | undefined): void => {
             _anulytics.user = user || {};
         },
-        getAnulyticsData: () => _anulytics,
+        getAnulyticsData: (): AnulyticsData => _anulytics
     };
 })();
 
-const _isBot =
-    window.phantom ||
-    window._phantom ||
-    window.__nightmare ||
+const _isBot: boolean = !!(
+    (window as any).phantom ||
+    (window as any)._phantom ||
+    (window as any).__nightmare ||
     window.navigator.webdriver ||
-    window.Cypress;
+    (window as any).Cypress
+);
 
-const _isInstalled = () => {
-    if (window.navigator.standalone) {
+const _isInstalled = (): boolean => {
+    if ((window.navigator as any).standalone) {
         return true;
     }
 
@@ -125,19 +145,23 @@ const _isInstalled = () => {
     return false;
 };
 
-export const trackEvent = (event, props) => {
+export const trackEvent = (event: UserActionEvent, props?: unknown): void => {
     if (AnulyticsState.getAnulyticsInstanceExist()) {
         AnulyticsState.trackEvent(event, props);
     }
 };
 
-export const trackStateChange = (prevState, action, nextState) => {
+export const trackStateChange = (
+    prevState: Record<string, any>,
+    action: Record<string, any>,
+    nextState: Record<string, any>
+): void => {
     if (AnulyticsState.getAnulyticsInstanceExist()) {
         AnulyticsState.trackStateChange(prevState, action, nextState);
     }
 };
 
-export const trackRouteChange = path => {
+export const trackRouteChange = (path?: string): void => {
     if (AnulyticsState.getAnulyticsInstanceExist()) {
         const url = path || window.location.pathname;
         const event = {
@@ -150,28 +174,35 @@ export const trackRouteChange = path => {
     }
 };
 
-class AnulyticsProvider extends Component {
-    constructor(props) {
+export interface AnulyticsProviderProps extends Props {
+    analyticsUrl: string;
+    userData?: Record<string, any>;
+    onSuccess: (response: any) => void;
+    onFail: (status: number) => void;
+}
+
+class AnulyticsProvider extends Component<AnulyticsProviderProps> {
+    constructor(props: AnulyticsProviderProps) {
         super(props);
         AnulyticsState.setAnulyticsInstanceExist(true);
         this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     }
 
-    componentDidMount() {
+    componentDidMount(): void {
         const { userData } = this.props;
-        AnulyticsState.setUser(userData);
+        AnulyticsState.setUser(userData || null);
 
         document.addEventListener('visibilitychange', this.handleVisibilityChange, {
-            passive: true,
+            passive: true
         });
     }
 
-    componentWillUnmount() {
-        document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    componentWillUnmount(): void {
+        document.removeEventListener('visibilitychange', this.handleVisibilityChange as EventListener);
         AnulyticsState.setAnulyticsInstanceExist(false);
     }
 
-    handleVisibilityChange() {
+    handleVisibilityChange(): void {
         const { analyticsUrl, onSuccess, onFail } = this.props;
 
         if (_isBot) {
@@ -185,12 +216,12 @@ class AnulyticsProvider extends Component {
                 timestamp: new Date().getTime(),
                 properties: {}
             };
-            let ua;
+            let ua: { userAgent: any; mobile: boolean; platform: string };
 
             AnulyticsState.addEvent(EventTypes.PAGE_LEAVE, event);
 
-            if (window.navigator.userAgentData) {
-                const { brands, mobile, platform } = window.navigator.userAgentData;
+            if ((window.navigator as any).userAgentData) {
+                const { brands, mobile, platform } = (window.navigator as any).userAgentData;
 
                 ua = { userAgent: brands, mobile, platform };
             } else {
@@ -208,7 +239,7 @@ class AnulyticsProvider extends Component {
                     referrer: document.referrer || null,
                     innerWidth: window.innerWidth,
                     isMobileAppInstalled: _isInstalled(),
-                    userAgentData: ua,
+                    userAgentData: ua
                 }
             };
 
@@ -220,17 +251,19 @@ class AnulyticsProvider extends Component {
         }
     }
 
-    render() {
+    render(): AnuElement | AnuElement[] | null {
         const { children } = this.props;
 
         try {
-            if (children.length !== 1) {
+            if (!children || children.length !== 1) {
                 throw new Error('Provider must have one child element!');
             }
 
             return children;
         } catch (err) {
             console.error(err);
+
+            return null;
         }
     }
 }

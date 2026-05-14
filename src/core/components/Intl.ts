@@ -1,27 +1,54 @@
-import { createElement, TEXT_ELEMENT } from '../elements';
+import { createElement, TEXT_ELEMENT, AnuElement, Props } from '../elements';
 import { createContext } from './Context';
 
-const _Intl = createContext({});
-let __messagesContext = {
+const _Intl = createContext<{ locale?: string; messages?: Record<string, string> }>({});
+
+type MessagesContext = {
+    locale: string | undefined;
+    messages: Record<string, string>;
+};
+
+let __messagesContext: MessagesContext = {
     locale: undefined,
     messages: {}
 };
 
-const IntlProvider = ({ locale, messages, defaultLocale, children }) => {
-    let selectedMessage;
+export interface IntlProviderProps extends Props {
+    locale: string | null;
+    messages: Record<string, Record<string, string>>;
+    defaultLocale?: string;
+    children?: AnuElement[];
+}
+
+export interface FormattedMessageProps extends Props {
+    id: string;
+    values?: Record<string, string | number>;
+    defaultMessage?: string;
+}
+
+export interface AbbreviateNumberOptions {
+    units?: string[];
+    decimalPlaces?: number;
+    decimalSign?: string;
+}
+
+const IntlProvider = ({ locale, messages, defaultLocale, children }: IntlProviderProps): AnuElement | undefined => {
+    let selectedMessage: Record<string, string> | undefined;
 
     try {
         if (locale === null) {
-            throw new Error('Property "locale" must be defined and must not be a string reference to the selected language in "messages"!');
+            throw new Error(
+                'Property "locale" must be defined and must not be a string reference to the selected language in "messages"!'
+            );
         }
 
         if (!messages) {
             throw new Error('Property "messages" must be defined!');
         }
 
-        if (messages[locale]) {
+        if (locale && messages[locale]) {
             selectedMessage = messages[locale];
-        } else if (messages[defaultLocale]) {
+        } else if (defaultLocale && messages[defaultLocale]) {
             selectedMessage = messages[defaultLocale];
         }
 
@@ -29,7 +56,7 @@ const IntlProvider = ({ locale, messages, defaultLocale, children }) => {
             throw new Error('No messages can be found in "messages" by the value of "locale" or "defaultLocale"!');
         } else {
             __messagesContext = {
-                locale,
+                locale: locale as string,
                 messages: { ...selectedMessage }
             };
 
@@ -44,14 +71,16 @@ const IntlProvider = ({ locale, messages, defaultLocale, children }) => {
         }
     } catch (err) {
         console.error(err);
+
+        return undefined;
     }
 };
 
-const FormattedMessage = ({ id, values, defaultMessage }) => (
+const FormattedMessage = ({ id, values, defaultMessage }: FormattedMessageProps): AnuElement | undefined =>
     createElement(
         _Intl.ContextConsumer,
         {},
-        ({ value: { messages } }) => {
+        ({ value: { messages } }: { value: { messages?: Record<string, string> } }) => {
             let textValue = '';
 
             try {
@@ -67,11 +96,11 @@ const FormattedMessage = ({ id, values, defaultMessage }) => (
                     throw new Error('No text or fallback value to return.');
                 } else {
                     if (values && typeof values === 'object' && values !== null) {
-                        Object.keys(values).forEach(key => {
+                        Object.keys(values).forEach((key) => {
                             const variablePattern = `{${key}}`;
 
                             if (textValue.indexOf(variablePattern) > -1) {
-                                textValue = textValue.replace(variablePattern, values[key]);
+                                textValue = textValue.replace(variablePattern, String(values[key]));
                             }
                         });
                     }
@@ -80,12 +109,13 @@ const FormattedMessage = ({ id, values, defaultMessage }) => (
                 }
             } catch (err) {
                 console.error(err);
+
+                return undefined;
             }
         }
-    )
-);
+    );
 
-const formatMessage = (id, values, defaultMessage) => {
+const formatMessage = (id: string, values?: Record<string, string | number>, defaultMessage?: string): string => {
     let textValue = '';
 
     try {
@@ -105,11 +135,11 @@ const formatMessage = (id, values, defaultMessage) => {
     }
 
     if (values && typeof values === 'object' && values !== null) {
-        Object.keys(values).forEach(key => {
+        Object.keys(values).forEach((key) => {
             const variablePattern = `{${key}}`;
 
             if (textValue.indexOf(variablePattern) > -1) {
-                textValue = textValue.replace(variablePattern, values[key]);
+                textValue = textValue.replace(variablePattern, String(values[key]));
             }
         });
     }
@@ -117,34 +147,34 @@ const formatMessage = (id, values, defaultMessage) => {
     return textValue;
 };
 
-const abbreviateNumber = (value, options = {}) => {
-    const getByLocale = values =>
-        values[__messagesContext.locale] || values['default'];
+const abbreviateNumber = (value: number, options: AbbreviateNumberOptions = {}): string | number => {
+    const getByLocale = (values: Record<string, any>): any =>
+        values[__messagesContext.locale || 'default'] || values['default'];
 
-    const UNITS = {
-        'hu': ['E', 'm', 'M', 'b'],
-        'default': ['K', 'M', 'B', 'T']
+    const UNITS: Record<string, string[]> = {
+        hu: ['E', 'm', 'M', 'b'],
+        default: ['K', 'M', 'B', 'T']
     };
-    const DECIMAL_SIGN = {
-        'hu': ',',
-        'default': '.'
+    const DECIMAL_SIGN: Record<string, string> = {
+        hu: ',',
+        default: '.'
     };
 
     if (typeof value === 'number' && !isNaN(value)) {
-        const defaultAbbreviateNumberOptions = {
-            units: getByLocale(UNITS),
+        const defaultAbbreviateNumberOptions: Required<AbbreviateNumberOptions> = {
+            units: getByLocale(UNITS) as string[],
             decimalPlaces: 2,
-            decimalSign: getByLocale(DECIMAL_SIGN)
+            decimalSign: getByLocale(DECIMAL_SIGN) as string
         };
         const isNegative = value < 0;
-        const opts = {
+        const opts: Required<AbbreviateNumberOptions> = {
             ...defaultAbbreviateNumberOptions,
             ...options
         };
         const { units, decimalPlaces, decimalSign } = opts;
         const decPlaces = Math.pow(10, decimalPlaces);
         let unit = '';
-        let result = Math.abs(value);
+        let result: number = Math.abs(value);
 
         for (let i = units.length - 1; i >= 0; i--) {
             const size = Math.pow(10, (i + 1) * 3);
@@ -163,11 +193,12 @@ const abbreviateNumber = (value, options = {}) => {
             }
         }
 
+        let resultStr = `${result}`;
         if (decimalSign) {
-            result = `${result}`.replace('.', decimalSign);
+            resultStr = resultStr.replace('.', decimalSign);
         }
 
-        return `${isNegative ? '-' : ''}${result}${unit}`;
+        return `${isNegative ? '-' : ''}${resultStr}${unit}`;
     }
 
     return value;
@@ -177,7 +208,7 @@ const Intl = {
     abbreviateNumber,
     FormattedMessage,
     formatMessage,
-    Provider: IntlProvider,
+    Provider: IntlProvider
 };
 
 export default Intl;
