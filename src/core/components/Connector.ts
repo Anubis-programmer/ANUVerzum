@@ -113,11 +113,14 @@ class Subscription {
     }
 
     removeNestedSub(listener: () => void): void {
-        this.tryUnsubscribe();
         const index = this.listeners.indexOf(listener);
 
         if (index >= 0) {
             this.listeners.splice(index, 1);
+        }
+
+        if (this.listeners.length === 0) {
+            this.tryUnsubscribe();
         }
     }
 }

@@ -29,6 +29,7 @@ type Fiber = {
     effectTag?: EffectTag | null;
     partialState?: Record<string, any>;
     partialStateCallback?: (prevState: any, prevProps: any) => any;
+    prevState?: Record<string, any>;
 };
 
 const updateQueue: Array<{
@@ -141,18 +142,11 @@ const updateHostComponent = (wipFiber: Fiber): void => {
     reconcileChildrenArray(wipFiber, newChildElements);
 };
 
-const createFunctionComponent = (fiber: Fiber): any => {
-    const instance = (fiber.type as (p: typeof fiber.props) => any)(fiber.props);
-    instance.__fiber = fiber;
-
-    return instance;
-};
-
 const updateFunctionComponent = (wipFiber: Fiber): void => {
     let instance = wipFiber.stateNode || null;
 
     if (instance === null) {
-        instance = wipFiber.stateNode = createFunctionComponent(wipFiber);
+        instance = wipFiber.stateNode = { props: wipFiber.props, render: wipFiber.type };
     } else if (wipFiber.props === instance.props && !wipFiber.partialState) {
         cloneChildFibers(wipFiber);
 
@@ -160,8 +154,8 @@ const updateFunctionComponent = (wipFiber: Fiber): void => {
     }
 
     instance.props = wipFiber.props;
-    wipFiber.stateNode.render = wipFiber.type;
-    const newChildElements = wipFiber.stateNode.render(wipFiber.props);
+    instance.render = wipFiber.type;
+    const newChildElements = instance.render(wipFiber.props);
     reconcileChildrenArray(wipFiber, newChildElements);
 };
 
@@ -209,6 +203,7 @@ const updateClassComponent = (wipFiber: Fiber): void => {
         nextState = wipFiber.partialStateCallback(instance.state, nextProps);
     }
 
+    wipFiber.prevState = { ...instance.state };
     instance.props = nextProps;
     instance.state = nextState;
     wipFiber.partialState = undefined;
@@ -219,76 +214,128 @@ const updateClassComponent = (wipFiber: Fiber): void => {
 
 const arrify = (val: any): AnuElement[] => (!val ? [] : Array.isArray(val) ? val : [val]);
 
+const getTag = (element: AnuElement): FiberTag => {
+    if (typeof element.type === 'string') {
+        return HOST_COMPONENT;
+    }
+
+    if (
+        typeof element.type === 'function' &&
+        !(element.type as any).isAnuComponent &&
+        !(element.type as any).prototype?.render
+    ) {
+        return FUNCTION_COMPONENT;
+    }
+
+    return CLASS_COMPONENT;
+};
+
 const reconcileChildrenArray = (wipFiber: Fiber, newChildElements: any): void => {
     const elements = arrify(newChildElements);
-    let index = 0;
+    const oldFiberMap = new Map<string | number, Fiber>();
     let oldFiber: Fiber | undefined = wipFiber.alternate ? wipFiber.alternate.child : undefined;
-    let newFiber: Fiber | undefined;
+    let oldIndex = 0;
 
-    while (index < elements.length || oldFiber) {
-        const prevFiber = newFiber;
-        const element: AnuElement | false = index < elements.length && elements[index];
-        const sameType = oldFiber && element && element.type === oldFiber.type;
+    while (oldFiber) {
+        const mapKey = oldFiber.props.key ?? oldIndex;
+        oldFiberMap.set(mapKey, oldFiber);
+        oldFiber = oldFiber.sibling;
+        oldIndex++;
+    }
 
-        if (sameType && oldFiber && element) {
+    let prevFiber: Fiber | undefined;
+
+    for (let i = 0; i < elements.length; i++) {
+        const element: AnuElement = elements[i];
+        const mapKey = element.props.key ?? i;
+        const matchedOldFiber = oldFiberMap.get(mapKey);
+        const sameType = matchedOldFiber !== undefined && element.type === matchedOldFiber.type;
+        let newFiber: Fiber;
+
+        if (sameType && matchedOldFiber) {
             newFiber = {
-                type: oldFiber.type,
-                tag: oldFiber.tag,
-                stateNode: oldFiber.stateNode,
+                type: matchedOldFiber.type,
+                tag: matchedOldFiber.tag,
+                stateNode: matchedOldFiber.stateNode,
                 props: element.props,
                 parent: wipFiber,
-                alternate: oldFiber,
-                partialState: oldFiber.partialState,
+                alternate: matchedOldFiber,
+                partialState: matchedOldFiber.partialState,
                 effectTag: UPDATE
             };
 
-            if (oldFiber.partialStateCallback) {
-                newFiber.partialStateCallback = oldFiber.partialStateCallback;
+            if (matchedOldFiber.partialStateCallback) {
+                newFiber.partialStateCallback = matchedOldFiber.partialStateCallback;
             }
-        }
 
-        if (element && !sameType) {
-            let tag: FiberTag;
-
-            if (typeof element.type === 'string') {
-                tag = HOST_COMPONENT;
-            } else if (
-                typeof element.type === 'function' &&
-                !(element.type as any).isAnuComponent &&
-                !Object.prototype.hasOwnProperty.call((element.type as any).prototype, 'render')
-            ) {
-                tag = FUNCTION_COMPONENT;
-            } else {
-                tag = CLASS_COMPONENT;
+            oldFiberMap.delete(mapKey);
+        } else {
+            if (matchedOldFiber) {
+                matchedOldFiber.effectTag = DELETION;
+                wipFiber.effects = wipFiber.effects || [];
+                wipFiber.effects.push(matchedOldFiber);
+                oldFiberMap.delete(mapKey);
             }
 
             newFiber = {
                 type: element.type,
-                tag,
+                tag: getTag(element),
                 props: element.props,
                 parent: wipFiber,
                 effectTag: PLACEMENT
             };
         }
 
-        if (oldFiber && !sameType) {
-            oldFiber.effectTag = DELETION;
-            wipFiber.effects = wipFiber.effects || [];
-            wipFiber.effects.push(oldFiber);
-        }
-
-        if (oldFiber) {
-            oldFiber = oldFiber.sibling;
-        }
-
-        if (index === 0) {
+        if (i === 0) {
             wipFiber.child = newFiber;
-        } else if (prevFiber && element) {
+        } else if (prevFiber) {
             prevFiber.sibling = newFiber;
         }
 
-        index++;
+        prevFiber = newFiber;
     }
+
+    oldFiberMap.forEach((fiber) => {
+        fiber.effectTag = DELETION;
+        wipFiber.effects = wipFiber.effects || [];
+        wipFiber.effects.push(fiber);
+    });
+};
+
+const getFirstHostNode = (fiber: Fiber): Node | null => {
+    if (fiber.tag === HOST_COMPONENT) {
+        return fiber.stateNode ? (fiber.stateNode as Node) : null;
+    }
+
+    let child: Fiber | undefined = fiber.child;
+
+    while (child) {
+        const node = getFirstHostNode(child);
+
+        if (node) {
+            return node;
+        }
+
+        child = child.sibling;
+    }
+
+    return null;
+};
+
+const getNextHostNode = (fiber: Fiber, domParent: HTMLElement): Node | null => {
+    let sibling: Fiber | undefined = fiber.sibling;
+
+    while (sibling) {
+        const node = getFirstHostNode(sibling);
+
+        if (node && (node as HTMLElement).parentNode === domParent) {
+            return node;
+        }
+        
+        sibling = sibling.sibling;
+    }
+
+    return null;
 };
 
 const cloneChildFibers = (parentFiber: Fiber): void => {
@@ -360,7 +407,7 @@ const flushComponentLifecyclesQueue = (): void => {
 };
 
 const commitAllWork = (fiber: Fiber): void => {
-    fiber.effects!.forEach((effect, index, effects) => {
+    (fiber.effects || []).forEach((effect, index, effects) => {
         commitWork(effect);
 
         if (index === effects.length - 1) {
@@ -388,7 +435,13 @@ const commitWork = (effect: Fiber): void => {
 
     if (effect.effectTag === PLACEMENT) {
         if (effect.tag === HOST_COMPONENT) {
-            domParent.appendChild(effect.stateNode);
+            const nextDomSibling = getNextHostNode(effect, domParent);
+
+            if (nextDomSibling) {
+                domParent.insertBefore(effect.stateNode, nextDomSibling);
+            } else {
+                domParent.appendChild(effect.stateNode);
+            }
 
             if (effect.props.ref) {
                 effect.props.ref.current = effect.stateNode;
@@ -404,6 +457,14 @@ const commitWork = (effect: Fiber): void => {
     } else if (effect.effectTag === UPDATE) {
         if (effect && effect.stateNode && effect.alternate && effect.alternate.props && effect.props) {
             if (effect.tag === HOST_COMPONENT) {
+                const nextDomSibling = getNextHostNode(effect, domParent);
+
+                if (nextDomSibling) {
+                    domParent.insertBefore(effect.stateNode, nextDomSibling);
+                } else {
+                    domParent.appendChild(effect.stateNode);
+                }
+
                 updateDomProperties(
                     effect.stateNode,
                     effect.alternate.props,
@@ -419,8 +480,8 @@ const commitWork = (effect: Fiber): void => {
                     componentLifecyclesQueue.push({
                         fn: effect.stateNode.componentDidUpdate,
                         params: {
-                            prevProps: effect.stateNode.props,
-                            prevState: effect.stateNode.state
+                            prevProps: effect.alternate?.props,
+                            prevState: effect.prevState
                         }
                     });
                 }

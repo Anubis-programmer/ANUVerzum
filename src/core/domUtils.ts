@@ -1,6 +1,6 @@
 import { TEXT_ELEMENT, AnuElement, Props } from './elements';
 
-const getHTMLValidSvgTag = (fiberType: string): string => {
+export const getHTMLValidSvgTag = (fiberType: string): string => {
     switch (fiberType) {
         case 'anchor':
             return 'a';
@@ -121,13 +121,12 @@ export const updateDomProperties = (
         .filter(isAttribute)
         .filter(isGone(prevProps, nextProps))
         .forEach((name) => {
-            const el = dom as any;
             if (name === 'className') {
-                el['class'] = null;
+                (dom as HTMLElement).removeAttribute('class');
             } else if (name === 'htmlFor') {
-                el['for'] = null;
+                (dom as HTMLElement).removeAttribute('for');
             } else {
-                el[name] = null;
+                (dom as HTMLElement).removeAttribute(name);
             }
         });
 
