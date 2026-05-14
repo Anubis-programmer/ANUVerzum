@@ -1,7 +1,7 @@
 {
   "name": "anu-verzum",
   "version": "1.0.0",
-  "description": "A \"React-like\" UI library that supports JSX syntax, state management, array-rendering, i18n, routing and many more.",
+  "description": "A \"React-like\" UI library that supports JSX syntax, Redux-like state management, array-rendering, i18n, routing and many more.",
   "keywords": [
     "anu-verzum",
     "UI-library",
@@ -27,8 +27,12 @@
   "author": "Anubis-programmer",
   "type": "commonjs",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "babel src --out-dir dist --extensions \".js\" --copy-files",
+    "build": "babel src --out-dir dist --extensions \".ts\" --copy-files && tsc --emitDeclarationOnly",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src",
+    "format": "prettier --write src",
     "prepare": "npm run build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -38,6 +42,15 @@
   "devDependencies": {
     "@babel/cli": "^7.21.0",
     "@babel/core": "^7.21.0",
-    "@babel/preset-env": "^7.21.0"
+    "@babel/preset-env": "^7.21.0",
+    "@babel/preset-typescript": "^7.28.5",
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.59.3",
+    "@typescript-eslint/parser": "^8.59.3",
+    "eslint": "^10.3.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.3"
   }
 }

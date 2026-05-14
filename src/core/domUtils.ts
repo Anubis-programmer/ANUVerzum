@@ -1,23 +1,19 @@
-import { TEXT_ELEMENT } from "./elements";
+import { TEXT_ELEMENT, AnuElement, Props } from './elements';
 
-const getHTMLValidSvgTag = fiberType => {
+const getHTMLValidSvgTag = (fiberType: string): string => {
     switch (fiberType) {
-        case 'anchor': {
+        case 'anchor':
             return 'a';
-        }
-        case 'svgStyle': {
+        case 'svgStyle':
             return 'style';
-        }
-        case 'svgTitle': {
+        case 'svgTitle':
             return 'title';
-        }
-        default: {
+        default:
             return fiberType;
-        }
     }
 };
 
-export const SVG_ELEMENT_LIST = [
+export const SVG_ELEMENT_LIST: readonly string[] = [
     'anchor',
     'animate',
     'animateMotion',
@@ -89,92 +85,107 @@ export const SVG_ELEMENT_LIST = [
     'view'
 ];
 
-export const updateDomProperties = (dom, prevProps, nextProps, isSvgElement = false) => {
-    const isEvent = name => {
+export const updateDomProperties = (
+    dom: HTMLElement | SVGElement | Text,
+    prevProps: Props,
+    nextProps: Props,
+    isSvgElement = false
+): void => {
+    const isEvent = (name: string): boolean => {
         if (!String.prototype.startsWith) {
             return name[0] === 'o' && name[1] === 'n';
         }
 
         return name.startsWith('on');
     };
-    const isAttribute = name =>
+    const isAttribute = (name: string): boolean =>
         !isEvent(name) && name !== 'children' && name !== 'style' && name !== 'ref' && name !== 'key';
-    const isNew = (prev, next) => key => prev[key] !== next[key];
-    const isGone = (prev, next) => key => !(key in next);
+    const isNew =
+        (prev: Props, next: Props) =>
+        (key: string): boolean =>
+            prev[key] !== next[key];
+    const isGone =
+        (prev: Props, next: Props) =>
+        (key: string): boolean =>
+            !(key in next);
 
     Object.keys(prevProps)
         .filter(isEvent)
-        .filter(key => !(key in nextProps) || isNew(prevProps, nextProps)(key))
-        .forEach(name => {
+        .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
+        .forEach((name) => {
             const eventType = name.toLowerCase().substring(2);
-            dom.removeEventListener(eventType, prevProps[name]);
+            (dom as HTMLElement).removeEventListener(eventType, prevProps[name]);
         });
 
     Object.keys(prevProps)
         .filter(isAttribute)
         .filter(isGone(prevProps, nextProps))
-        .forEach(name => {
+        .forEach((name) => {
+            const el = dom as any;
             if (name === 'className') {
-                dom['class'] = null;
+                el['class'] = null;
             } else if (name === 'htmlFor') {
-                dom['for'] = null;
+                el['for'] = null;
             } else {
-                dom[name] = null;
+                el[name] = null;
             }
         });
 
     Object.keys(nextProps)
         .filter(isAttribute)
         .filter(isNew(prevProps, nextProps))
-        .forEach(name => {
+        .forEach((name) => {
+            const el = dom as any;
             if (isSvgElement) {
                 if (name === 'className') {
-                    dom.setAttribute('class', nextProps[name]);
+                    (dom as SVGElement).setAttribute('class', nextProps[name]);
                 } else {
-                    dom.setAttribute(name, nextProps[name]);
+                    (dom as SVGElement).setAttribute(name, nextProps[name]);
                 }
             } else {
                 if (name.includes('aria-') || name === 'role') {
-                    dom.setAttribute(name, nextProps[name])
+                    (dom as HTMLElement).setAttribute(name, nextProps[name]);
                 } else {
-                    dom[name] = nextProps[name];
+                    el[name] = nextProps[name];
                 }
             }
         });
 
-    prevProps.style = prevProps.style || {};
-    nextProps.style = nextProps.style || {};
+    const prevStyle: Record<string, string> = (prevProps.style as Record<string, string>) || {};
+    const nextStyle: Record<string, string> = (nextProps.style as Record<string, string>) || {};
+    prevProps.style = prevStyle;
+    nextProps.style = nextStyle;
 
-    Object.keys(nextProps.style)
-        .filter(isNew(prevProps.style, nextProps.style))
-        .forEach(key => {
-            dom.style[key] = nextProps.style[key];
+    Object.keys(nextStyle)
+        .filter((key) => prevStyle[key] !== nextStyle[key])
+        .forEach((key) => {
+            (dom as HTMLElement).style.setProperty(key, nextStyle[key]);
         });
 
-    Object.keys(prevProps.style)
-        .filter(isGone(prevProps.style, nextProps.style))
-        .forEach(key => {
-            dom.style[key] = '';
+    Object.keys(prevStyle)
+        .filter((key) => !(key in nextStyle))
+        .forEach((key) => {
+            (dom as HTMLElement).style.setProperty(key, '');
         });
 
     Object.keys(nextProps)
         .filter(isEvent)
         .filter(isNew(prevProps, nextProps))
-        .forEach(name => {
+        .forEach((name) => {
             const eventType = name.toLowerCase().substring(2);
-            dom.addEventListener(eventType, nextProps[name]);
+            (dom as HTMLElement).addEventListener(eventType, nextProps[name]);
         });
 };
 
-export const createDomElement = fiber => {
+export const createDomElement = (fiber: AnuElement & { type: string }): HTMLElement | SVGElement | Text => {
     const isTextElement = fiber.type === TEXT_ELEMENT;
-    const isSvgElement = SVG_ELEMENT_LIST.indexOf(fiber.type) > -1;
-    let dom;
+    const isSvgElement = (SVG_ELEMENT_LIST as string[]).indexOf(fiber.type) > -1;
+    let dom: HTMLElement | SVGElement | Text;
 
     if (isTextElement) {
         dom = document.createTextNode('');
     } else if (isSvgElement) {
-        dom = document.createElementNS('http://www.w3.org/2000/svg', getHTMLValidSvgTag(fiber.type));
+        dom = document.createElementNS('http://www.w3.org/2000/svg', getHTMLValidSvgTag(fiber.type)) as SVGElement;
     } else {
         dom = document.createElement(fiber.type);
     }
