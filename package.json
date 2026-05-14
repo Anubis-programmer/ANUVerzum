@@ -21,7 +21,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Anubis-programmer/ANUVerzum.git"
+    "url": "git+https://github.com/Anubis-programmer/ANUVerzum.git"
   },
   "license": "MIT",
   "author": "Anubis-programmer",
