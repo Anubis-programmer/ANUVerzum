@@ -171,7 +171,10 @@ npm run format      # Format all source files with Prettier
             <a href="#avoiding-unnecessary-wrapper-elements">Avoiding unnecessary wrapper elements</a>
         </li>
         <li>
-            <a href="#refs">Refs</a>
+            <a href="#list-keys">Keys for dynamic lists</a>
+        </li>
+        <li>
+            <a href="#refs">The refs</a>
         </li>
         <li>
             <a href="#rendering-application">Rendering application</a>
@@ -546,14 +549,14 @@ It takes <strong>ONE</strong> argument which can either be:
     // Explicit form:
     const ElemList = ({ somethingToLoop }: ListProps): AnuElement => (
         <Anu.Fragment>
-            {somethingToLoop.map(prop => <li>{prop}</li>)}
+            {somethingToLoop.map((prop, i) => <li key={`list-item-${i}`}>{prop}</li>)}
         </Anu.Fragment>
     );
 
     // Shorthand form — identical result:
     const ElemList = ({ somethingToLoop }: ListProps): AnuElement => (
         <>
-            {somethingToLoop.map(prop => <li>{prop}</li>)}
+            {somethingToLoop.map((prop, i) => <li key={`list-item-${i}`}>{prop}</li>)}
         </>
     );
 
@@ -569,6 +572,40 @@ It takes <strong>ONE</strong> argument which can either be:
             </div>
         );
     };
+    ```
+
+<h3 id="list-keys">Keys for dynamic lists</h3>
+
+- Add a <code>key</code> prop to each element in a dynamically rendered list. Keys allow the reconciler to match elements across renders by identity rather than position, so items that move, are inserted, or are removed do not cause unrelated siblings to lose their state or be recreated unnecessarily.
+- A key must be unique among siblings. Use a stable, unique identifier from your data (such as a database ID). Only fall back to the array index when the list never reorders and items are never inserted in the middle.
+
+    ```typescript
+    interface Item {
+        id: string;
+        label: string;
+    }
+
+    interface ItemListProps extends Props {
+        items: Item[];
+    }
+
+    // Stable IDs — preferred:
+    const ItemList = ({ items }: ItemListProps): AnuElement => (
+        <ul>
+            {items.map(({ id, label }) => (
+                <li key={id}>{label}</li>
+            ))}
+        </ul>
+    );
+
+    // Index fallback — only when order never changes:
+    const StaticList = ({ items }: ItemListProps): AnuElement => (
+        <ul>
+            {items.map(({ label }, i) => (
+                <li key={`list-item-${i}`}>{label}</li>
+            ))}
+        </ul>
+    );
     ```
 
 <h3 id="refs">The refs</h3>
@@ -665,7 +702,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
                     />
                     <ul>
                         {files.length > 0 && files.map(({ name, file }) => (
-                            <li>
+                            <li key={name}>
                                 <img src={name} alt={`Uploaded file name: ${file.name}, type: ${file.type}, size: ${file.size}`} />
                             </li>
                         ))}
@@ -775,6 +812,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
             todoList.forEach(task => {
                 todoStatus[task.status].push(
                     <div
+                        key={task.name}
                         draggable
                         className="todoListItem"
                         onDragStart={event => this.handleDragStart(event, task.name)}
@@ -879,7 +917,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
                 <div className="container">
                     <div style={{ minHeight: '800px' }}>
                         {this.state.photos.map(user => (
-                            <img src={user.url} height="100px" width="200px" />
+                            <img key={user.url} src={user.url} height="100px" width="200px" />
                         ))}
                     </div>
                     <div ref={this.loadingRef} style={loadingCSS}>
@@ -1205,13 +1243,13 @@ when you want to imperatively modify a child outside of the typical dataflow.
                     <h2>Topics</h2>
                     <ul>
                         {items.map(({ name, slug }) => (
-                            <li>
+                            <li key={slug}>
                                 <Anu.History.Link to={`${match.url}/${slug}`}>{name}</Anu.History.Link>
                             </li>
                         ))}
                     </ul>
                     {items.map(({ name, slug }) => (
-                        <Anu.History.Route path={`${match.path ?? ''}/${slug}`} render={() => (
+                        <Anu.History.Route key={slug} path={`${match.path ?? ''}/${slug}`} render={() => (
                             <Topic topicId={name} />
                         )} />
                     ))}
@@ -1283,6 +1321,30 @@ when you want to imperatively modify a child outside of the typical dataflow.
 <h2 id="server-api">Calling the server asynchronously - <strong>The Server API</strong></h2>
 
 The <code>Anu.ServerAPI</code> is basically built on top of <code>Promise</code> and currently has 5 methods <code>get()</code>, <code>post()</code>, <code>put()</code>, <code>delete()</code> and <code>file()</code>.
+
+The <code>.catch()</code> callback receives <code>{ status, response }</code> where <code>response</code> is always <code>null</code> on failure. <code>status</code> is the HTTP status code for server-side errors (e.g. <code>404</code>, <code>500</code>) and <code>0</code> for network-level failures such as no internet connection, DNS error, or a CORS rejection (i.e. no HTTP response was received at all).
+
+```typescript
+Anu
+    .ServerAPI
+    .get<MyItem>('/app/my-server-url/1234')
+    .then(({ response }) => {
+        // response is MyItem | null
+    })
+    .catch(({ status }) => {
+        if (status === 0) {
+            // Network-level failure — no response was received.
+            // Show a "check your connection" message to the user.
+        } else if (status === 401) {
+            // Server responded with 401 Unauthorized — redirect to login.
+            Anu.History.goTo('/login');
+        } else if (status === 404) {
+            // Server responded with 404 Not Found.
+        } else {
+            // Any other HTTP error (403, 500, etc.).
+        }
+    });
+```
 
 <h3 id="get-and-delete-methods">The <strong>GET</strong> and <strong>DELETE</strong> HTTP methods</h3>
 
@@ -1787,12 +1849,12 @@ it should return that part, with the updated desired values:
     
 <h3 id="creating-the-store">Creating the store</h3>
 
-- The store object stores the global state object (that can be reached using the <code>store.getState()</code> methiod) and it also has the <code>store.dispatch()</code>, <code>store.subscribe()</code> and <code>store.unsubscribe()</code> methods.
-You will likely use the <code>store.getState()</code> and <code>store.dispatch()</code> methods only because subscribing and unsubscribing functionalities are "wired" into the <code>&lt;Anu.Connector.Provider /&gt;</code> and the "connedted"
+- The store object stores the global state object (that can be reached using the <code>store.getState()</code> method) and it also has the <code>store.dispatch()</code>, <code>store.subscribe()</code> and <code>store.unsubscribe()</code> methods.
+You will likely use the <code>store.getState()</code> and <code>store.dispatch()</code> methods only because subscribing and unsubscribing functionalities are "wired" into the <code>&lt;Anu.Connector.Provider /&gt;</code> and the "connected"
 (also known as "container") component(s) created by using the <code>Anu.Connector.connect()</code> - see <a href="#connector-api">Connecting components to the global state - The Connector API</a> section.
 - Create a store object using <code>Anu.store.createStore()</code>:
     - The first argument is the <code>rootReducer</code> which is always needed (can be either a "single" reducer or a combination of ("single" and/or combined) reducers),
-    - The second <code>initialState</code> argument is optional however, if you don't use it, the initial state will be <code>undefined</code>.
+    - The second <code>initialState</code> argument is required. Pass the initial state object for your store here.
     This argument is useful if you want to have initialized values for your application before dispatching your first action.
     - The third argument is optional, you can use it if you want to apply middleware functionalities like dispatching asynchronous actions (e.g. AJAX calls or delayed calls). 
     In this case, the built-in <code>Anu.store.middleware.applyMiddleware()</code> can be passed:

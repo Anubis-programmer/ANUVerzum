@@ -86,7 +86,8 @@ const matchPath = (pathname: string, options: { exact?: boolean; path?: string }
         };
     }
 
-    const match = new RegExp(`^${path}`).exec(pathname);
+    const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = new RegExp(`^${escapedPath}`).exec(pathname);
 
     if (!match) {
         return null;
@@ -159,8 +160,7 @@ class HistoryLink extends Component<HistoryLinkProps> {
     }
 
     render(): AnuElement {
-        const { to, children, ...restProps } = this.props;
-        const { ariaLabel } = restProps as HistoryLinkProps;
+        const { to, children, ariaLabel, ...restProps } = this.props;
 
         return createElement(
             'a',

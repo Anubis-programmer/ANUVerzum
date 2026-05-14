@@ -43,7 +43,7 @@ export const createContext = <T extends Record<string, any> = Record<string, any
 
             if (!deepEqual(providerContext.value as Record<string, any>, pureProps as Record<string, any>)) {
                 providerContext.value = { ...pureProps };
-
+                providerContext.__notifySub = true;
                 this.setState();
             }
         }
@@ -68,6 +68,7 @@ export const createContext = <T extends Record<string, any> = Record<string, any
     class ContextConsumer extends Component<Props> {
         componentDidUpdate(): void {
             if (providerContext.__notifySub) {
+                providerContext.__notifySub = false;
                 this.setState();
             }
         }

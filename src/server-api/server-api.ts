@@ -14,6 +14,12 @@ type ErrorHandler = (result: ApiErrorResponse) => void;
 const _setXHR = <T>(successHandler: SuccessHandler<T>, errorHandler: ErrorHandler): XMLHttpRequest => {
     const XHR = new XMLHttpRequest();
 
+    XHR.onerror = () => {
+        errorHandler({ status: 0, response: null });
+    };
+    XHR.ontimeout = () => {
+        errorHandler({ status: 0, response: null });
+    };
     XHR.onload = () => {
         const { status, response } = XHR;
 
@@ -52,7 +58,7 @@ const _serverGetAPI =
 
         if (urlParamKeys.length > 0) {
             urlParamKeys.forEach((key, index) => {
-                urlWithParams += index === 0 ? `?${key}=${params[key]}` : `&${key}=${params[key]}`;
+                urlWithParams += index === 0 ? `?${encodeURIComponent(key)}=${encodeURIComponent(params[key])}` : `&${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
             });
         }
 
@@ -67,11 +73,10 @@ const _serverPostAPI =
             return;
         }
 
-        const urlParams = `data=${JSON.stringify(data)}`;
         const XHR = _setXHR<T>(successHandler, errorHandler);
         XHR.open('POST', url, true);
-        XHR.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-        XHR.send(urlParams);
+        XHR.setRequestHeader('Content-type', 'application/json; charset=utf-8');
+        XHR.send(JSON.stringify(data));
     };
 
 const _serverPutAPI =
@@ -97,7 +102,7 @@ const _serverDeleteAPI =
 
         if (urlParamKeys.length > 0) {
             urlParamKeys.forEach((key, index) => {
-                urlWithParams += index === 0 ? `?${key}=${params[key]}` : `&${key}=${params[key]}`;
+                urlWithParams += index === 0 ? `?${encodeURIComponent(key)}=${encodeURIComponent(params[key])}` : `&${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`;
             });
         }
 
