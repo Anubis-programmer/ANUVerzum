@@ -7,6 +7,46 @@
 
 <br>
 
+<h2>Getting Started</h2>
+
+<h3>Installation</h3>
+
+```bash
+npm install anu-verzum
+```
+
+<h3>Babel setup</h3>
+
+The package ships with a Babel preset that configures JSX for you.
+Add it to your project's <code>babel.config.json</code>:
+
+```json
+{
+    "presets": ["anu-verzum/babel-preset"]
+}
+```
+
+This preset transforms JSX to <code>Anu.createElement()</code> calls automatically,
+including the <code>&lt;&gt;...&lt;/&gt;</code> fragment shorthand (mapped to <code>Anu.Fragment</code>).
+
+<h3>Importing in your files</h3>
+
+Every file that contains JSX must import <code>Anu</code>, because the JSX transform
+expands to <code>Anu.createElement(...)</code> calls at compile time:
+
+```javascript
+import Anu from 'anu-verzum';
+
+const App = () => (
+    <div>Hello ANUVerzum!</div>
+);
+
+Anu.render(<App />, document.getElementById('root'));
+```
+
+<br>
+<hr>
+
 <h2>Framework Usage:</h2>
 
 <ul>
@@ -393,9 +433,12 @@ It takes <strong>ONE</strong> argument which can either be:
 <h3 id="avoiding-unnecessary-wrapper-elements">Avoiding unnecessary wrapper elements</h3>
 
 - It is useful when you have a list of properties you want to loop through and render them (i.e. not in a nested structure but rather one after the other) but you don't want an extra <code>&lt;div /&gt;</code> element to be rendered.
-- When wrapping a list of elements within <code>&lt;Anu.Fragment /&gt;</code>, the System won't wrap it within an extra (and unnecessary) wrapper element, like a <code>&lt;div /&gt;</code>.
+- Both syntaxes below are equivalent — use whichever you prefer:
+    - <code>&lt;Anu.Fragment&gt;...&lt;/Anu.Fragment&gt;</code> — explicit form
+    - <code>&lt;&gt;...&lt;/&gt;</code> — shorthand form (available when using the <code>anu-verzum/babel-preset</code>)
 
     ```javascript
+    // Explicit form:
     const ElemList = props => {
         return (
             <Anu.Fragment>
@@ -403,6 +446,16 @@ It takes <strong>ONE</strong> argument which can either be:
             </Anu.Fragment>
         );
     };
+
+    // Shorthand form — identical result:
+    const ElemList = props => {
+        return (
+            <>
+                {props.somethingToLoop.map(prop => <li>{prop}</li>)}
+            </>
+        );
+    };
+
     // Usage:
     const OrderedElemList = () => {
         const somethingToLoop = ['Coffee', 'Tea', 'Pálinka'];
@@ -472,7 +525,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
             for (let i = 0; i < target.files.length; i++) {
                 nextState.files.push({
                     // Creates a name for preview.
-                    // Use it as 'src' attribute value in image
+                    // Use it as 'src' attribute value in image:
                     name: URL.createObjectURL(target.files[i]),
                     file: target.files[i]
                 });
@@ -512,7 +565,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
     <strong>Example</strong> - <i>handling <code>onClick</code> event outside of the referenced element</i>:
 
     ```javascript
-    class ClickOutsideComponent exttends Anu.Component {
+    class ClickOutsideComponent extends Anu.Component {
         constructor(props) {
             super(props);
             this.state = {
@@ -672,7 +725,7 @@ when you want to imperatively modify a child outside of the typical dataflow.
                 this.handleObserver,
                 options
             );
-            this.observer.observe(this.loadingRef);
+            this.observer.observe(this.loadingRef.current);
         }
         handleObserver(entities, observer) {
             const y = entities[0].boundingClientRect.y;
@@ -1097,9 +1150,9 @@ when you want to imperatively modify a child outside of the typical dataflow.
     - Please only use <code>Anu.History.goTo()</code> if you need to redirect user inside the code based on functionality (like in <code>if</code> statement) for accessibility reasons.
 
         ```javascript
-        // Pushes URL into History API by default
+        // Pushes URL into History API by default:
         Anu.History.goTo('/about');
-        // Replaces current URL with the 'path' argument in History API
+        // Replaces current URL with the 'path' argument in History API:
         Anu.History.goTo('/about', true);
         ```
 
@@ -1114,30 +1167,34 @@ The <code>Anu.ServerAPI</code> is basically built on top of <code>Promise</code>
 - The <code>Anu.ServerAPI.get()</code> and <code>Anu.ServerAPI.delete()</code> perform a <strong>GET</strong> or <strong>DELETE</strong> HTTP method respectively to get data from the server or delete a specific data from the server
 (usually referenced by an <code>id</code> attribute in both cases but not necessarily when using <strong>GET</strong>).<br>
 They are faster than the <strong>POST</strong> or <strong>PUT</strong> HTTP methods but lack the security as well.
-- Can take a <code>url</code> (string - <strong>MUST ALWAYS START WITH "<code>/app</code>"!</strong>) and an optional <code>params</code> (object) argument and return a <code>Promise</code> object.
+- Can take a <code>url</code> (string)
+  - <strong>MUST ALWAYS START WITH "<code>/app</code>"!</strong>
+  - If it contains <strong>whitespace</strong> characters, those will be replaced with <code>_</code>.
+- Can also take an optional <code>params</code> (object) argument
+- Returns a <code>Promise</code> object.
 You can send params within the URL <strong>AND/OR</strong> as URI query parameters, e.g.:
-        
+
     ```javascript
-    const passedValueForGet = '1234'; // Represents an ID
+    const passedValueForGet = '1234'; // Represents an ID...
     const paramsForGet = {
         key: 'value',
-        nextKex: 'nextValue'
+        nextKey: 'nextValue'
     };
+    // In this case, the XHR URL will be `/app/my-server-url/1234?key=value&nextKey=nextValue`:
     Anu
         .ServerAPI
         .get(`/app/my-server-url/${passedValueForGet}`, paramsForGet)
         .then(({ response }) => { /* ... */ })
         .catch(({ status }) => { /* ... */ });
-    // In this case, the XHR URL will be: `/app/my/server/url/${passedValueForGet}?key=value&nextKex=nextValue`
-    const passedValueForDelete = '1234'; // Represents an ID
+    const passedValueForDelete = '1234'; // Represents an ID...
+    // In this case, the XHR URL will be `/app/my-server-url/1234`:
     Anu
         .ServerAPI
         .delete(`/app/my-server-url/${passedValueForDelete}`)
         .then(({ response }) => { /* ... */ })
         .catch(({ status }) => { /* ... */ });
-    // In this case, the XHR URL will be: `/app/my/server/url/${passedValueForDelete}`
     ```
-    
+
 <h3 id="post-and-put-methods">The <strong>POST</strong> and <strong>PUT</strong> HTTP methods</h3>
 
 - The <code>Anu.ServerAPI.post()</code> and <code>Anu.ServerAPI.put()</code> perform an <strong>POST</strong> or <strong>PUT</strong> HTTP method respectively to send large data to the server and optionally get other data back.
@@ -1150,7 +1207,7 @@ You can send params within the URL <strong>AND/OR</strong> as URI query paramete
         .post('/app/my-server-url/', dataForPost)
         .then(({ response }) => { /* ... */ })
         .catch(({ status }) => { /* ... */ });
-    const passedValue = '1234'; // Represents an ID
+    const passedValue = '1234'; // Represents an ID...
     const dataForPut = { /* ... */ };
     Anu
         .ServerAPI
@@ -1243,8 +1300,9 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
         The <code>properties</code> are empty on <code>'initialization'</code>, <code>'navigation'</code> and <code>'pageLeave'</code>.
 
             ```javascript
+            type key = 'initialization' | 'navigation' | 'userAction' | 'stateChange' | 'pageLeave';
             interface Event {
-                [key]: { // "key" is always 'initialization', 'navigation', 'userAction', 'stateChange' or 'pageLeave'
+                [key]: {
                     eventType: UserEvent | ActionType | URI,
                     timestamp: Date,
                     properties: UserActionProperties | StateChangeProperties | {}
@@ -1272,7 +1330,7 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
                 keyCode: number | null,
                 value?: string,
                 pageX: number,
-				pageY: number,
+                pageY: number,
                 scrollTop: number,
                 scrollLeft: number,
                 url: string,
@@ -1316,7 +1374,8 @@ If you want to track additional elements, call <code>Anu.Anulytics.trackEvent(ev
 It takes a <code>context</code> argument which can be reached later as <code>context.defaultContext.value</code> and returns a context provider and consumer:
 
     ```javascript
-    const ThemedContext = Anu.createContext({ theme: 'Theme-1' });    // This can be accessed as "context.defaultContext.value.theme"
+    // This can be accessed as "context.defaultContext.value.theme":
+    const ThemedContext = Anu.createContext({ theme: 'Theme-1' });
     ```
 
 <h3 id="usage-of-context-provider-and-consumers">Usage of the context provider and its consumer(s)</h3>
@@ -1327,24 +1386,23 @@ It takes a <code>context</code> argument which can be reached later as <code>con
 - You can have as many elements between the context provider and consumer(s), as you want.<br>
 No need to pass the <code>context</code> all the way down within the "props flow"; the function child of the context consumer will have access to it by default.<br>
 It allows you to create your "intermediate" components without depending from the <code>context</code> (they don't need to be aware of it if they have nothing to do with it...).
-		
+
     ```javascript
     const ComponentWithContext = () => {
         const theme2 = 'Theme-2';
         return (
             <ThemedContext.ContextProvider theme={theme2}>
                 <MyComponent1>
-                    { /* Here as many "intermediate" components as you need */ }
                     <MyComponentN>
                         <ThemedContext.ContextConsumer>
-                            {context => {       // Function that receives 'context' as argument and returns a valid element or component (or null)
+                            {context => {
                                 const {
                                     value: {
-                                        theme
+                                        theme // "Theme-2"
                                     },
                                     defaultContext: {
                                         value: {
-                                            theme: defaultTheme
+                                            theme: defaultTheme // "Theme-1"
                                         }
                                     }
                                 } = context;
@@ -1362,7 +1420,7 @@ It allows you to create your "intermediate" components without depending from th
         );
     };
     ```
-    
+
 <br>
 
 <strong>The next APIs (<code>Anu.Connector.connect()</code> and <code>&lt;Anu.Connector.Provider /&gt;</code>; <code>&lt;Anu.Intl.Provider /&gt;</code>, <code>&lt;Anu.Intl.FormattedMessage /&gt;</code>, <code>Anu.Intl.formatMessage()</code> and <code>Anu.Intl.abbreviateNumber()</code>; <code>&lt;Anu.Feature.Provider /&gt;</code> and <code>&lt;Anu.Feature.Toggle /&gt;</code>) are strongly relying on the Context API</strong><br>
@@ -1383,16 +1441,15 @@ It allows you to create your "intermediate" components without depending from th
 
             ```javascript
             // Simple action creator:
-            const myActionCreator = passedProps => {
-                return {
-                    type,               // Must have!
-                    payload: {
-                        passedProps
-                };
-            };
+            const myActionCreator = passedProps => ({
+                type,                   // Must have!
+                payload: {
+                    passedProps
+                }
+            });
             // Async action creator - requires middleware:
             const myAsyncActionCreator = value => (dispatch, getState) => {
-                // call a function that dispatches action(s) or returning a promise
+                // call a function that dispatches action(s) or returning a promise...
             };
             ```
                 
@@ -1530,7 +1587,7 @@ it should return that part, with the updated desired values:
             // ...
             partOfTheStateN
         ) => {
-            // Do something using the
+            // Do something with the state-parts and return the result:
             return somethingDerivedFromStatePartsParams;
         };
         // Selector:
@@ -1541,7 +1598,7 @@ it should return that part, with the updated desired values:
 
 - You can combine multiple reducers using the <code>Anu.store.combineReducers()</code> if you need a more complex state shape:
     - The function receives one (object) argument - the "key" of the item will be the name of the corresponding state-part, the "value" is the reducer you want to add to the combined reducer.
-	- <code>Anu.store.combineReducers()</code> can be used multiple times in the application.
+    - <code>Anu.store.combineReducers()</code> can be used multiple times in the application.
 
         ```javascript
         const combinedReducer = Anu.store.combineReducers({
@@ -1562,7 +1619,7 @@ it should return that part, with the updated desired values:
             myStatePartN: myStatePartN
         };
         ```
-	
+    
 <h3 id="creating-the-store">Creating the store</h3>
 
 - The store object stores the global state object (that can be reached using the <code>store.getState()</code> methiod) and it also has the <code>store.dispatch()</code>, <code>store.subscribe()</code> and <code>store.unsubscribe()</code> methods.
@@ -1648,12 +1705,14 @@ The first function takes two arguments: the <code>mapStateToProps()</code> and <
                 }
             };
             const mapStateToProps = (state, ownProps) => {
-                const { statePart1 } = state;          // Extracting part from global state
+                // Extracting part from global state:
+                const { statePart1 } = state;
 
                 return {
                     propName1: statePart1,
                     // ...
-                    propNameN: mySelector(state),      // Using selector to derive some parts of the global state - see 'Store API' section
+                    // Using selector to derive some parts of the global state - see 'Store API' section:
+                    propNameN: mySelector(state),
                     {...ownProps}
                 };
             };
@@ -1810,9 +1869,12 @@ This currently supports only the <i>Hungarian</i> and the <i>English</i> abbrevi
 
             ```javascript
             const option = {
-                units: [' E.', ' Mio.', ' Mrd.', ' T.'],         // The abbreviations to use (for each 3 digits, starting with the first element)
-                decimalPlaces: 3,                                // How many decimal digits to preserve
-                decimalSign: ','                                 // Replace the default decimal sign (.) with a comma (,)
+                // The abbreviations to use (for each 3 digits, starting with the first element):
+                units: [' E.', ' Mio.', ' Mrd.', ' T.'],
+                // How many decimal digits to preserve:
+                decimalPlaces: 3,
+                // Replace the default decimal sign (.) with a comma (,):
+                decimalSign: ','
             };
             Anu.Intl.abbreviateNumber(10000000000, option):      // 10 Mrd.
             Anu.Intl.abbreviateNumber(100000000000, option):     // 100 Mrd.

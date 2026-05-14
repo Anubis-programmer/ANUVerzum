@@ -1,0 +1,43 @@
+{
+  "name": "anu-verzum",
+  "version": "1.0.0",
+  "description": "A \"React-like\" UI library that supports JSX syntax, state management, array-rendering, i18n, routing and many more.",
+  "keywords": [
+    "anu-verzum",
+    "UI-library",
+    "React-like",
+    "JSX",
+    "state-management",
+    "routing",
+    "i18n"
+  ],
+  "files": [
+    "dist",
+    "babel-preset.js"
+  ],
+  "homepage": "https://github.com/Anubis-programmer/ANUVerzum#readme",
+  "bugs": {
+    "url": "https://github.com/Anubis-programmer/ANUVerzum/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Anubis-programmer/ANUVerzum.git"
+  },
+  "license": "MIT",
+  "author": "Anubis-programmer",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "babel src --out-dir dist --extensions \".js\" --copy-files",
+    "prepare": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@babel/plugin-transform-react-jsx": "^7.21.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.21.0",
+    "@babel/core": "^7.21.0",
+    "@babel/preset-env": "^7.21.0"
+  }
+}
