@@ -76,12 +76,26 @@ const IntlProvider = ({ locale, messages, defaultLocale, children }: IntlProvide
     }
 };
 
+const interpolateValues = (text: string, values: Record<string, string | number>): string => {
+    let result = text;
+
+    Object.keys(values).forEach((key) => {
+        const variablePattern = `{${key}}`;
+
+        if (result.indexOf(variablePattern) > -1) {
+            result = result.replace(new RegExp(`\\{${key}\\}`, 'g'), String(values[key]));
+        }
+    });
+
+    return result;
+};
+
 const FormattedMessage = ({ id, values, defaultMessage }: FormattedMessageProps): AnuElement | undefined =>
     createElement(
         _Intl.ContextConsumer,
         {},
         ({ value: { messages } }: { value: { messages?: Record<string, string> } }) => {
-            let textValue = '';
+            let textValue: string;
 
             try {
                 if (messages && messages[id]) {
@@ -96,13 +110,7 @@ const FormattedMessage = ({ id, values, defaultMessage }: FormattedMessageProps)
                     throw new Error('No text or fallback value to return.');
                 } else {
                     if (values && typeof values === 'object' && values !== null) {
-                        Object.keys(values).forEach((key) => {
-                            const variablePattern = `{${key}}`;
-
-                            if (textValue.indexOf(variablePattern) > -1) {
-                                textValue = textValue.replace(variablePattern, String(values[key]));
-                            }
-                        });
+                        textValue = interpolateValues(textValue, values);
                     }
 
                     return createElement(TEXT_ELEMENT, { nodeValue: textValue });
@@ -135,13 +143,7 @@ const formatMessage = (id: string, values?: Record<string, string | number>, def
     }
 
     if (values && typeof values === 'object' && values !== null) {
-        Object.keys(values).forEach((key) => {
-            const variablePattern = `{${key}}`;
-
-            if (textValue.indexOf(variablePattern) > -1) {
-                textValue = textValue.replace(variablePattern, String(values[key]));
-            }
-        });
+        textValue = interpolateValues(textValue, values);
     }
 
     return textValue;
