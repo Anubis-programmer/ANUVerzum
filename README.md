@@ -193,6 +193,9 @@ npm run format      # Format all source files with Prettier
         <li>
             <a href="#redirecting-with-history-goto">Redirecting with Anu.History.goTo()</a>
         </li>
+        <li>
+            <a href="#reading-url-parameters">Reading URL parameters</a>
+        </li>
     </ul>
     <li>
         <a href="#server-api">Calling the server asynchronously - The Server API</a>
@@ -1315,6 +1318,37 @@ when you want to imperatively modify a child outside of the typical dataflow.
         // Replaces current URL with the 'path' argument in History API:
         Anu.History.goTo('/about', true);
         ```
+
+<h3 id="reading-url-parameters">Reading URL parameters - <strong><code>Anu.History.getUrlParams()</code> and <code>Anu.History.getAllUrlParamNames()</code></strong></h3>
+
+URLs are expected to follow the REST resource-path convention:
+
+```
+/{noun-plural}/{id}/{noun-plural}/{id}/...
+```
+
+The router parses the current pathname into named parameters by singularizing each noun segment and appending `Id`.
+A trailing action segment (odd-length path) is ignored.
+
+| URL | Extracted params |
+|---|---|
+| `/products` | `{}` |
+| `/products/a3f8c2d1` | `{ productId: 'a3f8c2d1' }` |
+| `/users/asdf1234/products` | `{ userId: 'asdf1234' }` |
+| `/users/asdf1234/products/ghjk5678` | `{ userId: 'asdf1234', productId: 'ghjk5678' }` |
+| `/users/asdf1234/products/ghjk5678/delete` | `{ userId: 'asdf1234', productId: 'ghjk5678' }` |
+
+- **`Anu.History.getUrlParams(key)`** — returns the value of the named URL parameter derived from the current pathname, or `null` if the key is not present.
+- **`Anu.History.getAllUrlParamNames()`** — returns an array of all parameter key names extractable from the current pathname. Useful for development and debugging.
+
+    ```typescript
+    // URL: /users/asdf1234/products/ghjk5678
+    Anu.History.getUrlParams('userId');       // → 'asdf1234'
+    Anu.History.getUrlParams('productId');    // → 'ghjk5678'
+    Anu.History.getUrlParams('orderId');      // → null
+
+    Anu.History.getAllUrlParamNames();        // → ['userId', 'productId']
+    ```
 
 <br>
 

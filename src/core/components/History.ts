@@ -103,6 +103,49 @@ const matchPath = (pathname: string, options: { exact?: boolean; path?: string }
     return { path, url, isExact };
 };
 
+const singularize = (word: string): string => {
+    if (word.endsWith('ies')) {
+        return `${word.slice(0, -3)}y`;
+    }
+
+    if (word.endsWith('sses')) {
+        return word.slice(0, -2);
+    }
+
+    if (word.endsWith('xes')) {
+        return word.slice(0, -2);
+    }
+
+    if (word.endsWith('zes')) {
+        return word.slice(0, -3);
+    }
+
+    if (word.endsWith('ches')) {
+        return word.slice(0, -2);
+    }
+
+    if (word.endsWith('shes')) {
+        return word.slice(0, -2);
+    }
+
+    if (word.endsWith('s')) {
+        return word.slice(0, -1);
+    }
+
+    return word;
+};
+
+const parseUrlParams = (pathname: string): Record<string, string> => {
+    const segments = pathname.split('/').filter(Boolean);
+    const params: Record<string, string> = {};
+
+    for (let i = 0; i < segments.length - 1; i += 2) {
+        params[`${singularize(segments[i])}Id`] = segments[i + 1];
+    }
+
+    return params;
+};
+
 class HistoryRoute extends Component<HistoryRouteProps> {
     constructor(props: HistoryRouteProps) {
         super(props);
@@ -199,10 +242,20 @@ export const goTo = (path = '/', replace?: boolean): void => {
     }
 };
 
+const getUrlParams = (key: string): string | null => {
+    const params = parseUrlParams(window.location.pathname);
+    return params[key] ?? null;
+};
+
+const getAllUrlParamNames = (): string[] =>
+    Object.keys(parseUrlParams(window.location.pathname));
+
 const History = {
     Link: HistoryLink,
     Redirect: HistoryRedirect,
-    Route: HistoryRoute
+    Route: HistoryRoute,
+    getUrlParams,
+    getAllUrlParamNames
 };
 
 export default History;
