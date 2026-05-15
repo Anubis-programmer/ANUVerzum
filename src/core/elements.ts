@@ -28,17 +28,21 @@ const createTextElement = (value: string | number | boolean): AnuElement => ({
 
 export const createElement = (type: ElementType, config: Props | null, ...args: any[]): AnuElement => {
     const props: Props = Object.assign({}, config);
-    const hasChildren = args.length > 0;
-    const rawChildren = hasChildren ? ([] as any[]).concat(...args) : [];
-    props.children = rawChildren
-        .filter((c: any) => c !== null && c !== false)
-        .map((c: any) =>
-            typeof c === 'function'
-                ? createElement(c, { ...(c.props || {}) })
-                : c instanceof Object
-                  ? (c as AnuElement)
-                  : createTextElement(c)
-        );
+
+    if (args.length > 0) {
+        const rawChildren = ([] as any[]).concat(...args);
+        props.children = rawChildren
+            .filter((c: any) => c !== null && c !== false)
+            .map((c: any) =>
+                typeof c === 'function'
+                    ? createElement(c, { ...(c.props || {}) })
+                    : c instanceof Object
+                      ? (c as AnuElement)
+                      : createTextElement(c)
+            );
+    } else {
+        props.children = props.children ?? [];
+    }
 
     return { type, props };
 };
