@@ -61,6 +61,10 @@ const resetNextUnitOfWork = (): void => {
         return;
     }
 
+    if (update.from === CLASS_COMPONENT && !update.instance.__fiber) {
+        return;
+    }
+
     if (update.partialState) {
         update.instance.__fiber.partialState = update.partialState;
     }
@@ -492,6 +496,7 @@ const commitWork = (effect: Fiber): void => {
             if (effect.stateNode.componentWillUnmount) {
                 effect.stateNode.componentWillUnmount();
             }
+            effect.stateNode.__fiber = null;
         }
 
         commitDeletion(effect, domParent);
