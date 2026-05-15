@@ -17,7 +17,7 @@ export abstract class Component<P extends Props = Props, S extends Record<string
     }
 
     setState(partialState: Partial<S> | ((prevState: S, prevProps: P) => S) = {}): void {
-        let partialStateObject: Partial<S> = this.state;
+        let partialStateObject: Partial<S> = {};
         let partialStateCallback: ((prevState: S, prevProps: P) => S) | undefined;
 
         if (typeof partialState === 'object') {
