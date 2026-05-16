@@ -1,7 +1,7 @@
 import { scheduleUpdate } from '../reconciler';
 import { AnuElement, Props } from '../elements';
 
-export abstract class Component<P extends Props = Props, S extends Record<string, any> = Record<string, any>> {
+export abstract class Component<P extends Record<string, any> = Props, S extends Record<string, any> = Record<string, any>> {
     props: P;
     state: S;
     context: Record<string, any>;
