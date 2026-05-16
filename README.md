@@ -47,8 +47,12 @@ Anu.render(<App />, document.getElementById('root'));
 <h3>TypeScript setup</h3>
 
 The library is written in TypeScript and ships with declaration files (`.d.ts`) out of the box —
-no extra `@types` package is needed. If your project uses TypeScript, add the following to your
-`tsconfig.json` so the compiler understands JSX produced by ANUVerzum:
+no extra `@types` package is needed. The `dist/` directory contains only compiled `.js` files and
+`.d.ts` declarations, so the package works correctly under all standard TypeScript `moduleResolution`
+modes including `"node"`, `"node16"`, and `"bundler"`.
+
+If your project uses TypeScript, add the following to your `tsconfig.json` so the compiler
+understands JSX produced by ANUVerzum:
 
 ```json
 {
@@ -140,7 +144,8 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 These scripts are available when working on the library itself:
 
 ```bash
-npm run build       # Compile TypeScript sources to dist/ and emit .d.ts files
+npm run clean       # Delete dist/ entirely
+npm run build       # Clean, compile TypeScript sources to dist/, and emit .d.ts files
 npm run typecheck   # Type-check without emitting any output
 npm run lint        # Run ESLint on all source files
 npm run format      # Format all source files with Prettier
