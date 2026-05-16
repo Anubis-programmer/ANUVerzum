@@ -16,15 +16,15 @@ export type Props = {
 
 export type Ref<T> = { current: T | null };
 
-export type FunctionComponent<P extends Props = Props> = (props: P) => AnuElement | AnuElement[] | null;
+export type FunctionComponent<P extends Props = Props> = (props: P) => AnuElement<any, any> | AnuElement<any>[] | null;
 
 export type ComponentConstructor<P extends Props = Props> = new (props: P, context?: Record<string, any>) => any;
 
 export type ElementType = string | FunctionComponent | ComponentConstructor;
 
-export type AnuElement = {
-    type: ElementType;
-    props: Props;
+export type AnuElement<P = Props, T extends ElementType = ElementType> = {
+    type: T;
+    props: P;
 };
 
 const createTextElement = (value: string | number | boolean): AnuElement => ({
