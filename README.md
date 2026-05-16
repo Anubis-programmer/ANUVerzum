@@ -17,7 +17,7 @@ npm install anu-verzum
 
 <h3>Babel setup</h3>
 
-The package ships with a Babel preset that configures JSX for you.
+The package ships with a Babel preset that configures both JSX and TypeScript for you.
 Add it to your project's <code>babel.config.json</code>:
 
 ```json
@@ -26,8 +26,12 @@ Add it to your project's <code>babel.config.json</code>:
 }
 ```
 
-This preset transforms JSX to <code>Anu.createElement()</code> calls automatically,
-including the <code>&lt;&gt;...&lt;/&gt;</code> fragment shorthand (mapped to <code>Anu.Fragment</code>).
+This preset does two things automatically:
+
+- Transforms JSX to <code>Anu.createElement()</code> calls, including the <code>&lt;&gt;...&lt;/&gt;</code> fragment shorthand (mapped to <code>Anu.Fragment</code>).
+- Strips TypeScript types via <code>@babel/plugin-transform-typescript</code> with <code>jsxPragma: 'Anu'</code> pre-configured, so the <code>Anu</code> import is never incorrectly elided — even in files that use only host elements like <code>&lt;div&gt;</code> or <code>&lt;span&gt;</code>.
+
+Because the preset handles TypeScript stripping itself, **do not** add <code>@babel/preset-typescript</code> separately — running both would transform TypeScript twice and cause errors.
 
 <h3>Importing in your files</h3>
 

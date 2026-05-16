@@ -7,6 +7,13 @@ module.exports = function () {
                     pragma: 'Anu.createElement',
                     pragmaFrag: 'Anu.Fragment'
                 }
+            ],
+            [
+                require('@babel/plugin-transform-typescript'),
+                {
+                    isTSX: true,
+                    jsxPragma: 'Anu'
+                }
             ]
         ]
     };
