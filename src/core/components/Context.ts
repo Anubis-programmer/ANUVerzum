@@ -7,7 +7,7 @@ export type ContextValue<T> = {
     defaultContext: { value: T };
 };
 
-export type ConsumerProps<T> = Props & {
+export type ConsumerProps<T> = Omit<Props, 'children'> & {
     children: (ctx: ContextValue<T>) => AnuElement | null;
 };
 
