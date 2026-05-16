@@ -17,26 +17,85 @@ npm install anu-verzum
 
 <h3>Babel setup</h3>
 
-The package ships with a Babel preset that configures both JSX and TypeScript for you.
-Add it to your project's <code>babel.config.json</code>:
+Create a `babel.config.json` in your project root:
 
 ```json
 {
-    "presets": ["anu-verzum/babel-preset"]
+    "presets": [
+        "anu-verzum/babel-preset",
+        ["@babel/preset-env", { "targets": "last 2 Chrome versions" }]
+    ]
 }
 ```
 
-This preset does two things automatically:
+`anu-verzum/babel-preset` handles two things automatically:
 
-- Transforms JSX to <code>Anu.createElement()</code> calls, including the <code>&lt;&gt;...&lt;/&gt;</code> fragment shorthand (mapped to <code>Anu.Fragment</code>).
-- Strips TypeScript types via <code>@babel/plugin-transform-typescript</code> with <code>jsxPragma: 'Anu'</code> pre-configured, so the <code>Anu</code> import is never incorrectly elided — even in files that use only host elements like <code>&lt;div&gt;</code> or <code>&lt;span&gt;</code>.
+- Transforms JSX to `Anu.createElement()` calls, including the `<>...</>` fragment shorthand (mapped to `Anu.Fragment`).
+- Strips TypeScript syntax via `@babel/plugin-transform-typescript` with `jsxPragma: 'Anu'` pre-configured, so the `Anu` import is never incorrectly elided — even in files that only use host elements like `<div>` or `<span>`.
 
-Because the preset handles TypeScript stripping itself, **do not** add <code>@babel/preset-typescript</code> separately — running both would transform TypeScript twice and cause errors.
+Because the preset handles TypeScript stripping itself, **do not** add `@babel/preset-typescript` separately — running both would transform TypeScript twice and cause errors.
+
+<h3>Webpack setup</h3>
+
+Install the required build dependencies:
+
+```bash
+npm install --save-dev webpack webpack-cli webpack-dev-server html-webpack-plugin babel-loader @babel/core @babel/preset-env
+```
+
+Create (or update) `webpack.config.js`:
+
+```js
+const path = require('path');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+module.exports = {
+    mode: 'development',
+    entry: './src/index.tsx',           // use index.js for JavaScript-only projects
+    output: {
+        path: path.resolve(__dirname, 'dist'),
+        filename: 'bundle.js',
+        publicPath: '/'
+    },
+    module: {
+        rules: [
+            {
+                test: /\.[jt]sx?$/,     // use /\.jsx?$/ for JavaScript-only projects
+                exclude: /node_modules/,
+                use: 'babel-loader'
+            }
+        ]
+    },
+    resolve: {
+        extensions: ['.js', '.jsx', '.tsx', '.ts']
+    },
+    plugins: [
+        new HtmlWebpackPlugin({ template: './index.html' })
+    ],
+    devServer: {
+        port: 3000,
+        historyApiFallback: true,
+        open: true
+    }
+};
+```
+
+Add scripts to `package.json`:
+
+```json
+{
+    "scripts": {
+        "start": "webpack serve",
+        "build": "webpack --mode production"
+    }
+}
+```
 
 <h3>Importing in your files</h3>
 
-Every file that contains JSX must import <code>Anu</code>, because the JSX transform
-expands to <code>Anu.createElement(...)</code> calls at compile time:
+Every file that contains JSX should import `Anu`, because the JSX transform expands to
+`Anu.createElement(...)` calls at compile time. The preset keeps this import in scope
+automatically, but it is still required at runtime:
 
 ```javascript
 import Anu from 'anu-verzum';
@@ -50,26 +109,55 @@ Anu.render(<App />, document.getElementById('root'));
 
 <h3>TypeScript setup</h3>
 
-The library is written in TypeScript and ships with declaration files (`.d.ts`) out of the box —
-no extra `@types` package is needed. The `dist/` directory contains only compiled `.js` files and
-`.d.ts` declarations, so the package works correctly under all standard TypeScript `moduleResolution`
-modes including `"node"`, `"node16"`, and `"bundler"`.
+The library ships with declaration files (`.d.ts`) out of the box — no `@types` package is needed.
 
-If your project uses TypeScript, add the following to your `tsconfig.json` so the compiler
-understands JSX produced by ANUVerzum:
+Install TypeScript for type checking:
+
+```bash
+npm install --save-dev typescript
+```
+
+> **Note:** `@babel/preset-typescript` is **not** needed — `anu-verzum/babel-preset` already handles TypeScript stripping. Only install `typescript` to get the `tsc` CLI for type checking.
+
+Create `tsconfig.json`:
 
 ```json
 {
     "compilerOptions": {
+        "target": "ES2017",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
         "jsx": "react",
         "jsxFactory": "Anu.createElement",
-        "jsxFragmentFactory": "Anu.Fragment"
-    }
+        "jsxFragmentFactory": "Anu.Fragment",
+        "strict": true,
+        "noEmit": true,
+        "skipLibCheck": true,
+        "esModuleInterop": true
+    },
+    "include": ["src"]
 }
 ```
 
-Every JSX file must still import `Anu` so that `Anu.createElement` is in scope at runtime (same
-as the plain JavaScript case).
+| Option | Value | Reason |
+|--------|-------|--------|
+| `jsx` | `"react"` | Enables JSX type-checking with a custom factory |
+| `jsxFactory` | `"Anu.createElement"` | Matches ANUVerzum's JSX transform |
+| `jsxFragmentFactory` | `"Anu.Fragment"` | Matches ANUVerzum's fragment syntax |
+| `noEmit` | `true` | Type checking only — Babel handles compilation |
+| `skipLibCheck` | `true` | Skips type checking inside `node_modules` |
+| `moduleResolution` | `"bundler"` | Correct setting for Webpack/Babel projects |
+
+#### Build pipeline
+
+Compilation and type checking are intentionally separate:
+
+```bash
+npm start          # dev server — Babel compiles, always succeeds
+npx tsc --noEmit   # type check only — surfaces type errors
+```
+
+Because compilation goes through Babel, `npm start` and `npm run build` succeed regardless of type errors. Run `npx tsc --noEmit` during development to catch type issues without blocking the build.
 
 #### Typed class components
 
