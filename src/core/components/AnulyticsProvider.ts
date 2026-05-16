@@ -252,7 +252,7 @@ class AnulyticsProvider extends Component<AnulyticsProviderProps> {
     }
 
     render(): AnuElement | AnuElement[] | null {
-        const { children } = this.props;
+        const children = this.props.children as AnuElement[] | undefined;
 
         try {
             if (!children || children.length !== 1) {

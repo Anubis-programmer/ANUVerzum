@@ -54,9 +54,9 @@ const Anu = {
     Utils
 };
 
-export type { AnuElement, Props, Ref, FunctionComponent, ElementType } from './core/elements';
-export type { ContextValue } from './core/components/Context';
-export type { Action, ThunkAction, Dispatch, Reducer, MiddlewareAPI, Middleware, Store, SelectorFn } from './store/store';
+export type { AnuElement, AnuChild, Props, Ref, FunctionComponent, ElementType } from './core/elements';
+export type { ContextValue, ConsumerProps } from './core/components/Context';
+export type { Action, ThunkAction, Dispatch, Reducer, MiddlewareAPI, Middleware, Store, SelectorFn, CreateSelectorFn } from './store/store';
 export type { ApiSuccessResponse, ApiErrorResponse } from './server-api/server-api';
 export { Component, Fragment, createElement, createRef, createContext, render, goTo };
 export { AnulyticsProvider, trackEvent };

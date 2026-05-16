@@ -32,7 +32,7 @@ export interface AbbreviateNumberOptions {
     decimalSign?: string;
 }
 
-const IntlProvider = ({ locale, messages, defaultLocale, children }: IntlProviderProps): AnuElement | undefined => {
+const IntlProvider = ({ locale, messages, defaultLocale, children }: IntlProviderProps): AnuElement | null => {
     let selectedMessage: Record<string, string> | undefined;
 
     try {
@@ -72,7 +72,7 @@ const IntlProvider = ({ locale, messages, defaultLocale, children }: IntlProvide
     } catch (err) {
         console.error(err);
 
-        return undefined;
+        return null;
     }
 };
 
@@ -90,11 +90,11 @@ const interpolateValues = (text: string, values: Record<string, string | number>
     return result;
 };
 
-const FormattedMessage = ({ id, values, defaultMessage }: FormattedMessageProps): AnuElement | undefined =>
+const FormattedMessage = ({ id, values, defaultMessage }: FormattedMessageProps): AnuElement =>
     createElement(
         _Intl.ContextConsumer,
         {},
-        ({ value: { messages } }: { value: { messages?: Record<string, string> } }) => {
+        ({ value: { messages } }: { value: { messages?: Record<string, string> } }): AnuElement | null => {
             let textValue: string;
 
             try {
@@ -118,7 +118,7 @@ const FormattedMessage = ({ id, values, defaultMessage }: FormattedMessageProps)
             } catch (err) {
                 console.error(err);
 
-                return undefined;
+                return null;
             }
         }
     );
