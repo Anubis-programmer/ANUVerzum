@@ -9,12 +9,12 @@ type StoreShape = {
     unsubscribe: (listener: () => void) => void;
 };
 
-type MapStateToProps<TState = any, TOwnProps extends Props = Props, TStateProps extends Props = Props> = (
+type MapStateToProps<TState = any, TOwnProps extends Record<string, any> = Record<string, any>, TStateProps extends Record<string, any> = Record<string, any>> = (
     state: TState,
     ownProps: TOwnProps
 ) => TStateProps;
 
-type MapDispatchToProps<TDispatch = any, TOwnProps extends Props = Props, TDispatchProps extends Props = Props> = (
+type MapDispatchToProps<TDispatch = any, TOwnProps extends Record<string, any> = Record<string, any>, TDispatchProps extends Record<string, any> = Record<string, any>> = (
     dispatch: TDispatch,
     ownProps: TOwnProps
 ) => TDispatchProps;
@@ -128,9 +128,9 @@ class Subscription {
 const connectHOC =
     <
         TState = any,
-        TOwnProps extends Props = Props,
-        TStateProps extends Props = Props,
-        TDispatchProps extends Props = Props
+        TOwnProps extends Record<string, any> = Record<string, any>,
+        TStateProps extends Record<string, any> = Record<string, any>,
+        TDispatchProps extends Record<string, any> = Record<string, any>
     >(
         mapStateToProps?: MapStateToProps<TState, TOwnProps, TStateProps> | null,
         mapDispatchToProps?: MapDispatchToProps<any, TOwnProps, TDispatchProps> | null
