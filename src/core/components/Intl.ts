@@ -17,7 +17,6 @@ export interface IntlProviderProps extends Props {
     locale: string | null;
     messages: Record<string, Record<string, string>>;
     defaultLocale?: string;
-    children?: AnuElement[];
 }
 
 export interface FormattedMessageProps extends Props {

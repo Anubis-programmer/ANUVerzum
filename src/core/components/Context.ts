@@ -7,13 +7,13 @@ export type ContextValue<T> = {
     defaultContext: { value: T };
 };
 
-export type ConsumerProps<T> = {
+export type ConsumerProps<T> = Props & {
     children: (ctx: ContextValue<T>) => AnuElement | null;
 };
 
 export type Context<T extends Record<string, any> = Record<string, any>> = {
     Provider: new (props: Props & Partial<T>) => Component;
-    Consumer: new (props: ConsumerProps<T>) => Component;
+    Consumer: new (props: ConsumerProps<T>) => Component<ConsumerProps<T>>;
     ContextProvider: new (props: Props) => Component;
     ContextConsumer: new (props: Props) => Component;
 };

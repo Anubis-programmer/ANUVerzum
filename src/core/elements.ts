@@ -2,11 +2,15 @@ export const TEXT_ELEMENT = 'TEXT_ELEMENT' as const;
 
 export type AnuChild = AnuElement | string | number | boolean | null | undefined;
 
+export type AnuNode = AnuChild | AnuNode[];
+
+export type AnuCSSProperties = Partial<Record<keyof CSSStyleDeclaration, string | number>>;
+
 export type Props = {
-    children?: AnuChild | AnuChild[];
+    children?: AnuNode;
     ref?: Ref<any>;
     key?: string | number;
-    style?: Partial<CSSStyleDeclaration & Record<string, string>>;
+    style?: AnuCSSProperties;
     [key: string]: any;
 };
 

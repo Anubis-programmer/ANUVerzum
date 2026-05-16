@@ -121,6 +121,8 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 |------|-------------|
 | `AnuElement` | The virtual-DOM element descriptor (return type of `createElement`) |
 | `AnuChild` | Union of all valid JSX child types: `AnuElement \| string \| number \| boolean \| null \| undefined` |
+| `AnuNode` | Recursive child tree type used by `Props.children` — `AnuChild \| AnuNode[]`; accepts single children, arrays, and nested arrays (e.g. from `.map()`) |
+| `AnuCSSProperties` | Style object type used by `Props.style` — `Partial<Record<keyof CSSStyleDeclaration, string \| number>>`; allows numeric values for unitless CSS properties such as `flexShrink`, `zIndex`, `opacity` |
 | `Props` | Base props type — all component prop objects should extend this |
 | `Ref<T>` | Reference object created by `Anu.createRef<T>()` |
 | `Component<P, S>` | Abstract base class for class components |
