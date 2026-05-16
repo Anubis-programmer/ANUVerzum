@@ -204,21 +204,29 @@ const _memoize = <T extends (...args: any[]) => any>(func: T, maxSize = 100): T 
 
 export type SelectorFn<TInput = any, TOutput = any> = (input: TInput) => TOutput;
 
-const createSelector = <TInput = any, TOutput = any>(
-    dependenciesInput: SelectorFn<TInput> | Array<SelectorFn<TInput>>,
-    transformation: (...args: any[]) => TOutput
-): SelectorFn<TInput, TOutput> => {
+export interface CreateSelectorFn {
+    <TInput, TI, TOutput>(dep: SelectorFn<TInput, TI>, fn: (r: TI) => TOutput): SelectorFn<TInput, TOutput>;
+    <TInput, T1, TOutput>(deps: [SelectorFn<TInput, T1>], fn: (r1: T1) => TOutput): SelectorFn<TInput, TOutput>;
+    <TInput, T1, T2, TOutput>(deps: [SelectorFn<TInput, T1>, SelectorFn<TInput, T2>], fn: (r1: T1, r2: T2) => TOutput): SelectorFn<TInput, TOutput>;
+    <TInput, T1, T2, T3, TOutput>(deps: [SelectorFn<TInput, T1>, SelectorFn<TInput, T2>, SelectorFn<TInput, T3>], fn: (r1: T1, r2: T2, r3: T3) => TOutput): SelectorFn<TInput, TOutput>;
+    <TInput, T1, T2, T3, T4, TOutput>(deps: [SelectorFn<TInput, T1>, SelectorFn<TInput, T2>, SelectorFn<TInput, T3>, SelectorFn<TInput, T4>], fn: (r1: T1, r2: T2, r3: T3, r4: T4) => TOutput): SelectorFn<TInput, TOutput>;
+}
+
+const createSelector: CreateSelectorFn = (
+    dependenciesInput: SelectorFn<any> | Array<SelectorFn<any>>,
+    transformation: (...args: any[]) => any
+) => {
     const dependencies = Array.isArray(dependenciesInput) ? dependenciesInput : [dependenciesInput];
     const memoizedTransformation = _memoize(transformation);
 
-    return _memoize((input: TInput): TOutput => {
+    return _memoize((input: any): any => {
         const params: any[] = [];
 
         dependencies.forEach((func) => {
             params.push(func(input));
         });
 
-        return memoizedTransformation(...params) as TOutput;
+        return memoizedTransformation(...params);
     });
 };
 

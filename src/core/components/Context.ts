@@ -7,14 +7,18 @@ export type ContextValue<T> = {
     defaultContext: { value: T };
 };
 
-export type Context = {
-    Provider: new (props: Props) => Component;
-    Consumer: new (props: Props) => Component;
+export type ConsumerProps<T> = {
+    children: (ctx: ContextValue<T>) => AnuElement | null;
+};
+
+export type Context<T extends Record<string, any> = Record<string, any>> = {
+    Provider: new (props: Props & Partial<T>) => Component;
+    Consumer: new (props: ConsumerProps<T>) => Component;
     ContextProvider: new (props: Props) => Component;
     ContextConsumer: new (props: Props) => Component;
 };
 
-export const createContext = <T extends Record<string, any> = Record<string, any>>(context: T): Context => {
+export const createContext = <T extends Record<string, any> = Record<string, any>>(context: T): Context<T> => {
     const providerContext: { defaultContext: { value: T }; value: Partial<T>; __notifySub?: boolean } = {
         defaultContext: { value: context },
         value: {}
@@ -49,7 +53,7 @@ export const createContext = <T extends Record<string, any> = Record<string, any
         }
 
         render(): AnuElement | AnuElement[] | null {
-            const { children } = this.props;
+            const children = this.props.children as AnuElement[] | undefined;
 
             try {
                 if (!children || children.length !== 1) {
@@ -74,7 +78,7 @@ export const createContext = <T extends Record<string, any> = Record<string, any
         }
 
         render(): AnuElement | AnuElement[] | null {
-            const { children } = this.props;
+            const children = this.props.children as AnuElement[] | undefined;
             const { value, defaultContext } = providerContext;
 
             try {
@@ -103,5 +107,5 @@ export const createContext = <T extends Record<string, any> = Record<string, any
         Consumer: ContextConsumer,
         ContextProvider,
         ContextConsumer
-    };
+    } as unknown as Context<T>;
 };

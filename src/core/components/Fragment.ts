@@ -3,7 +3,7 @@ import { AnuElement } from '../elements';
 
 export class Fragment extends Component {
     render(): AnuElement[] {
-        const { children } = this.props;
+        const children = this.props.children as AnuElement[] | undefined;
 
         try {
             if (!children || !children.length) {

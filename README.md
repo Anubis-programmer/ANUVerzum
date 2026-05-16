@@ -116,11 +116,14 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 | Type | Description |
 |------|-------------|
 | `AnuElement` | The virtual-DOM element descriptor (return type of `createElement`) |
+| `AnuChild` | Union of all valid JSX child types: `AnuElement \| string \| number \| boolean \| null \| undefined` |
 | `Props` | Base props type — all component prop objects should extend this |
 | `Ref<T>` | Reference object created by `Anu.createRef<T>()` |
 | `Component<P, S>` | Abstract base class for class components |
 | `FunctionComponent<P>` | Function component signature |
 | `ElementType` | String tag, function component, or class component constructor |
+| `ContextValue<T>` | Context value passed to a `Consumer` render-prop: `{ value: Partial<T>; defaultContext: { value: T } }` |
+| `ConsumerProps<T>` | Props for a typed context `Consumer` — `children` is the render-prop `(ctx: ContextValue<T>) => AnuElement \| null` |
 | `Store<S, A>` | Store instance returned by `Anu.store.createStore` |
 | `Reducer<S, A>` | Reducer function signature |
 | `Middleware<S, A>` | Middleware function signature |
@@ -128,6 +131,7 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 | `Action` | Base action type `{ type: string; [key: string]: any }` |
 | `ThunkAction<S>` | Thunk action `(dispatch, getState) => any` |
 | `SelectorFn<TInput, TOutput>` | Selector function signature for `createSelector` |
+| `CreateSelectorFn` | Overloaded interface for `Anu.store.createSelector` — enables full type inference on transformation parameters |
 | `ApiSuccessResponse<T>` | Successful HTTP response `{ status: number; response: T \| null }` |
 | `ApiErrorResponse` | Error HTTP response `{ status: number; response: null }` |
 
@@ -1625,45 +1629,37 @@ It takes a <code>context</code> argument which can be reached later as <code>con
 
 <h3 id="usage-of-context-provider-and-consumers">Usage of the context provider and its consumer(s)</h3>
 
-- Context props defined on <code>&lt;ThemedContext.ContextProvider /&gt;</code> can be accessed from within the function child of the <code>&lt;ThemedContext.ContextConsumer /&gt;</code> as <code>context.value</code>.
+- Context props defined on <code>&lt;ThemedContext.Provider /&gt;</code> can be accessed from within the function child of the <code>&lt;ThemedContext.Consumer /&gt;</code> as <code>context.value</code>.
 - Context providers can have multiple context consumer descendents.
 - Context consumers can have one function-as-a-child (which takes the <code>context</code> as argument) which must return a valid HTML, inline-SVG element, component (either class-based or function) or <code>null</code>.
 - You can have as many elements between the context provider and consumer(s), as you want.<br>
 No need to pass the <code>context</code> all the way down within the "props flow"; the function child of the context consumer will have access to it by default.<br>
 It allows you to create your "intermediate" components without depending from the <code>context</code> (they don't need to be aware of it if they have nothing to do with it...).
+- In TypeScript projects use <code>Provider</code> / <code>Consumer</code> — the callback argument type is inferred from the `createContext<T>()` type parameter, so no manual annotation is needed.
+- **Avoid** <code>ContextProvider</code> / <code>ContextConsumer</code> in TypeScript projects. These aliases exist for internal use (e.g. by `Intl` and `Feature` modules) but carry looser types: the consumer callback argument is typed as `Props` instead of `ContextValue<T>`, so you lose type inference on `context.value` and `context.defaultContext`.
 
     ```typescript
-    import Anu, { AnuElement, ContextValue } from 'anu-verzum';
+    import Anu, { AnuElement } from 'anu-verzum';
 
     const ComponentWithContext = (): AnuElement => {
         const theme2 = 'Theme-2';
         return (
-            <ThemedContext.ContextProvider theme={theme2}>
+            <ThemedContext.Provider theme={theme2}>
                 <MyComponent1>
                     <MyComponentN>
-                        <ThemedContext.ContextConsumer>
-                            {(context: ContextValue<ThemeContextValue>) => {
-                                const {
-                                    value: {
-                                        theme // "Theme-2"
-                                    },
-                                    defaultContext: {
-                                        value: {
-                                            theme: defaultTheme // "Theme-1"
-                                        }
-                                    }
-                                } = context;
-                                return (
-                                    <Anu.Fragment>
-                                        <span>{theme}</span>
-                                        <span>{defaultTheme}</span>
-                                    </Anu.Fragment>
-                                );
-                            }}
-                        </ThemedContext.ContextConsumer>
+                        <ThemedContext.Consumer>
+                            {({ value: { theme }, defaultContext: { value: { theme: defaultTheme } } }) => (
+                                // context type is inferred as ContextValue<ThemeContextValue>
+                                // theme → "Theme-2", defaultTheme → "Theme-1"
+                                <Anu.Fragment>
+                                    <span>{theme}</span>
+                                    <span>{defaultTheme}</span>
+                                </Anu.Fragment>
+                            )}
+                        </ThemedContext.Consumer>
                     </MyComponentN>
                 </MyComponent1>
-            </ThemedContext.ContextProvider>
+            </ThemedContext.Provider>
         );
     };
     ```
@@ -1820,10 +1816,11 @@ it should return that part, with the updated desired values:
 
 - Selectors are memoized functions which come handy if you need to do expensive calculations or conversions on the global state.
 - To create selector, use the <code>Anu.store.createSelector()</code> (it comes handy in <code>mapStateToProps()</code> - see <a href="#connector-api">Connecting components to the global state - The Connector API</a> section):
-    - Its first argument is an array of "getter" functions which will return the desired slice of the global state object.
+    - Its first argument is either a single "getter" function or an array of up to four "getter" functions, each returning a desired slice of the global state object.
     These functions must always return something.
-    - The second argument is a "handler" function which take as many arguments as many "getter" functions you defined; these arguments are the return values of the "getter" functions.
-    Their number and order is the same as of the "getters" within the first (array) argument of the <code>Anu.store.createSelector()</code>.
+    - The second argument is a "handler" function which takes as many arguments as "getter" functions you defined; these arguments are the return values of the "getter" functions.
+    Their number and order is the same as of the "getters" within the first argument of the <code>Anu.store.createSelector()</code>.
+    - In TypeScript, when you pass the getter array inline, the handler's parameter types are inferred automatically — no manual annotations needed.
 
         ```typescript
         import Anu, { SelectorFn } from 'anu-verzum';
@@ -1837,17 +1834,18 @@ it should return that part, with the updated desired values:
         const getStatePart1: SelectorFn<MyGlobalState, string> = state => state.myStatePart1;
         const getStatePart2: SelectorFn<MyGlobalState, number[]> = state => state.myStatePart2;
 
-        // Store the getters within an array:
-        const getters = [getStatePart1, getStatePart2];
+        // Single getter — transformation receives the getter's return type directly:
+        const mySimpleSelector = Anu.store.createSelector(
+            getStatePart1,
+            (part1) => part1.toUpperCase() // part1 inferred as string
+        );
 
-        // Define the transformation function:
-        const handler = (part1: string, part2: number[]): string => {
-            // Do something with the state-parts and return the result:
-            return `${part1}: ${part2.join(', ')}`;
-        };
-
-        // Selector:
-        const mySelector: SelectorFn<MyGlobalState, string> = Anu.store.createSelector(getters, handler);
+        // Multiple getters — pass the array inline so TypeScript can infer a tuple:
+        const mySelector = Anu.store.createSelector(
+            [getStatePart1, getStatePart2],
+            (part1, part2) => `${part1}: ${part2.join(', ')}`
+            // part1 inferred as string, part2 as number[]
+        );
         ```
 
 <h3 id="combining-reducers">Combining reducers</h3>
