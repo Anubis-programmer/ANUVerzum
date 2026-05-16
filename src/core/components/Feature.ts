@@ -9,13 +9,11 @@ const FeaturesContext = createContext<{ features?: FeaturesMap }>(defaultFeature
 
 export interface FeatureProviderProps extends Props {
     features: FeaturesMap;
-    children?: AnuElement[];
 }
 
 export interface FeatureToggleProps extends Props {
     name: string;
     defaultComponent?: AnuElement | null;
-    children?: AnuElement[];
 }
 
 const FeatureToggle = ({ name, children, defaultComponent = null }: FeatureToggleProps): AnuElement =>

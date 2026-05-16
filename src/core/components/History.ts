@@ -20,7 +20,6 @@ export interface HistoryLinkProps extends Props {
     to: string;
     replace?: boolean;
     ariaLabel?: string;
-    children?: AnuElement[];
 }
 
 export interface HistoryRedirectProps extends Props {
