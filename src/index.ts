@@ -66,9 +66,9 @@ export type { AbbreviateNumberOptions } from './core/components/Intl';
 /* eslint-disable @typescript-eslint/no-namespace, @typescript-eslint/no-empty-object-type */
 declare global {
     namespace JSX {
-        interface Element extends AnuElement {}
+        interface Element extends AnuElement<any, any> {}
         interface ElementClass {
-            render(): AnuElement | AnuElement[] | null | undefined;
+            render(): AnuElement | AnuElement[] | string | number | null | undefined;
         }
         interface ElementAttributesProperty {
             props: Record<string, unknown>;
