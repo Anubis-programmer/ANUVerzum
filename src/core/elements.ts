@@ -8,15 +8,13 @@ export type AnuCSSProperties = Partial<Record<keyof CSSStyleDeclaration, string 
 
 export type Props = {
     children?: AnuNode;
-    ref?: Ref<any>;
-    key?: string | number;
     style?: AnuCSSProperties;
     [key: string]: any;
 };
 
 export type Ref<T> = { current: T | null };
 
-export type FunctionComponent<P extends Props = Props> = (props: P) => AnuElement<any, any> | AnuElement<any, any>[] | string | number | null | undefined;
+export type FunctionComponent<P extends Props = Props> = (props: P) => AnuElement<any, any> | AnuElement<any, any>[] | string | number | boolean | null | undefined;
 
 export type ComponentConstructor<P extends Props = Props> = new (props: P, context?: Record<string, any>) => any;
 
@@ -25,15 +23,23 @@ export type ElementType = string | FunctionComponent | ComponentConstructor;
 export type AnuElement<P = Props, T extends ElementType = ElementType> = {
     type: T;
     props: P;
+    key: string | null;
+    ref: Ref<any> | null;
 };
 
 const createTextElement = (value: string | number | boolean): AnuElement => ({
     type: TEXT_ELEMENT,
-    props: { nodeValue: String(value) }
+    props: { nodeValue: String(value) },
+    key: null,
+    ref: null
 });
 
 export const createElement = (type: ElementType, config: Props | null, ...args: any[]): AnuElement => {
+    const key = config != null && config.key != null ? String(config.key) : null;
+    const ref = config != null && config.ref != null ? config.ref : null;
     const props: Props = Object.assign({}, config);
+    delete props.key;
+    delete props.ref;
 
     if (args.length > 0) {
         const rawChildren = ([] as any[]).concat(...args);
@@ -50,5 +56,5 @@ export const createElement = (type: ElementType, config: Props | null, ...args: 
         props.children = props.children ?? [];
     }
 
-    return { type, props };
+    return { type, props, key, ref };
 };

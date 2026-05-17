@@ -52,7 +52,6 @@ const _serverGetAPI =
     (url: string, params: Record<string, any> = {}) =>
     <T>(successHandler: SuccessHandler<T>, errorHandler: ErrorHandler): void => {
         const XHR = _setXHR<T>(successHandler, errorHandler);
-
         let urlWithParams = _trimUrlFromSpaces(url);
         const urlParamKeys = Object.keys(params);
 
@@ -96,7 +95,6 @@ const _serverDeleteAPI =
     (url: string, params: Record<string, any> = {}) =>
     <T>(successHandler: SuccessHandler<T>, errorHandler: ErrorHandler): void => {
         const XHR = _setXHR<T>(successHandler, errorHandler);
-
         let urlWithParams = _trimUrlFromSpaces(url);
         const urlParamKeys = Object.keys(params);
 
@@ -119,7 +117,6 @@ const _serverFileAPI =
 
         const XHR = _setXHR<T>(successHandler, errorHandler);
         XHR.open('POST', url, true);
-
         const formData = new FormData();
         const formDataFiles = Array.isArray(files) ? files : [files];
 
@@ -128,7 +125,6 @@ const _serverFileAPI =
         });
 
         formData.append('data', JSON.stringify(data));
-
         XHR.send(formData);
     };
 

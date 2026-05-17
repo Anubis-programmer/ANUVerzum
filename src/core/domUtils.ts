@@ -99,7 +99,7 @@ export const updateDomProperties = (
         return name.startsWith('on');
     };
     const isAttribute = (name: string): boolean =>
-        !isEvent(name) && name !== 'children' && name !== 'style' && name !== 'ref' && name !== 'key';
+        !isEvent(name) && name !== 'children' && name !== 'style';
     const isNew =
         (prev: Props, next: Props) =>
         (key: string): boolean =>
@@ -135,6 +135,7 @@ export const updateDomProperties = (
         .filter(isNew(prevProps, nextProps))
         .forEach((name) => {
             const el = dom as any;
+            
             if (isSvgElement) {
                 if (name === 'className') {
                     (dom as SVGElement).setAttribute('class', nextProps[name]);

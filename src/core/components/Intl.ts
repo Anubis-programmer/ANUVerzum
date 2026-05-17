@@ -195,6 +195,7 @@ const abbreviateNumber = (value: number, options: AbbreviateNumberOptions = {}):
         }
 
         let resultStr = `${result}`;
+        
         if (decimalSign) {
             resultStr = resultStr.replace('.', decimalSign);
         }
