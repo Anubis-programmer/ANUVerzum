@@ -16,7 +16,7 @@ export type Props = {
 
 export type Ref<T> = { current: T | null };
 
-export type FunctionComponent<P extends Props = Props> = (props: P) => AnuElement<any, any> | AnuElement<any>[] | null;
+export type FunctionComponent<P extends Props = Props> = (props: P) => AnuElement<any, any> | AnuElement<any, any>[] | string | number | null | undefined;
 
 export type ComponentConstructor<P extends Props = Props> = new (props: P, context?: Record<string, any>) => any;
 
