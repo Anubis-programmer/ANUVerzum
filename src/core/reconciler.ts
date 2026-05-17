@@ -469,14 +469,6 @@ const commitWork = (effect: Fiber): void => {
     } else if (effect.effectTag === UPDATE) {
         if (effect && effect.stateNode && effect.alternate && effect.alternate.props && effect.props) {
             if (effect.tag === HOST_COMPONENT) {
-                const nextDomSibling = getNextHostNode(effect, domParent);
-
-                if (nextDomSibling) {
-                    domParent.insertBefore(effect.stateNode, nextDomSibling);
-                } else {
-                    domParent.appendChild(effect.stateNode);
-                }
-
                 updateDomProperties(
                     effect.stateNode,
                     effect.alternate.props,
