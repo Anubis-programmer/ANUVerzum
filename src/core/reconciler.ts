@@ -19,6 +19,8 @@ const ENOUGH_TIME = 1;
 type Fiber = {
     type?: ElementType;
     tag: FiberTag;
+    key?: string | null;
+    ref?: Ref<any> | null;
     stateNode?: any;
     props: Props;
     parent?: Fiber;
@@ -241,7 +243,7 @@ const reconcileChildrenArray = (wipFiber: Fiber, newChildElements: any): void =>
     let oldIndex = 0;
 
     while (oldFiber) {
-        const mapKey = oldFiber.props.key ?? oldIndex;
+        const mapKey = oldFiber.key ?? oldIndex;
         oldFiberMap.set(mapKey, oldFiber);
         oldFiber = oldFiber.sibling;
         oldIndex++;
@@ -251,7 +253,7 @@ const reconcileChildrenArray = (wipFiber: Fiber, newChildElements: any): void =>
 
     for (let i = 0; i < elements.length; i++) {
         const element: AnuElement = elements[i];
-        const mapKey = element.props.key ?? i;
+        const mapKey = element.key ?? i;
         const matchedOldFiber = oldFiberMap.get(mapKey);
         const sameType = matchedOldFiber !== undefined && element.type === matchedOldFiber.type;
         let newFiber: Fiber;
@@ -260,6 +262,8 @@ const reconcileChildrenArray = (wipFiber: Fiber, newChildElements: any): void =>
             newFiber = {
                 type: matchedOldFiber.type,
                 tag: matchedOldFiber.tag,
+                key: matchedOldFiber.key,
+                ref: element.ref,
                 stateNode: matchedOldFiber.stateNode,
                 props: element.props,
                 parent: wipFiber,
@@ -284,6 +288,8 @@ const reconcileChildrenArray = (wipFiber: Fiber, newChildElements: any): void =>
             newFiber = {
                 type: element.type,
                 tag: getTag(element),
+                key: element.key,
+                ref: element.ref,
                 props: element.props,
                 parent: wipFiber,
                 effectTag: PLACEMENT
@@ -356,6 +362,8 @@ const cloneChildFibers = (parentFiber: Fiber): void => {
         const newChild: Fiber = {
             type: oldChild.type,
             tag: oldChild.tag,
+            key: oldChild.key,
+            ref: oldChild.ref,
             stateNode: oldChild.stateNode,
             props: oldChild.props,
             partialState: oldChild.partialState,
@@ -447,8 +455,8 @@ const commitWork = (effect: Fiber): void => {
                 domParent.appendChild(effect.stateNode);
             }
 
-            if (effect.props.ref) {
-                effect.props.ref.current = effect.stateNode;
+            if (effect.ref) {
+                effect.ref.current = effect.stateNode;
             }
         } else if (effect.tag === CLASS_COMPONENT) {
             if (effect.stateNode.componentDidMount) {
@@ -476,8 +484,8 @@ const commitWork = (effect: Fiber): void => {
                     (SVG_ELEMENT_LIST as string[]).indexOf(effect.type as string) > -1
                 );
 
-                if (effect.props.ref) {
-                    effect.props.ref.current = effect.stateNode;
+                if (effect.ref) {
+                    effect.ref.current = effect.stateNode;
                 }
             } else if (effect.tag === CLASS_COMPONENT) {
                 if (effect.stateNode.componentDidUpdate) {
@@ -496,6 +504,7 @@ const commitWork = (effect: Fiber): void => {
             if (effect.stateNode.componentWillUnmount) {
                 effect.stateNode.componentWillUnmount();
             }
+            
             effect.stateNode.__fiber = null;
         }
 

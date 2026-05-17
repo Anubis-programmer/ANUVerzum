@@ -440,7 +440,7 @@ Supports both <i>HTML</i> and <i>inline-SVG</i> element creation, "stateful" (or
 
 <h3 id="function-components">Function components</h3>
 
-- Function components are functions which can receive <code>props</code> and must always return either an <i>HTML element</i>, an <i>inline-SVG element</i>, a <i>Component</i> or <code>NULL</code>.
+- Function components are functions which can receive <code>props</code> and must always return either an <i>HTML element</i>, an <i>inline-SVG element</i>, a <i>Component</i>, a <i>string</i>, a <i>number</i>, a <i>boolean</i>, or <code>NULL</code>.
 - Both class-based and function component names must start with a capital letter, inline-SVG-s and HTML element names are lower-case!
 
     ```typescript

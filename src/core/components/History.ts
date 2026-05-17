@@ -243,6 +243,7 @@ export const goTo = (path = '/', replace?: boolean): void => {
 
 const getUrlParams = (key: string): string | null => {
     const params = parseUrlParams(window.location.pathname);
+    
     return params[key] ?? null;
 };
 

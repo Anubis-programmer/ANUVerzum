@@ -1,6 +1,6 @@
 import Utils from './misc/utils';
 import ServerAPI from './server-api/server-api';
-import { createElement, AnuElement, Props } from './core/elements';
+import { createElement, AnuElement, Props, Ref } from './core/elements';
 import { createRef, render } from './core/reconciler';
 import store from './store/store';
 import { createContext } from './core/components/Context';
@@ -66,9 +66,13 @@ export type { AbbreviateNumberOptions } from './core/components/Intl';
 /* eslint-disable @typescript-eslint/no-namespace, @typescript-eslint/no-empty-object-type */
 declare global {
     namespace JSX {
+        interface IntrinsicAttributes {
+            key?: string | number | null;
+            ref?: Ref<any> | null;
+        }
         interface Element extends AnuElement<any, any> {}
         interface ElementClass {
-            render(): AnuElement | AnuElement[] | string | number | null | undefined;
+            render(): AnuElement | AnuElement[] | string | number | boolean | null | undefined;
         }
         interface ElementAttributesProperty {
             props: Record<string, unknown>;

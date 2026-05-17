@@ -29,7 +29,7 @@ export abstract class Component<P extends Record<string, any> = Props, S extends
         scheduleUpdate(this, partialStateObject, partialStateCallback);
     }
 
-    abstract render(): AnuElement | AnuElement[] | string | number | null | undefined;
+    abstract render(): AnuElement | AnuElement[] | string | number | boolean | null | undefined;
 
     componentDidMount(): void {}
 
