@@ -85,6 +85,9 @@
     </li>
     <ul>
         <li>
+            <a href="#configure-base-url">Configuring the base URL</a>
+        </li>
+        <li>
             <a href="#get-and-delete-methods">GET and DELETE HTTP methods</a>
         </li>
         <li>
@@ -1479,6 +1482,24 @@ Anu
             // Any other HTTP error (403, 500, etc.).
         }
     });
+```
+
+<h3 id="configure-base-url">Configuring the base URL</h3>
+
+Call <code>Anu.ServerAPI.configure()</code> once at app startup to set a base URL. All subsequent calls that use a relative URL will have the base URL prepended automatically. Absolute URLs (starting with <code>http://</code> or <code>https://</code>) are passed through unchanged.
+
+```typescript
+Anu.ServerAPI.configure({ baseURL: 'http://localhost:3001' });
+
+// These now resolve to 'http://localhost:3001/api/products':
+Anu.ServerAPI.get('/api/products');
+Anu.ServerAPI.post('/api/login', body);
+```
+
+Combined with an environment variable, the same call sites work across all environments without changes:
+
+```typescript
+Anu.ServerAPI.configure({ baseURL: process.env.API_URL ?? 'http://localhost:3001' });
 ```
 
 <h3 id="get-and-delete-methods">The <strong>GET</strong> and <strong>DELETE</strong> HTTP methods</h3>
