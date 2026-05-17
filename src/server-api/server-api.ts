@@ -1,3 +1,6 @@
+let _baseURL = '';
+const _resolveURL = (url: string): string => (/^https?:\/\//.test(url) ? url : `${_baseURL}${url}`);
+
 const SUCCESS_STATUS_CODES = [200, 201, 202, 203, 204, 205, 206, 207, 208, 226];
 const CLIENT_ERROR_STATUS_CODES = [
     400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 421, 422, 423, 424,
@@ -129,15 +132,19 @@ const _serverFileAPI =
     };
 
 const ServerAPI = {
+    configure: ({ baseURL = '' }: { baseURL?: string }): void => {
+        _baseURL = baseURL.replace(/\/$/, '');
+    },
     get: <T = any>(url: string, params?: Record<string, any>): Promise<ApiSuccessResponse<T>> =>
-        new Promise(_serverGetAPI(url, params)),
+        new Promise(_serverGetAPI(_resolveURL(url), params)),
     post: <T = any>(url: string, data: unknown): Promise<ApiSuccessResponse<T>> =>
-        new Promise(_serverPostAPI(url, data)),
-    put: <T = any>(url: string, data: unknown): Promise<ApiSuccessResponse<T>> => new Promise(_serverPutAPI(url, data)),
+        new Promise(_serverPostAPI(_resolveURL(url), data)),
+    put: <T = any>(url: string, data: unknown): Promise<ApiSuccessResponse<T>> =>
+        new Promise(_serverPutAPI(_resolveURL(url), data)),
     delete: <T = any>(url: string, params?: Record<string, any>): Promise<ApiSuccessResponse<T>> =>
-        new Promise(_serverDeleteAPI(url, params)),
+        new Promise(_serverDeleteAPI(_resolveURL(url), params)),
     file: <T = any>(url: string, files: File | File[], data?: Record<string, any>): Promise<ApiSuccessResponse<T>> =>
-        new Promise(_serverFileAPI(url, files, data))
+        new Promise(_serverFileAPI(_resolveURL(url), files, data))
 };
 
 export default ServerAPI;
