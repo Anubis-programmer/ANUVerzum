@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.18.1</strong></h3>
+<h3>@version: <strong>1.19.0</strong></h3>
 
 <br>
 
@@ -46,47 +46,10 @@ Create a `babel.config.json` in your project root:
 
 <h3 id="webpack-setup">Webpack setup</h3>
 
-Install the required build dependencies:
-
-```bash
-npm install --save-dev webpack webpack-cli webpack-dev-server html-webpack-plugin babel-loader @babel/core @babel/preset-env
-```
-
-Create (or update) `webpack.config.js`:
+All build tools ship with `anu-verzum` — no separate install needed. Create `webpack.config.js` in your project root:
 
 ```js
-const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-
-module.exports = {
-    mode: 'development',
-    entry: './src/index.tsx',           // use index.js for JavaScript-only projects
-    output: {
-        path: path.resolve(__dirname, 'dist'),
-        filename: 'bundle.js',
-        publicPath: '/'
-    },
-    module: {
-        rules: [
-            {
-                test: /\.[jt]sx?$/,     // use /\.jsx?$/ for JavaScript-only projects
-                exclude: /node_modules/,
-                use: 'babel-loader'
-            }
-        ]
-    },
-    resolve: {
-        extensions: ['.js', '.jsx', '.tsx', '.ts']
-    },
-    plugins: [
-        new HtmlWebpackPlugin({ template: './index.html' })
-    ],
-    devServer: {
-        port: 3000,
-        historyApiFallback: true,
-        open: true
-    }
-};
+module.exports = require('anu-verzum/webpack.config')(__dirname);
 ```
 
 Add scripts to `package.json`:
@@ -98,6 +61,16 @@ Add scripts to `package.json`:
         "build": "webpack --mode production"
     }
 }
+```
+
+The default config targets `src/index.tsx` as the entry point and `index.html` as the HTML template, served on port 3000. Pass an options object to override any of these:
+
+```js
+module.exports = require('anu-verzum/webpack.config')(__dirname, {
+    entry: './src/main.tsx',
+    template: './public/index.html',
+    port: 4000
+});
 ```
 
 <h3 id="importing-in-your-files">Importing in your files</h3>
