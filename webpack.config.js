@@ -26,7 +26,8 @@ module.exports = (projectRoot, options = {}) => ({
     plugins: [
         new HtmlWebpackPlugin({
             template: options.template ?? path.join(projectRoot, 'index.html')
-        })
+        }),
+        ...(options.plugins ?? [])
     ],
     devServer: {
         port: options.port ?? 3000,
