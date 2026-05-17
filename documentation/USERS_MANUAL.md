@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.20.0</strong></h3>
+<h3>@version: <strong>1.21.0</strong></h3>
 
 <br>
 
@@ -248,6 +248,20 @@ module.exports = require('anu-verzum/webpack.config')(__dirname, {
     entry: './src/main.tsx',
     template: './public/index.html',
     port: 4000
+});
+```
+
+Use `plugins` to append additional webpack plugins after the built-in `HtmlWebpackPlugin`:
+
+```js
+const webpack = require('webpack');
+
+module.exports = require('anu-verzum/webpack.config')(__dirname, {
+    plugins: [
+        new webpack.DefinePlugin({
+            'process.env.API_URL': JSON.stringify(process.env.API_URL)
+        })
+    ]
 });
 ```
 
@@ -1496,11 +1510,42 @@ Anu.ServerAPI.get('/api/products');
 Anu.ServerAPI.post('/api/login', body);
 ```
 
-Combined with an environment variable, the same call sites work across all environments without changes:
+Combined with `webpack.DefinePlugin`, the same call sites work across all environments without changes. In `webpack.config.js`:
+
+```js
+const webpack = require('webpack');
+
+module.exports = require('anu-verzum/webpack.config')(__dirname, {
+    plugins: [
+        new webpack.DefinePlugin({
+            'process.env.API_URL': JSON.stringify(process.env.API_URL || 'http://localhost:3001')
+        })
+    ]
+});
+```
+
+Then configure once at app startup:
 
 ```typescript
-Anu.ServerAPI.configure({ baseURL: process.env.API_URL ?? 'http://localhost:3001' });
+Anu.ServerAPI.configure({ baseURL: process.env.API_URL });
 ```
+
+The name `API_URL` is arbitrary — it just has to match the key used in `DefinePlugin` (`process.env.API_URL`) and in `configure()`. Setting it inline in npm scripts is the most portable approach; install `cross-env` to make it work on Windows as well:
+
+```bash
+npm install --save-dev cross-env
+```
+
+```json
+{
+    "scripts": {
+        "start": "cross-env API_URL=http://localhost:3001 webpack serve",
+        "build": "cross-env API_URL=https://api.example.com webpack --mode production"
+    }
+}
+```
+
+This is not a `.env` file — `cross-env` sets the variable directly in the process environment before webpack runs, and `DefinePlugin` reads it at build time and bakes the value into the bundle as a string literal.
 
 <h3 id="get-and-delete-methods">The <strong>GET</strong> and <strong>DELETE</strong> HTTP methods</h3>
 

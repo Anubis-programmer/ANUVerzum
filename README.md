@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.20.0</strong></h3>
+<h3>@version: <strong>1.21.0</strong></h3>
 
 <br>
 
@@ -70,6 +70,20 @@ module.exports = require('anu-verzum/webpack.config')(__dirname, {
     entry: './src/main.tsx',
     template: './public/index.html',
     port: 4000
+});
+```
+
+Use `plugins` to append additional webpack plugins after the built-in `HtmlWebpackPlugin`:
+
+```js
+const webpack = require('webpack');
+
+module.exports = require('anu-verzum/webpack.config')(__dirname, {
+    plugins: [
+        new webpack.DefinePlugin({
+            'process.env.API_URL': JSON.stringify(process.env.API_URL)
+        })
+    ]
 });
 ```
 
