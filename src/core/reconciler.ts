@@ -491,35 +491,21 @@ const commitWork = (effect: Fiber): void => {
             }
         }
     } else if (effect.effectTag === DELETION) {
-        if (effect.tag === CLASS_COMPONENT) {
-            if (effect.stateNode.componentWillUnmount) {
-                effect.stateNode.componentWillUnmount();
-            }
-            
-            effect.stateNode.__fiber = null;
-        }
-
         commitDeletion(effect, domParent);
     }
 };
 
-const collectNestedClassComponents = (fiber: Fiber): Fiber[] => {
+const collectClassComponents = (fiber: Fiber): Fiber[] => {
     const result: Fiber[] = [];
-    const stack: Fiber[] = [];
-    let child = fiber.child;
-
-    while (child) {
-        stack.push(child);
-        child = child.sibling;
-    }
+    const stack: Fiber[] = [fiber];
 
     while (stack.length > 0) {
         const node = stack.pop()!;
-        let c = node.child;
+        let child = node.child;
 
-        while (c) {
-            stack.push(c);
-            c = c.sibling;
+        while (child) {
+            stack.push(child);
+            child = child.sibling;
         }
 
         if (node.tag === CLASS_COMPONENT) {
@@ -531,9 +517,7 @@ const collectNestedClassComponents = (fiber: Fiber): Fiber[] => {
 };
 
 const commitDeletion = (fiber: Fiber, domParent: HTMLElement): void => {
-    const nested = collectNestedClassComponents(fiber);
-
-    nested.forEach((node) => {
+    collectClassComponents(fiber).forEach((node) => {
         if (node.stateNode.componentWillUnmount) {
             try {
                 node.stateNode.componentWillUnmount();
