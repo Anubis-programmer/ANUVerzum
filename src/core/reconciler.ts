@@ -503,7 +503,48 @@ const commitWork = (effect: Fiber): void => {
     }
 };
 
+const collectNestedClassComponents = (fiber: Fiber): Fiber[] => {
+    const result: Fiber[] = [];
+    const stack: Fiber[] = [];
+    let child = fiber.child;
+
+    while (child) {
+        stack.push(child);
+        child = child.sibling;
+    }
+
+    while (stack.length > 0) {
+        const node = stack.pop()!;
+        let c = node.child;
+
+        while (c) {
+            stack.push(c);
+            c = c.sibling;
+        }
+
+        if (node.tag === CLASS_COMPONENT) {
+            result.push(node);
+        }
+    }
+
+    return result.reverse();
+};
+
 const commitDeletion = (fiber: Fiber, domParent: HTMLElement): void => {
+    const nested = collectNestedClassComponents(fiber);
+
+    nested.forEach((node) => {
+        if (node.stateNode.componentWillUnmount) {
+            try {
+                node.stateNode.componentWillUnmount();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        node.stateNode.__fiber = null;
+    });
+
     let node: Fiber | undefined = fiber;
 
     while (node) {
