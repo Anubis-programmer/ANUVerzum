@@ -19,6 +19,17 @@ type MapDispatchToProps<TDispatch = any, TOwnProps extends Record<string, any> =
     ownProps: TOwnProps
 ) => TDispatchProps;
 
+const shallowEqual = (a: Record<string, any>, b: Record<string, any>): boolean => {
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+
+    if (keysA.length !== keysB.length) {
+        return false;
+    }
+
+    return keysA.every((key) => a[key] === b[key]);
+};
+
 const providedStore = (context: Record<string, any> = {}) => {
     let providerContext = { ...context };
 
@@ -139,6 +150,7 @@ const connectHOC =
         class Connect extends Component<TOwnProps> {
             store: StoreShape;
             subscription: Subscription;
+            _cachedPassedProps: (TStateProps & TDispatchProps & TOwnProps) | null = null;
 
             constructor(props: TOwnProps, context?: Record<string, any>) {
                 super(props, context);
@@ -172,13 +184,23 @@ const connectHOC =
                 const dispatchProps = mapDispatchToProps
                     ? mapDispatchToProps(this.store.dispatch, this.props)
                     : ({} as TDispatchProps);
-                const passedProps = {
+                const nextPassedProps = {
                     ...this.props,
                     ...stateProps,
                     ...dispatchProps
                 } as TStateProps & TDispatchProps & TOwnProps;
 
-                return createElement(WrappedComponent as any, passedProps as any);
+                if (
+                    !this._cachedPassedProps ||
+                    !shallowEqual(
+                        this._cachedPassedProps as Record<string, any>,
+                        nextPassedProps as Record<string, any>
+                    )
+                ) {
+                    this._cachedPassedProps = nextPassedProps;
+                }
+
+                return createElement(WrappedComponent as any, this._cachedPassedProps as any);
             }
         }
 

@@ -19,9 +19,10 @@ export type Context<T extends Record<string, any> = Record<string, any>> = {
 };
 
 export const createContext = <T extends Record<string, any> = Record<string, any>>(context: T): Context<T> => {
-    const providerContext: { defaultContext: { value: T }; value: Partial<T>; __notifySub?: boolean } = {
+    const providerContext: { defaultContext: { value: T }; value: Partial<T>; subscribers: Set<Component> } = {
         defaultContext: { value: context },
-        value: {}
+        value: {},
+        subscribers: new Set()
     };
 
     const getPureProps = (props: Props): Partial<T> => {
@@ -47,8 +48,7 @@ export const createContext = <T extends Record<string, any> = Record<string, any
 
             if (!deepEqual(providerContext.value as Record<string, any>, pureProps as Record<string, any>)) {
                 providerContext.value = { ...pureProps };
-                providerContext.__notifySub = true;
-                this.setState();
+                providerContext.subscribers.forEach((consumer) => (consumer as any).setState());
             }
         }
 
@@ -70,11 +70,12 @@ export const createContext = <T extends Record<string, any> = Record<string, any
     }
 
     class ContextConsumer extends Component<Props> {
-        componentDidUpdate(): void {
-            if (providerContext.__notifySub) {
-                providerContext.__notifySub = false;
-                this.setState();
-            }
+        componentDidMount(): void {
+            providerContext.subscribers.add(this);
+        }
+
+        componentWillUnmount(): void {
+            providerContext.subscribers.delete(this);
         }
 
         render(): AnuElement | AnuElement[] | null {
