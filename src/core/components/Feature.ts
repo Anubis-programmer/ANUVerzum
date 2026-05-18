@@ -1,4 +1,5 @@
 import { createElement, AnuElement, Props } from '../elements';
+import { Component } from './Component';
 import { createContext } from './Context';
 import { Fragment } from './Fragment';
 
@@ -25,13 +26,18 @@ const resolveDefault = (defaultComponent: AnuElement | AnuElement[] | null): Anu
     return defaultComponent;
 };
 
-const FeatureToggle = ({ name, children, defaultComponent = null }: FeatureToggleProps): AnuElement =>
-    createElement(
-        FeaturesContext.ContextConsumer,
-        {},
-        ({ value: { features } }: { value: { features?: FeaturesMap } }) =>
-            features && features[name] === true ? children : resolveDefault(defaultComponent)
-    );
+class FeatureToggle extends Component<FeatureToggleProps> {
+    render(): AnuElement {
+        return createElement(
+            FeaturesContext.ContextConsumer,
+            {},
+            ({ value: { features } }: { value: { features?: FeaturesMap } }) =>
+                features && features[this.props.name] === true
+                    ? this.props.children
+                    : resolveDefault(this.props.defaultComponent ?? null)
+        );
+    }
+}
 
 const Feature = {
     Provider: FeaturesContext.ContextProvider,

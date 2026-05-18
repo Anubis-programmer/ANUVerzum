@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.4</strong></h3>
+<h3>@version: <strong>1.21.5</strong></h3>
 
 <br>
 
@@ -48,7 +48,7 @@
         <li><a href="#createcontext">The <code>createContext()</code> factory</a></li>
         <li><a href="#context-provider-internals">Provider internals</a></li>
         <li><a href="#context-consumer-internals">Consumer internals</a></li>
-        <li><a href="#notify-sub-flag">The <code>__notifySub</code> notification flag</a></li>
+        <li><a href="#subscriber-registry">The subscriber registry</a></li>
     </ul>
     <li><a href="#history-routing">Routing — <code>src/core/components/History.ts</code></a></li>
     <ul>
@@ -696,10 +696,11 @@ export const createContext = <T extends Record<string, any> = Record<string, any
 const providerContext: {
     defaultContext: { value: T };
     value: Partial<T>;
-    __notifySub?: boolean;
+    subscribers: Set<Component>;
 } = {
     defaultContext: { value: context },  // the value passed to createContext()
-    value: {}                            // the current value set by the Provider
+    value: {},                           // the current value set by the Provider
+    subscribers: new Set()               // all mounted Consumers of this context
 };
 ```
 
@@ -722,8 +723,7 @@ componentDidUpdate(): void {
 
     if (!deepEqual(providerContext.value as Record<string, any>, pureProps as Record<string, any>)) {
         providerContext.value = { ...pureProps };
-        providerContext.__notifySub = true;
-        this.setState();   // triggers re-render, which re-renders the Consumer too
+        providerContext.subscribers.forEach((consumer) => (consumer as any).setState());
     }
 }
 ```
@@ -743,13 +743,23 @@ render(): AnuElement | AnuElement[] | null {
 }
 ```
 
-<h3 id="notify-sub-flag">The <code>__notifySub</code> notification flag</h3>
+`ContextConsumer` registers itself in `providerContext.subscribers` on mount and removes itself on unmount:
 
-The Provider and Consumer are sibling subtrees, not parent-child. The Provider cannot directly call `setState` on the Consumer. Instead, the `__notifySub` boolean on the shared `providerContext` closure acts as a signal:
+```typescript
+componentDidMount(): void {
+    providerContext.subscribers.add(this);
+}
 
-1. The Provider sets `providerContext.__notifySub = true` and calls `this.setState()`.
-2. The Provider's re-render causes the whole subtree to re-render.
-3. When the Consumer's `componentDidUpdate` fires, it checks the flag. If set, it resets the flag and calls `this.setState()` to trigger its own re-render with the new context value.
+componentWillUnmount(): void {
+    providerContext.subscribers.delete(this);
+}
+```
+
+<h3 id="subscriber-registry">The subscriber registry</h3>
+
+The Provider and Consumer are sibling subtrees, not parent-child. Rather than relying on the render tree to propagate updates, the Provider holds a `Set<Component>` of every mounted Consumer and calls `setState()` on each one directly when the context value changes.
+
+This replaces a previous flag-polling approach (`__notifySub`) that broke inside `connect`-ed components: the flag was only checked in `componentDidUpdate`, which only ran when the Consumer's parent re-rendered. If the parent was a `connect`-ed component that bailed out of re-rendering (because Redux state hadn't changed), the Consumer never saw the updated context. The direct `setState()` call bypasses that dependency entirely — the Consumer always re-renders immediately when the Provider value changes, regardless of what the surrounding tree is doing.
 
 <br>
 <hr>
@@ -960,16 +970,23 @@ const connectHOC = <TState, TOwnProps, TStateProps, TDispatchProps>(
 
 `connectHOC` returns a curried function that accepts a wrapped component and returns a new `Connect` class component. On mount, `Connect` calls `this.subscription.trySubscribe()`. On state change, `onStateChange()` calls `this.setState({})` which triggers a re-render.
 
-On each render, `Connect` calls `mapStateToProps` and `mapDispatchToProps` (each optional, defaults to empty objects), merges the results with `this.props`, and passes everything to the wrapped component:
+On each render, `Connect` calls `mapStateToProps` and `mapDispatchToProps` (each optional, defaults to empty objects), merges the results with `this.props`, and passes the merged object to the wrapped component. To avoid breaking the reconciler's props bail-out (which compares props by reference), `Connect` caches the last merged props object and only replaces it when a shallow equality check detects a real change:
 
 ```typescript
 render(): AnuElement {
     const stateProps    = mapStateToProps    ? mapStateToProps(store.getState(), this.props)  : {};
     const dispatchProps = mapDispatchToProps ? mapDispatchToProps(store.dispatch, this.props) : {};
+    const nextPassedProps = { ...this.props, ...stateProps, ...dispatchProps };
 
-    return createElement(WrappedComponent, { ...this.props, ...stateProps, ...dispatchProps });
+    if (!this._cachedPassedProps || !shallowEqual(this._cachedPassedProps, nextPassedProps)) {
+        this._cachedPassedProps = nextPassedProps;
+    }
+
+    return createElement(WrappedComponent, this._cachedPassedProps);
 }
 ```
+
+Without this cache, every `Connect.render()` call constructs a new object literal, so `wipFiber.props !== instance.props` is always true and the reconciler never takes the bail-out path for the wrapped component — causing unnecessary re-renders on every Redux dispatch even when the derived props are identical.
 
 On `componentDidUpdate`, it calls `this.subscription.notifyNestedSubs()` to propagate the update to child subscriptions.
 
@@ -1064,9 +1081,11 @@ const Feature = {
 
 `Feature.Provider` is the raw `ContextProvider` from a `createContext()` call — it accepts a `features` prop (the `FeaturesMap`) and makes it available to all `Feature.Toggle` descendants.
 
-`FeatureToggle` is a function component that reads the `features` map from context and renders `children` if `features[name] === true`, or `defaultComponent` (defaults to `null`) otherwise. `defaultComponent` accepts a single `AnuElement`, an `AnuElement[]`, or `null`.
+`FeatureToggle` is a class component that reads the `features` map from context and renders `children` if `features[name] === true`, or `defaultComponent` (defaults to `null`) otherwise. `defaultComponent` accepts a single `AnuElement`, an `AnuElement[]`, or `null`.
 
 When `defaultComponent` is a `Fragment` element, `resolveDefault()` unwraps it and returns `Fragment.props.children` (the array of children) directly. This prevents the reconciler from receiving a Fragment CLASS_COMPONENT as the output of the ContextConsumer render-prop, which would corrupt the surrounding fiber tree (duplicate sibling renders and broken context propagation).
+
+`FeatureToggle` is a class component (not a function component) so that the render-prop passed to `ContextConsumer` always reads `this.props` — the current props at call time. A function component would close over the `name`, `children`, and `defaultComponent` parameters at the time `FeatureToggle` itself was called, and those captured values would become stale if the parent re-rendered with new props before the `ContextConsumer` render-prop fired again.
 
 ```typescript
 const resolveDefault = (
@@ -1082,17 +1101,18 @@ const resolveDefault = (
     return defaultComponent;
 };
 
-const FeatureToggle = ({
-    name,
-    children,
-    defaultComponent = null
-}: FeatureToggleProps): AnuElement =>
-    createElement(
-        FeaturesContext.ContextConsumer,
-        {},
-        ({ value: { features } }) =>
-            features && features[name] === true ? children : resolveDefault(defaultComponent)
-    );
+class FeatureToggle extends Component<FeatureToggleProps> {
+    render(): AnuElement {
+        return createElement(
+            FeaturesContext.ContextConsumer,
+            {},
+            ({ value: { features } }: { value: { features?: FeaturesMap } }) =>
+                features && features[this.props.name] === true
+                    ? this.props.children
+                    : resolveDefault(this.props.defaultComponent ?? null)
+        );
+    }
+}
 ```
 
 Because `Feature.Provider` is `ContextProvider` (not the typed `Provider`), props are untyped — the `features` object is passed as a prop directly on `<Feature.Provider features={...} />`.
