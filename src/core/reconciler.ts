@@ -1,5 +1,5 @@
 import { createDomElement, updateDomProperties, SVG_ELEMENT_LIST } from './domUtils';
-import { AnuElement, ElementType, Props } from './elements';
+import { AnuElement, ElementType, Props, Ref } from './elements';
 
 const HOST_COMPONENT = 'host';
 const CLASS_COMPONENT = 'class';
@@ -226,7 +226,6 @@ const getTag = (element: AnuElement): FiberTag => {
 
     if (
         typeof element.type === 'function' &&
-        !(element.type as any).isAnuComponent &&
         !(element.type as any).prototype?.render
     ) {
         return FUNCTION_COMPONENT;
@@ -528,8 +527,6 @@ const commitDeletion = (fiber: Fiber, domParent: HTMLElement): void => {
         node = node!.sibling;
     }
 };
-
-export type Ref<T> = { current: T | null };
 
 export const createRef = <T = any>(): Ref<T> => ({
     current: null

@@ -91,13 +91,7 @@ export const updateDomProperties = (
     nextProps: Props,
     isSvgElement = false
 ): void => {
-    const isEvent = (name: string): boolean => {
-        if (!String.prototype.startsWith) {
-            return name[0] === 'o' && name[1] === 'n';
-        }
-
-        return name.startsWith('on');
-    };
+    const isEvent = (name: string): boolean => name.startsWith('on');
     const isAttribute = (name: string): boolean =>
         !isEvent(name) && name !== 'children' && name !== 'style';
     const isNew =
