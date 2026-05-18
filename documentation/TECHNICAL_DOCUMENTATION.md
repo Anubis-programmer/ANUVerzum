@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.5</strong></h3>
+<h3>@version: <strong>1.21.6</strong></h3>
 
 <br>
 
@@ -510,8 +510,9 @@ The resulting fibers are linked into a sibling-chain as the new children of `wip
     - For `CLASS_COMPONENT`: enqueues `componentDidUpdate(prevProps, prevState)` in `componentLifecyclesQueue`.
 
 - **`DELETION`:**
-    - For `CLASS_COMPONENT`: calls `componentWillUnmount()` synchronously, then nullifies `instance.__fiber` to prevent stale `setState` calls.
-    - Calls `commitDeletion(effect, domParent)` which walks the fiber subtree to find and remove all real DOM nodes.
+    - Calls `commitDeletion(effect, domParent)`, which runs in two phases:
+        - **Phase 1 — lifecycle teardown:** `collectClassComponents` does an iterative DFS of the entire deleted subtree (including the root fiber), collects all `CLASS_COMPONENT` fibers, then reverses the list to get bottom-up order (children before parents). Each fiber then has `componentWillUnmount` called (individually wrapped in try/catch so one bad lifecycle does not abort the rest) and `stateNode.__fiber` nulled. This ensures every `ContextConsumer` and any other class component in the deleted subtree deregisters itself — preventing stale subscriber entries and the reconciliation loops they would otherwise cause.
+        - **Phase 2 — DOM removal:** walks the subtree, skipping class and function component fibers, and removes every host DOM node from the parent.
 
 **`componentLifecyclesQueue`** is a module-level array of `{ fn, params }` entries. All lifecycle callbacks (`componentDidMount`, `componentDidUpdate`) are accumulated during the commit loop and flushed together at the very end — after all DOM mutations are complete. This ensures that lifecycle methods always observe the fully-updated DOM, matching React's semantics.
 

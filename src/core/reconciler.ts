@@ -491,19 +491,44 @@ const commitWork = (effect: Fiber): void => {
             }
         }
     } else if (effect.effectTag === DELETION) {
-        if (effect.tag === CLASS_COMPONENT) {
-            if (effect.stateNode.componentWillUnmount) {
-                effect.stateNode.componentWillUnmount();
-            }
-            
-            effect.stateNode.__fiber = null;
-        }
-
         commitDeletion(effect, domParent);
     }
 };
 
+const collectClassComponents = (fiber: Fiber): Fiber[] => {
+    const result: Fiber[] = [];
+    const stack: Fiber[] = [fiber];
+
+    while (stack.length > 0) {
+        const node = stack.pop()!;
+        let child = node.child;
+
+        while (child) {
+            stack.push(child);
+            child = child.sibling;
+        }
+
+        if (node.tag === CLASS_COMPONENT) {
+            result.push(node);
+        }
+    }
+
+    return result.reverse();
+};
+
 const commitDeletion = (fiber: Fiber, domParent: HTMLElement): void => {
+    collectClassComponents(fiber).forEach((node) => {
+        if (node.stateNode.componentWillUnmount) {
+            try {
+                node.stateNode.componentWillUnmount();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        node.stateNode.__fiber = null;
+    });
+
     let node: Fiber | undefined = fiber;
 
     while (node) {

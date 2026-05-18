@@ -165,16 +165,16 @@ const connectHOC =
                 this.subscription.trySubscribe();
             }
 
-            componentWillUnmount(): void {
-                this.subscription.tryUnsubscribe();
-            }
-
             componentDidUpdate(): void {
                 this.subscription.notifyNestedSubs();
             }
 
             onStateChange(): void {
                 this.setState({});
+            }
+
+            componentWillUnmount(): void {
+                this.subscription.tryUnsubscribe();
             }
 
             render(): AnuElement {
