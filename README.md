@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.2</strong></h3>
+<h3>@version: <strong>1.21.3</strong></h3>
 
 <br>
 

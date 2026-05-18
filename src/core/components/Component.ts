@@ -8,7 +8,7 @@ export abstract class Component<P extends Record<string, any> = Props, S extends
     /** @internal Set by the reconciler. */
     __fiber?: any;
 
-    static isAnuComponent?: boolean;
+    static isAnuComponent = true;
 
     constructor(props: P, context?: Record<string, any>) {
         this.props = props || ({} as P);
