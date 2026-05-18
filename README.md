@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.3</strong></h3>
+<h3>@version: <strong>1.21.4</strong></h3>
 
 <br>
 
@@ -118,7 +118,7 @@ Create `tsconfig.json`:
 ```json
 {
     "compilerOptions": {
-        "target": "ES2017",
+        "target": "ES2018",
         "module": "ESNext",
         "moduleResolution": "bundler",
         "jsx": "react",
@@ -141,6 +141,7 @@ Create `tsconfig.json`:
 | `noEmit` | `true` | Type checking only — Babel handles compilation |
 | `skipLibCheck` | `true` | Skips type checking inside `node_modules` |
 | `moduleResolution` | `"bundler"` | Correct setting for Webpack/Babel projects |
+| `target` | `"ES2018"` | Because Babel handles compilation (`noEmit: true`), `target` only controls which TypeScript built-in type definitions are available — it does not affect emitted code. ES2018 is the minimum required to include `Promise.prototype.finally` on values returned by `Anu.ServerAPI` methods. |
 
 Compilation and type checking are intentionally separate — `npm start` and `npm run build` succeed regardless of type errors. Run `npx tsc --noEmit` during development to catch type issues without blocking the build.
 

@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.3</strong></h3>
+<h3>@version: <strong>1.21.4</strong></h3>
 
 <br>
 
@@ -234,8 +234,12 @@ The `tsconfig.json` reflects this:
         "declaration": true,
         "emitDeclarationOnly": true,
         "outDir": "dist",
-        "rootDir": "src"
-    }
+        "rootDir": "src",
+        "skipLibCheck": true,
+        "esModuleInterop": true
+    },
+    "include": ["src/**/*"],
+    "exclude": ["node_modules", "dist"]
 }
 ```
 
@@ -1060,9 +1064,24 @@ const Feature = {
 
 `Feature.Provider` is the raw `ContextProvider` from a `createContext()` call — it accepts a `features` prop (the `FeaturesMap`) and makes it available to all `Feature.Toggle` descendants.
 
-`FeatureToggle` is a function component that reads the `features` map from context and renders `children` if `features[name] === true`, or `defaultComponent` (defaults to `null`) otherwise:
+`FeatureToggle` is a function component that reads the `features` map from context and renders `children` if `features[name] === true`, or `defaultComponent` (defaults to `null`) otherwise. `defaultComponent` accepts a single `AnuElement`, an `AnuElement[]`, or `null`.
+
+When `defaultComponent` is a `Fragment` element, `resolveDefault()` unwraps it and returns `Fragment.props.children` (the array of children) directly. This prevents the reconciler from receiving a Fragment CLASS_COMPONENT as the output of the ContextConsumer render-prop, which would corrupt the surrounding fiber tree (duplicate sibling renders and broken context propagation).
 
 ```typescript
+const resolveDefault = (
+    defaultComponent: AnuElement | AnuElement[] | null
+): AnuElement | AnuElement[] | null => {
+    if (
+        defaultComponent &&
+        !Array.isArray(defaultComponent) &&
+        (defaultComponent as AnuElement).type === Fragment
+    ) {
+        return ((defaultComponent as AnuElement).props.children as AnuElement[]) ?? null;
+    }
+    return defaultComponent;
+};
+
 const FeatureToggle = ({
     name,
     children,
@@ -1072,7 +1091,7 @@ const FeatureToggle = ({
         FeaturesContext.ContextConsumer,
         {},
         ({ value: { features } }) =>
-            features && features[name] === true ? children : defaultComponent
+            features && features[name] === true ? children : resolveDefault(defaultComponent)
     );
 ```
 
@@ -1322,7 +1341,7 @@ The config always runs in `'development'` mode, uses `babel-loader` for all `.js
 
 <h3 id="tsconfig">TypeScript configuration — <code>tsconfig.json</code></h3>
 
-The library's own `tsconfig.json` is used during development and for the declaration emit step. Consumer projects must supply their own `tsconfig.json`.
+The library's own `tsconfig.json` is used during development and for the declaration emit step. Consumer projects must supply their own `tsconfig.json` with a minimum `"target": "ES2018"`. In consumer projects TypeScript is configured with `"noEmit": true` (Babel handles all compilation), making `target` control only which built-in type definitions are available — not emitted code. ES2018 is required to expose `Promise.prototype.finally` on values returned by `ServerAPI` methods.
 
 ```json
 {
