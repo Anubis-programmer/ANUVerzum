@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.1</strong></h3>
+<h3>@version: <strong>1.21.2</strong></h3>
 
 <br>
 
@@ -190,6 +190,10 @@ npm run format      # Format all source files with Prettier
 Full usage documentation, API reference, and code examples:
 
 **[USERS_MANUAL.md](./documentation/USERS_MANUAL.md)**
+
+Architecture overview, module deep-dives, and implementation details for contributors:
+
+**[TECHNICAL_DOCUMENTATION.md](./documentation/TECHNICAL_DOCUMENTATION.md)**
 
 <br>
 <hr>
