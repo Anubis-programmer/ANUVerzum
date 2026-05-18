@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.6</strong></h3>
+<h3>@version: <strong>1.21.7</strong></h3>
 
 <br>
 
@@ -1123,36 +1123,55 @@ Because `Feature.Provider` is `ContextProvider` (not the typed `Provider`), prop
 
 <h2 id="anulytics">Analytics — <code>src/core/components/AnulyticsProvider.ts</code></h2>
 
-The Anulytics module collects user interaction, navigation, and state change events throughout a session and sends them to a server endpoint in a single batch when the user leaves the page. This "send-on-leave" strategy avoids the XHR overhead of per-event tracking.
+The Anulytics module tracks user interaction, navigation, and state change events and sends each event to a server endpoint immediately as a separate POST request.
 
 <h3 id="anulytics-state-singleton">The <code>AnulyticsState</code> singleton</h3>
 
-`AnulyticsState` is a module-level IIFE that creates a single, private analytics data store for the lifetime of the page:
+`AnulyticsState` is a module-level IIFE that holds the session's shared state and owns the `send` helper:
 
 ```typescript
 const AnulyticsState = (() => {
-    const _anulytics: AnulyticsData = {
-        startDate: new Date().getTime(),
-        events: [
-            { initialization: { eventType: window.location.pathname, timestamp: ..., properties: {} } }
-        ],
-        user: {}
+    const startDate = new Date().getTime();
+    let _analyticsUrl = '';
+    let _onSuccess: (response: any) => void = () => {};
+    let _onFail: (status: number) => void = () => {};
+    let _user: Record<string, any> = {};
+
+    const send = (event: Record<string, any>, extra?: Record<string, any>): void => {
+        ServerAPI.post(_analyticsUrl, { startDate, user: _user, ...event, ...(extra || {}) })
+            .then(({ response }) => _onSuccess(response))
+            .catch(({ status }) => _onFail(status));
     };
-    // ...
-    return { addEvent, trackEvent, trackStateChange, setUser, getAnulyticsData, ... };
+
+    return { setConfig, setUser, getStartDate, sendEvent, trackEvent, trackStateChange, ... };
 })();
 ```
 
-An `initialization` event is recorded immediately when the module loads (not when the `Provider` mounts), capturing the entry URL and start timestamp.
+`startDate` is captured when the module loads and is included in every POST as a session identifier. The singleton exposes:
 
-The singleton exposes:
-- `addEvent(key, val)` — appends a raw event object.
-- `trackEvent(event, props)` — builds a `userAction` event from a DOM event object.
-- `trackStateChange(prevState, action, nextState)` — builds a `stateChange` event (called automatically by the store).
-- `setUser(userData)` — stores user metadata for inclusion in the final payload.
-- `getAnulyticsData()` — returns the full accumulated data object.
+- `setConfig(url, onSuccess, onFail)` — stores the endpoint URL and response callbacks, called from `componentDidMount`.
+- `setUser(userData)` — stores user metadata included in every POST.
+- `getStartDate()` — returns the module-load timestamp, used for the `initialization` event.
+- `sendEvent(key, val, extra?)` — fires a POST for a raw event object; `extra` is merged at the top level (used to attach `system` to `pageLeave`).
+- `trackEvent(event, props)` — builds and sends a `userAction` event from a DOM event object.
+- `trackStateChange(prevState, action, nextState)` — builds and sends a `stateChange` event (called automatically by the store).
 
-The `_anulyticsInstanceExist` flag gates all public tracking functions — they silently no-op if no `AnulyticsProvider` is mounted.
+The `_anulyticsInstanceExist` flag gates all public tracking functions — they silently no-op if no `AnulyticsProvider` is mounted. The flag is set to `true` in `componentDidMount` after `setConfig`, guaranteeing `_analyticsUrl` is always populated before any event can be sent.
+
+Each POST body has the shape:
+
+```typescript
+{
+    startDate: number;           // module-load timestamp — session identifier
+    user: Record<string, any>;
+    [eventKey]: {                // e.g. "userAction", "stateChange", "navigation"
+        eventType: string;
+        timestamp: number;
+        properties: object;
+    };
+    system?: { ... };            // only present on pageLeave
+}
+```
 
 <h3 id="anulytics-provider-component">The <code>AnulyticsProvider</code> component</h3>
 
@@ -1160,30 +1179,28 @@ The `_anulyticsInstanceExist` flag gates all public tracking functions — they 
 class AnulyticsProvider extends Component<AnulyticsProviderProps>
 ```
 
-On mount (`componentDidMount`), it sets the user data and registers a `visibilitychange` event listener (passive, for performance). On unmount, it removes the listener and resets `_anulyticsInstanceExist` to `false`.
+On mount (`componentDidMount`), it calls `setConfig`, sets user data, sets `_anulyticsInstanceExist` to `true`, sends the `initialization` event (using `getStartDate()` as the timestamp so it reflects the true module-load time), and registers a `visibilitychange` listener. On unmount, it removes the listener and resets `_anulyticsInstanceExist` to `false`.
 
-When `document.visibilityState === 'hidden'` (tab switch, minimize, browser close), the component:
-
-1. Appends a `pageLeave` event with the current URL and timestamp.
-2. Reads user agent data: prefers `navigator.userAgentData` (modern structured API) with fallback to the legacy `navigator.userAgent` string.
-3. Assembles the final payload:
+When `document.visibilityState === 'hidden'` (tab switch, minimize, browser close), the component sends a `pageLeave` event with system metadata as `extra`:
 
 ```typescript
-const data = {
-    ...AnulyticsState.getAnulyticsData(),   // startDate, events, user
-    endDate: new Date().getTime(),
-    system: {
-        referrer: document.referrer || null,
-        innerWidth: window.innerWidth,
-        isMobileAppInstalled: _isInstalled(),
-        userAgentData: ua
+AnulyticsState.sendEvent(
+    EventTypes.PAGE_LEAVE,
+    { eventType: url, timestamp: new Date().getTime(), properties: {} },
+    {
+        system: {
+            referrer: document.referrer || null,
+            innerWidth: window.innerWidth,
+            isMobileAppInstalled: _isInstalled(),
+            userAgentData: ua
+        }
     }
-};
+);
 ```
 
-4. POSTs the payload to `analyticsUrl` using `ServerAPI.post()`.
+User agent data: prefers `navigator.userAgentData` (modern structured API) with fallback to the legacy `navigator.userAgent` string.
 
-When `visibilityState` returns to `'visible'` (user switches back to the tab), the component calls `this.setState()` to trigger a re-render — useful if the provider needs to reflect state changes caused by the return to visibility.
+When `visibilityState` returns to `'visible'`, the component calls `this.setState()` to trigger a re-render.
 
 <h3 id="bot-detection">Bot detection and PWA detection</h3>
 
@@ -1224,7 +1241,7 @@ export const trackStateChange = (prevState, action, nextState): void;
 export const trackRouteChange = (path?: string): void;
 ```
 
-All three are gated by `AnulyticsState.getAnulyticsInstanceExist()` — no data is recorded if `AnulyticsProvider` is not mounted.
+All three are gated by `AnulyticsState.getAnulyticsInstanceExist()` — no event is sent if `AnulyticsProvider` is not mounted.
 
 <br>
 <hr>

@@ -10,12 +10,6 @@ const EventTypes = {
     PAGE_LEAVE: 'pageLeave'
 } as const;
 
-type AnulyticsData = {
-    startDate: number;
-    events: Array<Record<string, any>>;
-    user: Record<string, any>;
-};
-
 type UserActionEvent = {
     type: string;
     keyCode?: number | null;
@@ -30,34 +24,35 @@ type UserActionEvent = {
 };
 
 const AnulyticsState = (() => {
-    const initStart = new Date().getTime();
+    const startDate = new Date().getTime();
     let _anulyticsInstanceExist = false;
+    let _analyticsUrl = '';
+    let _onSuccess: (response: any) => void = () => {};
+    let _onFail: (status: number) => void = () => {};
+    let _user: Record<string, any> = {};
 
-    const setAnulyticsInstanceExist = (instanceExist: boolean): void => {
-        _anulyticsInstanceExist = instanceExist;
-    };
-
-    const getAnulyticsInstanceExist = (): boolean => _anulyticsInstanceExist;
-
-    const _anulytics: AnulyticsData = {
-        startDate: initStart,
-        events: [
-            {
-                [EventTypes.INITIALIZATION]: {
-                    eventType: window.location.pathname,
-                    timestamp: initStart,
-                    properties: {}
-                }
-            }
-        ],
-        user: {}
+    const send = (event: Record<string, any>, extra?: Record<string, any>): void => {
+        ServerAPI.post(_analyticsUrl, { startDate, user: _user, ...event, ...(extra || {}) })
+            .then(({ response }) => _onSuccess(response))
+            .catch(({ status }) => _onFail(status));
     };
 
     return {
-        getAnulyticsInstanceExist,
-        setAnulyticsInstanceExist,
-        addEvent: (key: string, val: Record<string, any>): void => {
-            _anulytics.events.push({ [key]: val });
+        getAnulyticsInstanceExist: (): boolean => _anulyticsInstanceExist,
+        setAnulyticsInstanceExist: (instanceExist: boolean): void => {
+            _anulyticsInstanceExist = instanceExist;
+        },
+        setConfig: (url: string, onSuccess: (response: any) => void, onFail: (status: number) => void): void => {
+            _analyticsUrl = url;
+            _onSuccess = onSuccess;
+            _onFail = onFail;
+        },
+        setUser: (user: Record<string, any> | null | undefined): void => {
+            _user = user || {};
+        },
+        getStartDate: (): number => startDate,
+        sendEvent: (key: string, val: Record<string, any>, extra?: Record<string, any>): void => {
+            send({ [key]: val }, extra);
         },
         trackEvent: (
             {
@@ -76,7 +71,7 @@ const AnulyticsState = (() => {
                     ? (rawProps as Record<string, any>)
                     : null;
 
-            const event = {
+            send({
                 [EventTypes.USER_ACTION]: {
                     eventType: type,
                     timestamp: new Date().getTime(),
@@ -94,16 +89,14 @@ const AnulyticsState = (() => {
                         props
                     }
                 }
-            };
-
-            _anulytics.events.push(event);
+            });
         },
         trackStateChange: (
             prevState: Record<string, any>,
             action: Record<string, any>,
             nextState: Record<string, any>
         ): void => {
-            const event = {
+            send({
                 [EventTypes.STATE_CHANGE]: {
                     eventType: action['type'],
                     timestamp: new Date().getTime(),
@@ -114,14 +107,8 @@ const AnulyticsState = (() => {
                         nextState
                     }
                 }
-            };
-
-            _anulytics.events.push(event);
-        },
-        setUser: (user: Record<string, any> | null | undefined): void => {
-            _anulytics.user = user || {};
-        },
-        getAnulyticsData: (): AnulyticsData => _anulytics
+            });
+        }
     };
 })();
 
@@ -164,13 +151,12 @@ export const trackStateChange = (
 export const trackRouteChange = (path?: string): void => {
     if (AnulyticsState.getAnulyticsInstanceExist()) {
         const url = path || window.location.pathname;
-        const event = {
+
+        AnulyticsState.sendEvent(EventTypes.NAVIGATION, {
             eventType: url,
             timestamp: new Date().getTime(),
             properties: {}
-        };
-
-        AnulyticsState.addEvent(EventTypes.NAVIGATION, event);
+        });
     }
 };
 
@@ -184,13 +170,20 @@ export interface AnulyticsProviderProps extends Props {
 class AnulyticsProvider extends Component<AnulyticsProviderProps> {
     constructor(props: AnulyticsProviderProps) {
         super(props);
-        AnulyticsState.setAnulyticsInstanceExist(true);
         this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     }
 
     componentDidMount(): void {
-        const { userData } = this.props;
+        const { analyticsUrl, userData, onSuccess, onFail } = this.props;
+        AnulyticsState.setConfig(analyticsUrl, onSuccess, onFail);
         AnulyticsState.setUser(userData || null);
+        AnulyticsState.setAnulyticsInstanceExist(true);
+
+        AnulyticsState.sendEvent(EventTypes.INITIALIZATION, {
+            eventType: window.location.pathname,
+            timestamp: AnulyticsState.getStartDate(),
+            properties: {}
+        });
 
         document.addEventListener('visibilitychange', this.handleVisibilityChange, {
             passive: true
@@ -203,22 +196,13 @@ class AnulyticsProvider extends Component<AnulyticsProviderProps> {
     }
 
     handleVisibilityChange(): void {
-        const { analyticsUrl, onSuccess, onFail } = this.props;
-
         if (_isBot) {
             return;
         }
 
         if (document.visibilityState === 'hidden') {
             const url = window.location.pathname;
-            const event = {
-                eventType: url,
-                timestamp: new Date().getTime(),
-                properties: {}
-            };
             let ua: { userAgent: any; mobile: boolean; platform: string };
-
-            AnulyticsState.addEvent(EventTypes.PAGE_LEAVE, event);
 
             if ((window.navigator as any).userAgentData) {
                 const { brands, mobile, platform } = (window.navigator as any).userAgentData;
@@ -232,20 +216,22 @@ class AnulyticsProvider extends Component<AnulyticsProviderProps> {
                 };
             }
 
-            const data = {
-                ...AnulyticsState.getAnulyticsData(),
-                endDate: new Date().getTime(),
-                system: {
-                    referrer: document.referrer || null,
-                    innerWidth: window.innerWidth,
-                    isMobileAppInstalled: _isInstalled(),
-                    userAgentData: ua
+            AnulyticsState.sendEvent(
+                EventTypes.PAGE_LEAVE,
+                {
+                    eventType: url,
+                    timestamp: new Date().getTime(),
+                    properties: {}
+                },
+                {
+                    system: {
+                        referrer: document.referrer || null,
+                        innerWidth: window.innerWidth,
+                        isMobileAppInstalled: _isInstalled(),
+                        userAgentData: ua
+                    }
                 }
-            };
-
-            ServerAPI.post(analyticsUrl, data)
-                .then(({ response }) => onSuccess(response))
-                .catch(({ status }) => onFail(status));
+            );
         } else {
             this.setState();
         }
