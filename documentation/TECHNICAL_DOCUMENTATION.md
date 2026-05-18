@@ -189,7 +189,7 @@ export { AnulyticsProvider, trackEvent };
 export { store, ServerAPI, Utils, Connector, Feature, History, Intl };
 
 // Type-only exports
-export type { AnuElement, AnuChild, AnuNode, Props, Ref, FunctionComponent, ElementType };
+export type { AnuElement, AnuChild, AnuNode, AnuCSSProperties, Props, Ref, FunctionComponent, ElementType };
 export type { ContextValue, ConsumerProps };
 export type { Action, ThunkAction, Dispatch, Reducer, MiddlewareAPI, Middleware,
               Store, SelectorFn, CreateSelectorFn };
@@ -478,7 +478,10 @@ The resulting fibers are linked into a sibling-chain as the new children of `wip
 
 **`cloneChildFibers(parentFiber)`** is the fast path when a component bails out early. It copies child fibers verbatim from `parentFiber.alternate` without reconciliation — no effect tags are added, so no DOM mutations are generated.
 
-**`getTag(element)`** determines the fiber tag for a newly created element. It checks whether `element.type` is a string (host), a function with no prototype render method (function component), or a class (class component), using `prototype.isAnuComponent` and `prototype.render` as discriminators.
+**`getTag(element)`** determines the fiber tag for a newly created element using two defense-in-depth checks:
+- A string `type` → `HOST_COMPONENT`.
+- A function type that has **neither** `isAnuComponent = true` **nor** a `prototype.render` method → `FUNCTION_COMPONENT`. Both checks serve different failure modes: `isAnuComponent` catches third-party classes that happen to have a `render` method, while `prototype.render` catches subclasses of `Anu.Component` that accidentally forgot to implement `render()` (the abstract method is only enforced at compile time).
+- Anything else → `CLASS_COMPONENT`.
 
 <h3 id="complete-work">Complete work phase</h3>
 
@@ -603,8 +606,7 @@ export abstract class Component<
     /** @internal Set by the reconciler after instantiation. */
     __fiber?: any;
 
-    /** @internal Checked by getTag() to distinguish class components from functions. */
-    static isAnuComponent?: boolean;
+    static isAnuComponent = true;
 
     constructor(props: P, context?: Record<string, any>) {
         this.props = props || ({} as P);
@@ -635,9 +637,9 @@ export abstract class Component<
 
 **Key design points:**
 
-- `__fiber` is the link back to the fiber tree. The reconciler sets `instance.__fiber = fiber` after creating an instance. `setState` passes `this` to `scheduleUpdate`, which reads `this.__fiber` to locate the correct update target. When a component unmounts, `__fiber` is set to `null` so any stale `setState` calls (e.g. from uncleared timers) are silently dropped.
+- `static isAnuComponent = true` is a class-level discriminator marker. `getTag()` in the reconciler checks for this property to distinguish genuine `Anu.Component` subclasses from arbitrary third-party classes that happen to have a `render()` method. Because it is declared as a static property on the base class, all subclasses inherit it automatically without any extra boilerplate.
 
-- `static isAnuComponent` is a discriminator used by `getTag()` in the reconciler to distinguish between class components and function components. The base class does not define it; it is used as an escape hatch.
+- `__fiber` is the link back to the fiber tree. The reconciler sets `instance.__fiber = fiber` after creating an instance. `setState` passes `this` to `scheduleUpdate`, which reads `this.__fiber` to locate the correct update target. When a component unmounts, `__fiber` is set to `null` so any stale `setState` calls (e.g. from uncleared timers) are silently dropped.
 
 - `context` is initialized by merging the instance's own `context` (if pre-set by a subclass) with the `context` argument from the constructor. The Connector `connect` HOC uses this mechanism to inject the store reference into connected components.
 

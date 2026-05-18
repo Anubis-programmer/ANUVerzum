@@ -226,6 +226,7 @@ const getTag = (element: AnuElement): FiberTag => {
 
     if (
         typeof element.type === 'function' &&
+        !(element.type as any).isAnuComponent &&
         !(element.type as any).prototype?.render
     ) {
         return FUNCTION_COMPONENT;
