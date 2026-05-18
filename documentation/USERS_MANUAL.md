@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.6</strong></h3>
+<h3>@version: <strong>1.21.7</strong></h3>
 
 <br>
 
@@ -322,6 +322,18 @@ Create `tsconfig.json`:
 | `skipLibCheck` | `true` | Skips type checking inside `node_modules` |
 | `moduleResolution` | `"bundler"` | Correct setting for Webpack/Babel projects |
 | `target` | `"ES2018"` | Because Babel handles compilation (`noEmit: true`), `target` only controls which TypeScript built-in type definitions are available — it does not affect emitted code. ES2018 is the minimum required to include `Promise.prototype.finally` on values returned by `Anu.ServerAPI` methods. |
+
+#### Typing `process.env`
+
+TypeScript does not know about `process` in a browser project by default — it is a Node.js global. If you reference `process.env.SOME_VAR` in your source (for example, to pass a value injected by webpack `DefinePlugin`), add a declaration file so the type checker can resolve it without pulling in the full Node.js type surface:
+
+Create `src/env.d.ts`:
+
+```typescript
+declare const process: { env: Record<string, string | undefined> };
+```
+
+This is enough for any `process.env.*` access. If your project already depends on `@types/node` for other reasons, you can skip the declaration file and add `"types": ["node"]` to `compilerOptions` in `tsconfig.json` instead — but prefer the declaration file for a pure browser project to avoid Node-specific type collisions (e.g. `setTimeout` return type, `Buffer`, etc.).
 
 #### Build pipeline
 
@@ -1639,16 +1651,15 @@ You can send params within the URL <strong>AND/OR</strong> as URI query paramete
 <h2 id="anulytics-api">Tracking users - <strong>The Anulytics API</strong></h2>
 
 <strong><code>&lt;ANUVerzum /&gt;</code> JS Framework</strong> comes with its built-in analytics tool.<br>
-Unlike the most analytics tools, <strong>Anulytics API</strong> is designed to send the collected informations only once: when the user leaves the page (either changing tab, navigating to a different domain or closing the page / browser).<br>
-This way, no unnecessary XHR calls are made, which could otherwise negatively impact performance and user experience.
+Every tracked event (user interaction, navigation, state change, page leave) is sent to your server immediately as an individual HTTP POST request.
 - It has two public interfaces: <code>&lt;Anu.Anulytics.Provider /&gt;</code> and <code>Anu.Anulytics.trackEvent()</code>.
 - In order to use the built-in analytics tool, you must wrap all your components you want to track within <code>&lt;Anu.Anulytics.Provider /&gt;</code> component
 (without this, you can't use <code>Anu.Anulytics.trackEvent()</code> event tracker functionality).
 
 <h3 id="anulytics-provider">Wrapping up your front-end project within the <code>&lt;Anu.Anulytics.Provider /&gt;</code> component</h3>
 
-- This component is responsible for the aggregation of the collected data and sends it to the server. It can have only one child element.
-- Once the user leaves the page or navigates to / focuses on another tab, the component sends the collected data to the user-defined server via HTTP POST method.
+- This component configures the analytics endpoint and sends each tracked event to the server as an individual HTTP POST request. It can have only one child element.
+- Every event — initialization, navigation, user action, state change, or page leave — is sent immediately when it occurs.
 - It takes 4 properties:
     - <code>analyticsUrl</code>, which is a string that represents the URL of the server you want to send the data you collected.
     - <code>userData</code> is an object of data about the user.
@@ -1670,14 +1681,22 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
         );
         ```
 
-    - The <code>data</code> object sent to the server looks like the following:
+    - Each POST body sent to the server has the following shape — one event per request:
 
         ```typescript
-        type Data = {
-            events: Event[];
-            startDate: Date;
-            endDate: Date;
-            system: {
+        type EventKey = 'initialization' | 'navigation' | 'userAction' | 'stateChange' | 'pageLeave';
+
+        type PostBody = {
+            startDate: number;              // module-load timestamp — session identifier
+            user: Record<string, unknown>;
+        } & {
+            [K in EventKey]?: {
+                eventType: string;
+                timestamp: number;
+                properties: UserActionProperties | StateChangeProperties | Record<string, never>;
+            };
+        } & {
+            system?: {                      // only present on pageLeave
                 referrer: string | null;
                 innerWidth: number;
                 isMobileAppInstalled: boolean;
@@ -1687,12 +1706,10 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
                     platform: string | null;
                 };
             };
-            user: Record<string, unknown>;
         };
         ```
-    
-    - The <code>Event</code> type is an object which <strong>key</strong> attribute is the <strong>type</strong> of the event (a string that represents the event, action type or a link if it was fired by navigation).<br>
-    These are the possible event keys <code>'initialization'</code>, <code>'navigation'</code>, <code>'userAction'</code>, <code>'stateChange'</code> or <code>'pageLeave'</code>:
+
+    - The event key identifies the type of event. These are the possible values:
         - <code>'initialization'</code> is always set once the page loaded.
         - <code>'navigation'</code> is set on inner navigation (if user clicks on a <code>&lt;Anu.History.Link /&gt;</code>, the <code>Anu.History.goTo()</code> was called or the user got redirected via <code>&lt;Anu.History.Redirect /&gt;</code>).
         - <code>'userAction'</code> is set when <code>Anu.Anulytics.trackEvent()</code> has been used.<br>
@@ -1700,24 +1717,13 @@ This way, no unnecessary XHR calls are made, which could otherwise negatively im
         - <code>'stateChange'</code> is automatically called when an <strong>action</strong> gets dispatched.
         - <code>'pageLeave'</code> is always set once the user focuses on another tab or closes the application (i.e.: leaving the current / actual page).
 
-    - The value of the Event object contains three properties: <code>eventType</code>, <code>timestamp</code> and <code>properties</code>:
+    - The event object nested under the event key has three properties: <code>eventType</code>, <code>timestamp</code> and <code>properties</code>:
         - The <code>eventType</code> is a string that represents the event fired (e.g.: a <strong>user event</strong> (mouse event, keyboard event, etc.), a <strong>URI</strong> where the user navigated or an <strong>action type</strong> the user dispatched).
             - Note that the <code>eventType</code> property of <code>'initialization'</code>, <code>'navigation'</code> and <code>'pageLeave'</code> will always be a <strong>URI</strong>!
         - The <code>timestamp</code> is always set: it is the POSIX timestamp of the fired event.
         - The <code>properties</code> can either be an empty object (typically when the event was fired by navigation) or a <code>Property</code> type.
         The <code>properties</code> are typically set when <code>Anu.Anulytics.trackEvent()</code> has been used or an action was dispatched.<br>
         The <code>properties</code> are empty on <code>'initialization'</code>, <code>'navigation'</code> and <code>'pageLeave'</code>.
-
-            ```typescript
-            type EventKey = 'initialization' | 'navigation' | 'userAction' | 'stateChange' | 'pageLeave';
-            type Event = {
-                [K in EventKey]?: {
-                    eventType: string;
-                    timestamp: Date;
-                    properties: UserActionProperties | StateChangeProperties | Record<string, never>;
-                };
-            };
-            ```
 
     - The <code>UserActionProperties</code> type can have various properties, like <code>id</code>, <code>name</code>, <code>url</code> and <code>value</code>:
         - The <code>id</code> is the value of the ID attribute of the DOM element with the given event handler tracked: <code>event.target.id</code> (optional but <strong>HIGHLY RECOMMENDED</strong> to set).

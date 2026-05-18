@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.6</strong></h3>
+<h3>@version: <strong>1.21.7</strong></h3>
 
 <br>
 
@@ -142,6 +142,18 @@ Create `tsconfig.json`:
 | `skipLibCheck` | `true` | Skips type checking inside `node_modules` |
 | `moduleResolution` | `"bundler"` | Correct setting for Webpack/Babel projects |
 | `target` | `"ES2018"` | Because Babel handles compilation (`noEmit: true`), `target` only controls which TypeScript built-in type definitions are available — it does not affect emitted code. ES2018 is the minimum required to include `Promise.prototype.finally` on values returned by `Anu.ServerAPI` methods. |
+
+#### Typing `process.env`
+
+TypeScript does not know about `process` in a browser project by default — it is a Node.js global. If you reference `process.env.SOME_VAR` in your source (for example, to pass a value injected by webpack `DefinePlugin`), add a declaration file so the type checker can resolve it without pulling in the full Node.js type surface:
+
+Create `src/env.d.ts`:
+
+```typescript
+declare const process: { env: Record<string, string | undefined> };
+```
+
+This is enough for any `process.env.*` access. If your project already depends on `@types/node` for other reasons, you can skip the declaration file and add `"types": ["node"]` to `compilerOptions` in `tsconfig.json` instead — but prefer the declaration file for a pure browser project to avoid Node-specific type collisions (e.g. `setTimeout` return type, `Buffer`, etc.).
 
 Compilation and type checking are intentionally separate — `npm start` and `npm run build` succeed regardless of type errors. Run `npx tsc --noEmit` during development to catch type issues without blocking the build.
 
