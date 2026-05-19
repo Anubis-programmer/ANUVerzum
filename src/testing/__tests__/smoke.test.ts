@@ -115,6 +115,28 @@ describe('waitFor', () => {
     });
 });
 
+describe('data-* attributes', () => {
+    test('data-testid is set as an HTML attribute', () => {
+        const el = Anu.createElement('div', { 'data-testid': 'my-box' });
+        const { container } = render(el);
+        expect(container.querySelector('[data-testid="my-box"]')).not.toBeNull();
+    });
+
+    test('getByTestId finds element with data-testid', () => {
+        const el = Anu.createElement('div', { 'data-testid': 'target' },
+            Anu.createElement('span', {}, 'inside')
+        );
+        const { getByTestId } = render(el);
+        expect(getByTestId('target')).toBeDefined();
+    });
+
+    test('arbitrary data-* attribute is set as an HTML attribute', () => {
+        const el = Anu.createElement('div', { 'data-custom': 'value' });
+        const { container } = render(el);
+        expect(container.querySelector('[data-custom="value"]')).not.toBeNull();
+    });
+});
+
 describe('createPortal', () => {
     let portalContainer: HTMLDivElement;
 

@@ -137,7 +137,7 @@ export const updateDomProperties = (
                     (dom as SVGElement).setAttribute(name, nextProps[name]);
                 }
             } else {
-                if (name.includes('aria-') || name === 'role') {
+                if (name.includes('-') || name === 'role') {
                     (dom as HTMLElement).setAttribute(name, nextProps[name]);
                 } else {
                     el[name] = nextProps[name];
