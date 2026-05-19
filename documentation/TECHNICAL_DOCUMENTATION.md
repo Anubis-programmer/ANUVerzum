@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.23.2</strong></h3>
+<h3>@version: <strong>1.23.9</strong></h3>
 
 <br>
 
@@ -160,7 +160,7 @@ src/
 └── testing/
     ├── index.ts                     ← Public barrel export (anu-verzum/testing)
     ├── types.ts                     ← All TypeScript types for ATL
-    ├── globals.d.ts                 ← afterEach / process ambient declarations
+    ├── globals.d.ts                 ← process ambient declaration
     ├── act.ts                       ← Sync scheduler install + act() + flushEffects()
     ├── render.ts                    ← render() → RenderResult
     ├── cleanup.ts                   ← cleanup(), registerContainer(), setupAutoCleanup()
@@ -255,36 +255,17 @@ The library uses a deliberate two-pass build strategy that separates compilation
 **Pass 1 — Babel** (`npm run build` → `babel src --out-dir dist --extensions ".ts"`)
 Babel performs the actual compilation: it transpiles TypeScript syntax (via `@babel/plugin-transform-typescript`), transforms JSX into `Anu.createElement()` calls (via `@babel/plugin-transform-react-jsx`), and applies `@babel/preset-env` for cross-browser compatibility. The output is CommonJS JavaScript in `dist/`.
 
-**Pass 2 — TypeScript** (`tsc --emitDeclarationOnly`)
+**Pass 2 — TypeScript** (`tsc --project tsconfig.build.json --emitDeclarationOnly`)
 `tsc` is invoked only to emit `.d.ts` declaration files. It never produces JavaScript. This keeps compilation fast because Babel handles the heavy lifting, and `tsc` only needs to type-check and emit declarations.
 
-The `tsconfig.json` reflects this:
-
-```json
-{
-    "compilerOptions": {
-        "target": "ES6",
-        "module": "commonjs",
-        "lib": ["ES6", "DOM"],
-        "strict": true,
-        "declaration": true,
-        "emitDeclarationOnly": true,
-        "outDir": "dist",
-        "rootDir": "src",
-        "skipLibCheck": true,
-        "esModuleInterop": true
-    },
-    "include": ["src/**/*"],
-    "exclude": ["node_modules", "dist"]
-}
-```
+The build uses `tsconfig.build.json` (not `tsconfig.json`) so that test files under `src/testing/__tests__/` are excluded from the declaration emit — they must not appear in the published `dist/`. The main `tsconfig.json` keeps `__tests__` included so the IDE type-checks test files with full `@types/jest` support.
 
 The `package.json` build scripts:
 
 ```json
 {
     "clean":     "node -e \"require('fs').rmSync('dist', {recursive:true, force:true})\"",
-    "build":     "npm run clean && babel src --out-dir dist --extensions \".ts\" && tsc --emitDeclarationOnly",
+    "build":     "npm run clean && babel src --out-dir dist --extensions \".ts\" --ignore \"src/testing/__tests__\" && tsc --project tsconfig.build.json --emitDeclarationOnly",
     "typecheck": "tsc --noEmit",
     "lint":      "eslint src",
     "format":    "prettier --write src"
@@ -629,7 +610,7 @@ This function applies the minimal diff between `prevProps` and `nextProps` to th
 
 2. **Remove stale attributes.** Attributes present in `prevProps` but absent from `nextProps` are removed. `className` maps to the `class` attribute; `htmlFor` maps to `for`.
 
-3. **Set new / changed attributes.** For SVG elements, all attributes are set via `setAttribute()`. For HTML elements, most properties are set directly (e.g. `el.className = ...`) for performance, except `aria-*` and `role` which always use `setAttribute()` to avoid browser quirks.
+3. **Set new / changed attributes.** For SVG elements, all attributes are set via `setAttribute()`. For HTML elements, any prop whose name contains a hyphen (e.g. `aria-*`, `data-*`) or equals `role` is set via `setAttribute()` — hyphenated names are never valid IDL properties, so property assignment would silently create a JS object property rather than an HTML attribute. All other props are set directly (e.g. `el.className = ...`) for performance.
 
 4. **Diff inline styles.** Changed `style` keys are applied via `style.setProperty(key, value)`. Keys present in `prevStyle` but absent from `nextStyle` are cleared by setting them to `''`.
 
@@ -1420,16 +1401,24 @@ The factory accepts `projectRoot` and an optional `options` object:
 
 The config always runs in `'development'` mode, uses `babel-loader` for all `.js`, `.jsx`, `.ts`, `.tsx` files, sets `publicPath: '/'` (required for client-side routing), and enables `historyApiFallback: true` on the dev server (serves `index.html` for all 404s, so deep links work during development).
 
-<h3 id="tsconfig">TypeScript configuration — <code>tsconfig.json</code></h3>
+<h3 id="tsconfig">TypeScript configuration — <code>tsconfig.json</code> / <code>tsconfig.build.json</code></h3>
 
-The library's own `tsconfig.json` is used during development and for the declaration emit step. Consumer projects must supply their own `tsconfig.json` with a minimum `"target": "ES2018"`. In consumer projects TypeScript is configured with `"noEmit": true` (Babel handles all compilation), making `target` control only which built-in type definitions are available — not emitted code. ES2018 is required to expose `Promise.prototype.finally` on values returned by `ServerAPI` methods.
+The library ships two TypeScript configs with distinct responsibilities:
+
+**`tsconfig.json`** — used by the IDE and `npm run typecheck`. Includes all of `src/**/*` (including `src/testing/__tests__/`) so that test files get full `@types/jest` type coverage in the editor. It is **not** used directly by the build command.
+
+**`tsconfig.build.json`** — extends `tsconfig.json` and adds `src/testing/__tests__` to `exclude`. Used by `tsc --project tsconfig.build.json --emitDeclarationOnly` in the build so that test file declarations are never emitted into `dist/`.
+
+Consumer projects must supply their own `tsconfig.json` with a minimum `"target": "ES2018"`. In consumer projects TypeScript is configured with `"noEmit": true` (Babel handles all compilation), making `target` control only which built-in type definitions are available — not emitted code. ES2018 is required to expose `Promise.prototype.finally` on values returned by `ServerAPI` methods.
 
 ```json
+// tsconfig.json
 {
     "compilerOptions": {
         "target": "ES6",
         "module": "commonjs",
         "lib": ["ES6", "DOM"],
+        "types": ["jest"],
         "strict": true,
         "declaration": true,
         "emitDeclarationOnly": true,
@@ -1441,6 +1430,12 @@ The library's own `tsconfig.json` is used during development and for the declara
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist"]
 }
+
+// tsconfig.build.json
+{
+    "extends": "./tsconfig.json",
+    "exclude": ["node_modules", "dist", "src/testing/__tests__"]
+}
 ```
 
 Key settings:
@@ -1449,6 +1444,7 @@ Key settings:
 - `strict: true` — all strict checks enabled across the library source.
 - `skipLibCheck: true` — avoids type errors inside `node_modules` declaration files.
 - `esModuleInterop: true` — enables `import Foo from 'foo'` interop for CommonJS modules.
+- `types: ["jest"]` — restricts automatic `@types/*` inclusion to Jest globals only, making them available across all source files including tests.
 
 <br>
 <hr>
@@ -1523,10 +1519,9 @@ Several modules maintain module-level state that must be reset between tests. Ra
 
 The guards ensure that in a production build none of these functions are callable — `process.env.NODE_ENV` is set to `'production'` by webpack's `DefinePlugin`, which allows dead-code elimination to strip the bodies at bundle time.
 
-`src/testing/globals.d.ts` provides ambient TypeScript declarations for `afterEach` and `process` so the testing library compiles under the library's strict `tsconfig.json` (which includes `"lib": ["ES6", "DOM"]` but not `"node"`):
+`src/testing/globals.d.ts` provides an ambient TypeScript declaration for `process` so production source files that reference `process.env.NODE_ENV` compile under the library's strict `tsconfig.json` (which includes `"lib": ["ES6", "DOM"]` but not `"node"`). `afterEach` is covered by `@types/jest` via the `"types": ["jest"]` setting in `tsconfig.json`.
 
 ```typescript
-declare function afterEach(fn: () => any): void;
 declare const process: { env: Record<string, string | undefined> };
 ```
 
