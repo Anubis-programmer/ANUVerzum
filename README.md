@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.7</strong></h3>
+<h3>@version: <strong>1.22.0</strong></h3>
 
 <br>
 
@@ -17,6 +17,7 @@ A lightweight React-inspired UI library for building component-based web applica
 - Client-side routing over the History API
 - Context API, i18n (Intl), feature flags, and built-in event analytics (Anulytics)
 - Ships with TypeScript declaration files — no `@types` package needed
+- Built-in testing companion — **Anu Testing Library (ATL)** shipped as `anu-verzum/testing`
 
 <br>
 <hr>
@@ -188,12 +189,39 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 #### Library development scripts
 
 ```bash
-npm run clean       # Delete dist/ entirely
-npm run build       # Clean, compile TypeScript sources to dist/, and emit .d.ts files
-npm run typecheck   # Type-check without emitting any output
-npm run lint        # Run ESLint on all source files
-npm run format      # Format all source files with Prettier
+npm run clean           # Delete dist/ entirely
+npm run build           # Clean, compile TypeScript sources to dist/, and emit .d.ts files
+npm run typecheck       # Type-check without emitting any output
+npm run lint            # Run ESLint on all source files
+npm run format          # Format all source files with Prettier
+npm test                # Run the Anu Testing Library test suite with Jest
+npm run test:watch      # Run Jest in interactive watch mode
+npm run test:coverage   # Run Jest and generate a coverage report
 ```
+
+<br>
+<hr>
+
+<h2 id="testing">Testing</h2>
+
+ANUVerzum ships a built-in testing library — **Anu Testing Library (ATL)** — importable as `anu-verzum/testing`. It mirrors the philosophy of Testing Library: query the DOM the way a user would (by role, text, label), fire events, and assert on real output — no component internals, no custom matchers.
+
+```typescript
+import Anu from 'anu-verzum';
+import { render, fireEvent } from 'anu-verzum/testing';
+
+const { getByText, getByRole } = render(<Counter />);
+fireEvent.click(getByRole('button'));
+expect(getByText('Count: 1')).toBeDefined();
+```
+
+If TypeScript reports that `describe`, `test`, or `expect` are not found, your `tsconfig.json` likely has an explicit `"types"` list. Add `"jest"` to it — and `"node"` if tests reference `process.env`:
+
+```json
+{ "compilerOptions": { "types": ["node", "jest"] } }
+```
+
+See **[USERS_MANUAL.md — Testing](./documentation/USERS_MANUAL.md#testing)** for the full API reference and usage guide.
 
 <br>
 <hr>

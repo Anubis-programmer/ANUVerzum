@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.7</strong></h3>
+<h3>@version: <strong>1.22.0</strong></h3>
 
 <br>
 
@@ -100,6 +100,19 @@
         <li><a href="#webpack-config-factory">Webpack config factory</a></li>
         <li><a href="#tsconfig">TypeScript configuration</a></li>
     </ul>
+    <li><a href="#anu-testing-library">Anu Testing Library — <code>src/testing/</code></a></li>
+    <ul>
+        <li><a href="#atl-overview">Overview and design goals</a></li>
+        <li><a href="#atl-sync-scheduler">The synchronous scheduler problem</a></li>
+        <li><a href="#atl-testing-exports">The <code>__testing</code> module exports</a></li>
+        <li><a href="#atl-render">The <code>render()</code> function</a></li>
+        <li><a href="#atl-queries">Query system</a></li>
+        <li><a href="#atl-events">Event utilities</a></li>
+        <li><a href="#atl-async">Async utilities</a></li>
+        <li><a href="#atl-cleanup">Cleanup</a></li>
+        <li><a href="#atl-wrappers">Provider wrappers</a></li>
+        <li><a href="#atl-jest-setup">Jest configuration</a></li>
+    </ul>
 </ul>
 
 <br>
@@ -142,8 +155,30 @@ src/
 │   └── store.ts                     ← createStore, middleware, selectors
 ├── server-api/
 │   └── server-api.ts                ← XHR-based HTTP client
-└── misc/
-    └── utils.ts                     ← deepEqual utility
+├── misc/
+│   └── utils.ts                     ← deepEqual utility
+└── testing/
+    ├── index.ts                     ← Public barrel export (anu-verzum/testing)
+    ├── types.ts                     ← All TypeScript types for ATL
+    ├── globals.d.ts                 ← afterEach / process ambient declarations
+    ├── act.ts                       ← Sync scheduler install + act() + flushEffects()
+    ├── render.ts                    ← render() → RenderResult
+    ├── cleanup.ts                   ← cleanup(), registerContainer(), setupAutoCleanup()
+    ├── waitFor.ts                   ← waitFor(), waitForElementToBeRemoved()
+    ├── wrappers.ts                  ← renderWithStore/Router/Intl/Context helpers
+    ├── queries/
+    │   ├── index.ts                 ← buildQueries(container) → BoundQueries
+    │   ├── queryBuilder.ts          ← get/query/find triple-variant factory
+    │   ├── byText.ts
+    │   ├── byRole.ts                ← ARIA implicit-role map + accessible-name filter
+    │   ├── byLabelText.ts
+    │   ├── byPlaceholderText.ts
+    │   ├── byTestId.ts
+    │   ├── byTitle.ts
+    │   └── byAltText.ts
+    └── events/
+        ├── fireEvent.ts             ← Low-level event dispatch + named shorthands
+        └── userEvent.ts             ← High-level user interaction simulation
 ```
 
 The dependency relationships between modules flow in one direction — from higher-level modules down to lower-level ones:
@@ -1406,3 +1441,324 @@ Key settings:
 - `strict: true` — all strict checks enabled across the library source.
 - `skipLibCheck: true` — avoids type errors inside `node_modules` declaration files.
 - `esModuleInterop: true` — enables `import Foo from 'foo'` interop for CommonJS modules.
+
+<br>
+<hr>
+
+<h2 id="anu-testing-library">Anu Testing Library — <code>src/testing/</code></h2>
+
+<h3 id="atl-overview">Overview and design goals</h3>
+
+The Anu Testing Library (ATL) ships as a sub-path export of the main package: `anu-verzum/testing`. It mirrors the philosophy of React Testing Library — tests interact with the DOM the way a user would (query by accessible role, text content, label, placeholder, etc.) rather than inspecting component state or implementation details.
+
+ATL uses plain Jest assertions; it adds no custom matchers. Every query comes in three variants:
+
+| Variant | Behaviour on miss |
+|---------|-------------------|
+| `get*` | Throws with a helpful message including the container HTML |
+| `query*` | Returns `null` |
+| `find*` | Returns a `Promise` that polls until the element appears or a timeout elapses |
+
+<h3 id="atl-sync-scheduler">The synchronous scheduler problem</h3>
+
+ANUVerzum's reconciler defers all work via `requestIdleCallback`. In a real browser this yields between frames. In Jest/jsdom there is no frame scheduler, so `requestIdleCallback` is undefined by default and asynchronous work would require explicit timer flushing in every test.
+
+**Solution**: `src/testing/act.ts` installs a synchronous polyfill before any tests run:
+
+```typescript
+const FAKE_DEADLINE: IdleDeadline = { didTimeout: false, timeRemaining: () => 999 };
+
+export const installSyncScheduler = (): void => {
+    if (_installed) {
+        return;
+    }
+
+    _installed = true;
+    (window as any).requestIdleCallback = (cb: IdleRequestCallback): number => {
+        cb(FAKE_DEADLINE);
+
+        return 0;
+    };
+    (window as any).cancelIdleCallback = (): void => {};
+};
+```
+
+Because `performWork` and `scheduleUpdate` always call `requestIdleCallback(performWork)`, replacing the scheduler makes every `Anu.render()` and `setState()` call execute synchronously in-call. The polyfill is installed once in `jest.setup.ts` via `setupFilesAfterEnv`, so it applies to every test file automatically.
+
+`(window as any)` is used instead of `(global as any)` because the library's `tsconfig.json` includes `"DOM"` in `lib` (which provides `window`), but not `"node"` (which would provide `global`).
+
+**Safety net — `__testing.flushSync()`**: After every `act()` call, `flushEffects()` calls `__testing.flushSync()` from the reconciler to drain any remaining work:
+
+```typescript
+export const flushSync = (): void => {
+    const syncDeadline: IdleDeadline = { didTimeout: false, timeRemaining: () => 999 };
+
+    while (updateQueue.length > 0 || nextUnitOfWork != null) {
+        workLoop(syncDeadline);
+    }
+
+    nextUnitOfWork = null;
+    pendingCommit = null;
+};
+```
+
+<h3 id="atl-testing-exports">The <code>__testing</code> module exports</h3>
+
+Several modules maintain module-level state that must be reset between tests. Rather than exposing their internals, each module exports a `__testing` object guarded by `process.env.NODE_ENV !== 'test'`:
+
+| Module | `__testing` methods | State reset |
+|--------|---------------------|-------------|
+| `src/core/reconciler.ts` | `flushSync()`, `resetGlobals()` | `updateQueue`, `componentLifecyclesQueue`, `nextUnitOfWork`, `pendingCommit` |
+| `src/core/components/History.ts` | `reset()` | `instances: Component[]` registry |
+| `src/core/components/Intl.ts` | `reset()` | `__messagesContext` module variable |
+| `src/core/components/AnulyticsProvider.ts` | `reset()` | `AnulyticsState.setAnulyticsInstanceExist(false)` |
+
+The guards ensure that in a production build none of these functions are callable — `process.env.NODE_ENV` is set to `'production'` by webpack's `DefinePlugin`, which allows dead-code elimination to strip the bodies at bundle time.
+
+`src/testing/globals.d.ts` provides ambient TypeScript declarations for `afterEach` and `process` so the testing library compiles under the library's strict `tsconfig.json` (which includes `"lib": ["ES6", "DOM"]` but not `"node"`):
+
+```typescript
+declare function afterEach(fn: () => any): void;
+declare const process: { env: Record<string, string | undefined> };
+```
+
+<h3 id="atl-render">The <code>render()</code> function</h3>
+
+`src/testing/render.ts` is the primary entry point for ATL. It:
+
+1. Creates or accepts a DOM container element.
+2. Appends it to `document.body` (or a custom `baseElement`).
+3. Registers the container with the cleanup registry.
+4. Calls `act()` wrapping `Anu.render()` to ensure all synchronous work is flushed.
+5. Builds bound query functions over the container via `buildQueries(container)`.
+6. Returns a `RenderResult` object.
+
+```typescript
+export const render = (ui: AnuElement, options: RenderOptions = {}): RenderResult => {
+    const mountBase = options.baseElement ?? document.body;
+    const container = options.container ?? document.createElement('div');
+
+    if (!options.container) {
+        mountBase.appendChild(container);
+    }
+    
+    registerContainer(container);
+    act(() => { Anu.render(applyWrapper(ui, options), container); });
+    const queries = buildQueries(container);
+
+    return {
+        container,
+        baseElement: mountBase,
+        rerender: (newUI) => act(() => { Anu.render(applyWrapper(newUI, options), container); }),
+        unmount: () => act(() => { unmountComponentAtNode(container); }),
+        ...queries,
+    };
+};
+```
+
+`applyWrapper` wraps the element in an optional `wrapper` component supplied via `options.wrapper`, which allows tests to supply provider trees without repeating boilerplate.
+
+`unmountComponentAtNode` is a new export added to `src/core/reconciler.ts`. It pushes an update with `children: []` into `updateQueue` and triggers `performWork`, which causes the reconciler to diff against an empty child list and run `componentWillUnmount` on every mounted class component inside the container.
+
+<h3 id="atl-queries">Query system</h3>
+
+**`src/testing/queries/queryBuilder.ts`** — factory that produces the three query variants from a single-element finder and an all-elements finder:
+
+```typescript
+export const buildQueryVariants = (
+    name: string,
+    container: Element,
+    singleFn: QueryFn,
+    allFn: QueryAllFn
+): BoundQuery => {
+    const query = () => singleFn(container);
+    const get = () => {
+        const el = singleFn(container);
+
+        if (!el) {
+            throw new Error(
+                `AnuTestingLibrary: unable to find element ${name}\n\nContainer HTML:\n$ {container.innerHTML}`
+            );
+        }
+
+        return el;
+    };
+    const queryAll = () => allFn(container);
+    const getAll   = () => {
+        const els = allFn(container);
+
+        if (!els.length) {
+            throw new Error(`AnuTestingLibrary: unable to find any elements ${name}...`);
+        }
+
+        return els;
+    };
+    const find     = () => waitFor(() => get());
+    const findAll  = () => waitFor(() => getAll());
+
+    return { get, query, find, getAll, queryAll, findAll };
+};
+```
+
+Available query types and their matching strategy:
+
+| Query | Matching attribute / strategy |
+|-------|-------------------------------|
+| `ByText` | Leaf-node `textContent` — exact string or `RegExp` |
+| `ByRole` | Implicit ARIA role map + explicit `role=""` attribute; optional `name` option for accessible-name filtering |
+| `ByLabelText` | `<label for="">`, `aria-label`, `aria-labelledby` |
+| `ByPlaceholderText` | `placeholder` attribute |
+| `ByTestId` | `data-testid` attribute |
+| `ByTitle` | `title` attribute |
+| `ByAltText` | `alt` attribute |
+
+**`byRole.ts` implicit role map** — maps ARIA roles to CSS selectors. The `textbox` role additionally filters `<input>` by type (`text`, `search`, `email`, `tel`, `url`) using `Array.prototype.indexOf` (not `.includes()`, which is not available in the library's ES6 target):
+
+```typescript
+const IMPLICIT_ROLES: Record<string, string[]> = {
+    button: ['button'],
+    link: ['a'],
+    heading: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+    textbox: ['input'],
+    checkbox: ['input[type="checkbox"]'],
+    radio: ['input[type="radio"]'],
+    combobox: ['select'],
+    img: ['img'],
+    list: ['ul', 'ol'],
+    listitem: ['li'],
+    form: ['form'],
+    navigation: ['nav'],
+    main: ['main'],
+    banner: ['header'],
+    contentinfo: ['footer'],
+};
+```
+
+Explicit `role=""` attributes always take precedence over implicit roles. Accessible-name matching checks `aria-label`, then `aria-labelledby` (resolving the referenced element's `textContent`), then the element's own `textContent`.
+
+<h3 id="atl-events">Event utilities</h3>
+
+**`src/testing/events/fireEvent.ts`** — dispatches synthetic DOM events. It selects the correct event constructor (`MouseEvent`, `KeyboardEvent`, `FocusEvent`, or generic `Event`) based on the event name, dispatches it on the element, then calls `flushEffects()` to ensure any resulting state updates (e.g. from `onClick` handlers that call `setState`) are committed to the DOM before the test assertion runs.
+
+Named shorthands: `click`, `dblclick`, `change`, `input`, `focus`, `blur`, `keyDown`, `keyUp`, `keyPress`, `submit`, `mouseDown`, `mouseUp`.
+
+**`src/testing/events/userEvent.ts`** — simulates higher-level user interactions by composing multiple `fireEvent` calls:
+
+| Method | Composed events |
+|--------|-----------------|
+| `click(el)` | `mousedown` → `mouseup` → `click` |
+| `dblclick(el)` | `mousedown` → `mouseup` → `click` × 2 → `dblclick` |
+| `type(el, text)` | `focus` → per-character `keydown` / value-append / `input` / `keyup` → `change` |
+| `clear(el)` | Clears `value`, fires `input` + `change` |
+| `change(el, value)` | Sets `value`, fires `input` + `change` |
+| `submit(form)` | `submit` |
+| `selectOption(select, value)` | Sets `value`, fires `change` |
+| `tab()` | `keydown` with `key: 'Tab'` |
+
+<h3 id="atl-async">Async utilities</h3>
+
+**`src/testing/waitFor.ts`** — polls a callback on a fixed interval until it stops throwing or a timeout elapses. Between each poll it calls `flushEffects()` to give the reconciler a chance to commit pending state updates:
+
+```typescript
+export const waitFor = <T>(callback: () => T, options: WaitForOptions = {}): Promise<T> => {
+    const { timeout = 1000, interval = 50 } = options;
+
+    return new Promise<T>((resolve, reject) => {
+        const startTime = Date.now();
+        let lastError: Error;
+        const check = (): void => {
+            flushEffects();
+
+            try {
+                resolve(callback());
+                
+                return;
+            } catch (err) {
+                lastError = err as Error;
+            }
+
+            if (Date.now() - startTime >= timeout) {
+                reject(new Error(
+                    `AnuTestingLibrary waitFor: timed out after ${timeout}ms.\n${lastError?.message ?? ''}`
+                ));
+
+                return;
+            }
+
+            setTimeout(check, interval);
+        };
+        check();
+    });
+};
+```
+
+`find*` query variants delegate to `waitFor` internally. `waitForElementToBeRemoved` inverts the logic: it throws while the element is still present and resolves when the callback returns `null` or an empty array.
+
+<h3 id="atl-cleanup">Cleanup</h3>
+
+`src/testing/cleanup.ts` maintains a `Set<Element>` of all containers created by `render()`. After each test, `cleanup()` removes them from the DOM and resets all module-level state:
+
+```typescript
+export const cleanup = (): void => {
+    mountedContainers.forEach((container) => { container.parentNode?.removeChild(container); });
+    mountedContainers.clear();
+    __testing.resetGlobals();        // reconciler: updateQueue, nextUnitOfWork, pendingCommit
+    HistoryTesting.reset();          // History: instances registry
+    IntlTesting.reset();             // Intl: __messagesContext
+    AnulyticsTesting.reset();        // Anulytics: singleton flag
+};
+```
+
+`setupAutoCleanup()` is called in `jest.setup.ts` and registers `cleanup` with Jest's `afterEach` hook.
+
+<h3 id="atl-wrappers">Provider wrappers</h3>
+
+`src/testing/wrappers.ts` provides convenience render functions for components that require one of the framework's provider components:
+
+| Function | Wraps in |
+|----------|----------|
+| `renderWithStore(ui, store, opts?)` | `<Anu.Connector.Provider store={store}>` |
+| `renderWithRouter(ui, opts?)` | Pushes `opts.initialPath` (default `'/'`) to `window.history`, returns `navigate(path)` helper |
+| `renderWithIntl(ui, locale, messages, opts?)` | `<Anu.Intl.Provider locale={locale} messages={messages}>` |
+| `renderWithContext(ui, ContextProvider, value, opts?)` | `<ContextProvider {...value}>` |
+
+<h3 id="atl-jest-setup">Jest configuration</h3>
+
+`jest.config.js` configures Jest to use `jest-environment-jsdom` (a real DOM in Node), transforms TypeScript and JSX via Babel, and maps the `anu-verzum` and `anu-verzum/testing` package names to their source entry points so tests run against the live source tree rather than a compiled build:
+
+```javascript
+module.exports = {
+    testEnvironment: 'jest-environment-jsdom',
+    transform: {
+        '^.+\\.(ts|tsx|js)$': ['babel-jest', {
+            presets: [
+                ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
+                '@babel/preset-typescript'
+            ],
+            plugins: [
+                ['@babel/plugin-transform-react-jsx', { pragma: 'Anu.createElement', pragmaFrag: 'Anu.Fragment' }]
+            ]
+        }]
+    },
+    testMatch: ['**/src/**/*.test.ts', '**/src/**/*.spec.ts'],
+    setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+    moduleNameMapper: {
+        '^anu-verzum$': '<rootDir>/src/index.ts',
+        '^anu-verzum/testing$': '<rootDir>/src/testing/index.ts'
+    },
+    testEnvironmentOptions: { url: 'http://localhost' }
+};
+```
+
+The Babel `pragma: 'Anu.createElement'` option tells `@babel/plugin-transform-react-jsx` to expand JSX to `Anu.createElement(...)` calls globally — no per-file `/** @jsx */` comment is needed. Every test file that contains JSX must `import Anu from 'anu-verzum'` so the expanded calls resolve at runtime.
+
+`jest.setup.ts` calls `installSyncScheduler()` and `setupAutoCleanup()` before any test file runs:
+
+```typescript
+import { installSyncScheduler } from './src/testing/act';
+import { setupAutoCleanup } from './src/testing/cleanup';
+
+process.env.NODE_ENV = 'test';
+installSyncScheduler();
+setupAutoCleanup();
+```

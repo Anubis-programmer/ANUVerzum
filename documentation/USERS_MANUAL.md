@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.21.7</strong></h3>
+<h3>@version: <strong>1.22.0</strong></h3>
 
 <br>
 
@@ -189,6 +189,25 @@
     <li>
         <a href="#deep-equal">Deep equality check for objects using Anu.Utils.deepEqual()</a>
     </li>
+</ul>
+
+<h2>Testing:</h2>
+
+<ul>
+    <li>
+        <a href="#testing">Anu Testing Library (ATL)</a>
+    </li>
+    <ul>
+        <li><a href="#testing-setup">Setup</a></li>
+        <li><a href="#testing-render">render()</a></li>
+        <li><a href="#testing-queries">Queries</a></li>
+        <li><a href="#testing-fire-event">fireEvent</a></li>
+        <li><a href="#testing-user-event">userEvent</a></li>
+        <li><a href="#testing-wait-for">waitFor and waitForElementToBeRemoved</a></li>
+        <li><a href="#testing-act">act()</a></li>
+        <li><a href="#testing-rerender">rerender and unmount</a></li>
+        <li><a href="#testing-wrappers">Provider wrappers</a></li>
+    </ul>
 </ul>
 
 <br>
@@ -2406,6 +2425,493 @@ Other typical use-case is when you have a feature but you don't want to show it 
     };
     const answer: boolean = Anu.Utils.deepEqual(obj1, obj2); // true
     ```
+
+<br>
+<hr>
+
+<h1 id="testing"><strong><code>&lt;ANUVerzum /&gt;</code> JS</strong> TESTING:</h1>
+
+<br>
+
+<h2 id="testing-setup">Setup — Anu Testing Library (ATL)</h2>
+
+ATL ships as part of the `anu-verzum` package. Install the required devDependencies:
+
+```bash
+npm install --save-dev jest jest-environment-jsdom @types/jest babel-jest
+```
+
+Create `jest.config.js` in your project root:
+
+```javascript
+module.exports = {
+    testEnvironment: 'jest-environment-jsdom',
+    transform: {
+        '^.+\\.(ts|tsx|js)$': ['babel-jest', {
+            presets: [
+                ['@babel/preset-env', { targets: { node: 'current' }, modules: 'commonjs' }],
+                '@babel/preset-typescript'
+            ],
+            plugins: [
+                ['@babel/plugin-transform-react-jsx', { pragma: 'Anu.createElement', pragmaFrag: 'Anu.Fragment' }]
+            ]
+        }]
+    },
+    testMatch: ['**/src/**/*.test.ts', '**/src/**/*.spec.ts'],
+    setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
+    moduleNameMapper: {
+        '^anu-verzum$': '<rootDir>/src/index.ts',
+        '^anu-verzum/testing$': '<rootDir>/src/testing/index.ts'
+    },
+    testEnvironmentOptions: { url: 'http://localhost' }
+};
+```
+
+Create `jest.setup.ts` in your project root:
+
+```typescript
+import { installSyncScheduler } from 'anu-verzum/testing';
+import { setupAutoCleanup }     from 'anu-verzum/testing';
+
+installSyncScheduler();
+setupAutoCleanup();
+```
+
+Add test scripts to `package.json`:
+
+```json
+{
+    "scripts": {
+        "test": "jest",
+        "test:watch": "jest --watch",
+        "test:coverage": "jest --coverage"
+    }
+}
+```
+
+> **TypeScript note:** TypeScript automatically includes all installed `@types/*` packages unless your `tsconfig.json` already has an explicit `"types": [...]` array. If TypeScript reports that `describe`, `test`, or `expect` are not found, add `"jest"` to that list — and `"node"` if any test file references `process.env`:
+>
+> ```json
+> { "compilerOptions": { "types": ["node", "jest"] } }
+> ```
+
+Every test file that uses JSX must `import Anu from 'anu-verzum'` — the Babel pragma expands `<Counter />` to `Anu.createElement(Counter, null)`, so `Anu` must be in scope.
+
+```typescript
+import Anu from 'anu-verzum';
+import { render, fireEvent } from 'anu-verzum/testing';
+```
+
+<br>
+<hr>
+
+<h2 id="testing-render">Rendering components with <code>render()</code></h2>
+
+`render()` mounts a component into a real DOM container attached to `document.body` and returns query functions and utilities scoped to that container.
+
+```typescript
+import Anu, { Component } from 'anu-verzum';
+import { render } from 'anu-verzum/testing';
+
+class Greeting extends Component<{ name: string }, {}> {
+    render() {
+        return <h1>Hello, {this.props.name}!</h1>;
+    }
+}
+
+describe('Greeting', () => {
+    test('renders the name', () => {
+        const { getByText } = render(<Greeting name="World" />);
+        expect(getByText('Hello, World!')).toBeDefined();
+    });
+
+    test('container is in document.body', () => {
+        const { container } = render(<Greeting name="test" />);
+        expect(document.body.contains(container)).toBe(true);
+    });
+});
+```
+
+**`RenderResult` properties:**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `container` | `Element` | The div wrapping the rendered output |
+| `baseElement` | `Element` | `document.body` (or custom `baseElement` option) |
+| `rerender` | `(ui: AnuElement) => void` | Re-render with new props or a different element |
+| `unmount` | `() => void` | Unmount the tree and trigger `componentWillUnmount` |
+| All query functions | — | Scoped to `container` (see Queries section) |
+
+**`RenderOptions`:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `container` | `Element` | new `<div>` | Custom container element |
+| `baseElement` | `Element` | `document.body` | Where the container is appended |
+| `wrapper` | Component constructor | — | Wrap `ui` in a provider component before rendering |
+
+<br>
+<hr>
+
+<h2 id="testing-queries">Querying the DOM</h2>
+
+Each query type comes in three variants:
+
+- **`getBy*`** — returns the element or **throws** with a message that includes the container HTML.
+- **`queryBy*`** — returns the element or **`null`** (useful in negative assertions).
+- **`findBy*`** — returns a **`Promise`** that resolves when the element appears or rejects after a timeout.
+- **`getAllBy*`**, **`queryAllBy*`**, **`findAllBy*`** — same but return arrays.
+
+```typescript
+describe('queries', () => {
+    test('getByText — exact match', () => {
+        const { getByText } = render(<p>Hello world</p>);
+        expect(getByText('Hello world')).toBeDefined();
+    });
+
+    test('getByText — regex match', () => {
+        const { getByText } = render(<p>Hello world</p>);
+        expect(getByText(/hello/i)).toBeDefined();
+    });
+
+    test('queryByText returns null when absent', () => {
+        const { queryByText } = render(<p>Hello</p>);
+        expect(queryByText('Not here')).toBeNull();
+    });
+
+    test('getByText throws when absent', () => {
+        const { getByText } = render(<p>Hello</p>);
+        expect(() => getByText('Not here')).toThrow();
+    });
+
+    test('findByText resolves asynchronously', async () => {
+        const { findByText } = render(<p>Hello</p>);
+        const el = await findByText('Hello');
+        expect(el).toBeDefined();
+    });
+});
+```
+
+**Available query types:**
+
+| Function | Matches by |
+|----------|-----------|
+| `getByText` / `queryByText` / `findByText` | Element's visible text content |
+| `getByRole` / `queryByRole` / `findByRole` | ARIA role (implicit or explicit `role=""`) |
+| `getByLabelText` / `queryByLabelText` / `findByLabelText` | `<label for="">`, `aria-label`, `aria-labelledby` |
+| `getByPlaceholderText` / `queryByPlaceholderText` / `findByPlaceholderText` | `placeholder` attribute |
+| `getByTestId` / `queryByTestId` / `findByTestId` | `data-testid` attribute |
+| `getByTitle` / `queryByTitle` / `findByTitle` | `title` attribute |
+| `getByAltText` / `queryByAltText` / `findByAltText` | `alt` attribute |
+
+**`getByRole` with the `name` option** — filter by accessible name (checks `aria-label`, then `aria-labelledby`, then `textContent`):
+
+```typescript
+test('getByRole with name', () => {
+    const { getByRole } = render(
+        <div>
+            <button>Cancel</button>
+            <button>Submit</button>
+        </div>
+    );
+    const btn = getByRole('button', { name: 'Submit' });
+    expect(btn.textContent).toBe('Submit');
+});
+```
+
+Supported implicit ARIA roles: `button`, `link`, `heading` (h1–h6), `textbox`, `checkbox`, `radio`, `combobox`, `img`, `list`, `listitem`, `form`, `navigation`, `main`, `banner`, `contentinfo`. Elements with an explicit `role=""` attribute are also matched.
+
+<br>
+<hr>
+
+<h2 id="testing-fire-event">Dispatching events with <code>fireEvent</code></h2>
+
+`fireEvent` dispatches a synthetic DOM event directly on an element and flushes any resulting state updates synchronously.
+
+```typescript
+import Anu, { Component } from 'anu-verzum';
+import { render, fireEvent } from 'anu-verzum/testing';
+
+class Counter extends Component<{}, { count: number }> {
+    state = { count: 0 };
+    render() {
+        return (
+            <div>
+                <p>Count: {this.state.count}</p>
+                <button onClick={() => this.setState({ count: this.state.count + 1 })}>
+                    Increment
+                </button>
+            </div>
+        );
+    }
+}
+
+describe('fireEvent', () => {
+    test('click updates the DOM', () => {
+        const { getByText, getByRole } = render(<Counter />);
+        expect(getByText('Count: 0')).toBeDefined();
+        fireEvent.click(getByRole('button'));
+        expect(getByText('Count: 1')).toBeDefined();
+    });
+
+    test('multiple clicks accumulate', () => {
+        const { getByText, getByRole } = render(<Counter />);
+        fireEvent.click(getByRole('button'));
+        fireEvent.click(getByRole('button'));
+        fireEvent.click(getByRole('button'));
+        expect(getByText('Count: 3')).toBeDefined();
+    });
+});
+```
+
+**Available `fireEvent` shorthands:**
+
+| Shorthand | Event type |
+|-----------|-----------|
+| `fireEvent.click(el)` | `MouseEvent` — `click` |
+| `fireEvent.dblclick(el)` | `MouseEvent` — `dblclick` |
+| `fireEvent.mouseDown(el)` | `MouseEvent` — `mousedown` |
+| `fireEvent.mouseUp(el)` | `MouseEvent` — `mouseup` |
+| `fireEvent.change(el)` | `Event` — `change` |
+| `fireEvent.input(el)` | `Event` — `input` |
+| `fireEvent.focus(el)` | `FocusEvent` — `focus` |
+| `fireEvent.blur(el)` | `FocusEvent` — `blur` |
+| `fireEvent.keyDown(el, init?)` | `KeyboardEvent` — `keydown` |
+| `fireEvent.keyUp(el, init?)` | `KeyboardEvent` — `keyup` |
+| `fireEvent.keyPress(el, init?)` | `KeyboardEvent` — `keypress` |
+| `fireEvent.submit(el)` | `Event` — `submit` |
+
+You can also call `fireEvent(element, 'eventname', eventInit?)` directly for any event name not covered by a shorthand.
+
+<br>
+<hr>
+
+<h2 id="testing-user-event">Simulating user interactions with <code>userEvent</code></h2>
+
+`userEvent` simulates real user behaviour by composing multiple lower-level events in the correct order. Use it when the component under test listens to the full event sequence (e.g. `mousedown` + `mouseup` + `click`).
+
+```typescript
+import Anu, { Component } from 'anu-verzum';
+import { render, userEvent } from 'anu-verzum/testing';
+
+describe('userEvent', () => {
+    test('click fires full mouse event sequence', () => {
+        const { getByText, getByRole } = render(<Counter />);
+        userEvent.click(getByRole('button'));
+        expect(getByText('Count: 1')).toBeDefined();
+    });
+
+    test('type fills an input character by character', () => {
+        const { getByRole } = render(<input type="text" />);
+        const input = getByRole('textbox') as HTMLInputElement;
+        userEvent.type(input, 'hello');
+        expect(input.value).toBe('hello');
+    });
+
+    test('selectOption picks a value from a select', () => {
+        const { getByRole } = render(
+            <select>
+                <option value="a">Alpha</option>
+                <option value="b">Beta</option>
+            </select>
+        );
+        const select = getByRole('combobox') as HTMLSelectElement;
+        userEvent.selectOption(select, 'b');
+        expect(select.value).toBe('b');
+    });
+});
+```
+
+**Available `userEvent` methods:**
+
+| Method | Composed events / action |
+|--------|--------------------------|
+| `userEvent.click(el)` | `mousedown` → `mouseup` → `click` |
+| `userEvent.dblclick(el)` | `mousedown` → `mouseup` → `click` × 2 → `dblclick` |
+| `userEvent.type(el, text)` | `focus` → per-character `keydown` / append-value / `input` / `keyup` → `change` |
+| `userEvent.clear(el)` | Clears `value`, fires `input` + `change` |
+| `userEvent.change(el, value)` | Sets `value`, fires `input` + `change` |
+| `userEvent.submit(form)` | `submit` |
+| `userEvent.selectOption(select, value)` | Sets `value`, fires `change` |
+| `userEvent.tab()` | `keydown` with `key: 'Tab'` |
+
+<br>
+<hr>
+
+<h2 id="testing-wait-for">Waiting for async DOM changes</h2>
+
+`waitFor` polls a callback on a fixed interval until the assertion inside it stops throwing, or until a timeout elapses. Use it for components that update asynchronously (e.g. after a server response).
+
+```typescript
+import Anu from 'anu-verzum';
+import { render, waitFor } from 'anu-verzum/testing';
+
+describe('waitFor', () => {
+    test('polls until assertion passes', async () => {
+        const { getByText } = render(<p>Hello</p>);
+        await waitFor(() => {
+            expect(getByText('Hello')).toBeDefined();
+        });
+    });
+
+    test('rejects after timeout when assertion never passes', async () => {
+        const { queryByText } = render(<p>Hello</p>);
+        await expect(
+            waitFor(() => { expect(queryByText('MISSING')).not.toBeNull(); }, { timeout: 100, interval: 20 })
+        ).rejects.toThrow();
+    });
+});
+```
+
+**`WaitForOptions`:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `timeout` | `1000` ms | Maximum time to wait before rejecting |
+| `interval` | `50` ms | Polling interval between checks |
+
+**`waitForElementToBeRemoved`** — resolves when the element disappears from the DOM:
+
+```typescript
+import Anu from 'anu-verzum';
+import { render, waitForElementToBeRemoved } from 'anu-verzum/testing';
+
+test('element is removed after action', async () => {
+    const { queryByText } = render(<Notification />);
+    await waitForElementToBeRemoved(() => queryByText('Loading...'));
+    expect(queryByText('Done')).toBeDefined();
+});
+```
+
+<br>
+<hr>
+
+<h2 id="testing-act">Wrapping state updates with <code>act()</code></h2>
+
+`act()` ensures that all pending state updates and lifecycle methods are flushed before assertions run. Because ATL installs a synchronous scheduler, most tests do not need to call `act()` explicitly — `render()`, `fireEvent`, and `userEvent` all wrap their operations in `act()` internally. Use it directly only when you trigger state changes outside of ATL utilities (e.g. calling a component method programmatically).
+
+```typescript
+import Anu from 'anu-verzum';
+import { render, fireEvent, act } from 'anu-verzum/testing';
+
+describe('act', () => {
+    test('flushes state updates synchronously', () => {
+        const { getByText, getByRole } = render(<Counter />);
+        act(() => {
+            fireEvent.click(getByRole('button'));
+        });
+        expect(getByText('Count: 1')).toBeDefined();
+    });
+
+    test('wraps async callbacks', async () => {
+        const { getByText } = render(<Counter />);
+        await act(async () => {
+            await Promise.resolve();
+        });
+        expect(getByText('Count: 0')).toBeDefined();
+    });
+});
+```
+
+<br>
+<hr>
+
+<h2 id="testing-rerender">Updating and unmounting</h2>
+
+**`rerender`** — update the rendered component with new props:
+
+```typescript
+describe('rerender', () => {
+    test('updates component with new props', () => {
+        const { getByText, rerender } = render(<Greeting name="Alice" />);
+        expect(getByText('Hello, Alice!')).toBeDefined();
+        rerender(<Greeting name="Bob" />);
+        expect(getByText('Hello, Bob!')).toBeDefined();
+    });
+});
+```
+
+**`unmount`** — unmount the tree and trigger `componentWillUnmount` on all class components inside the container:
+
+```typescript
+test('unmount triggers componentWillUnmount', () => {
+    const onUnmount = jest.fn();
+
+    class Widget extends Anu.Component {
+        componentWillUnmount() { onUnmount(); }
+        render() { return <div>Widget</div>; }
+    }
+
+    const { unmount } = render(<Widget />);
+    unmount();
+    expect(onUnmount).toHaveBeenCalledTimes(1);
+});
+```
+
+<br>
+<hr>
+
+<h2 id="testing-wrappers">Rendering with providers</h2>
+
+ATL ships convenience wrappers for components that require one of the framework's provider components.
+
+**`renderWithStore`** — render a connected component with a real store:
+
+```typescript
+import Anu from 'anu-verzum';
+import { renderWithStore } from 'anu-verzum/testing';
+
+const store = Anu.store.createStore(counterReducer, { count: 5 });
+
+test('reads initial state from store', () => {
+    const { getByText } = renderWithStore(<ConnectedCounter />, store);
+    expect(getByText('Count: 5')).toBeDefined();
+});
+```
+
+**`renderWithRouter`** — render routing components at a specific URL path:
+
+```typescript
+import Anu from 'anu-verzum';
+import { renderWithRouter } from 'anu-verzum/testing';
+
+test('renders correct route', () => {
+    const { getByText, navigate } = renderWithRouter(<App />, { initialPath: '/about' });
+    expect(getByText('About page')).toBeDefined();
+    navigate('/home');
+    expect(getByText('Home page')).toBeDefined();
+});
+```
+
+**`renderWithIntl`** — render with a specific locale and message map:
+
+```typescript
+import Anu from 'anu-verzum';
+import { renderWithIntl } from 'anu-verzum/testing';
+
+const messages = {
+    en: { greeting: 'Hello' },
+    fr: { greeting: 'Bonjour' }
+};
+
+test('renders French greeting', () => {
+    const { getByText } = renderWithIntl(<Greeting />, 'fr', messages);
+    expect(getByText('Bonjour')).toBeDefined();
+});
+```
+
+**`renderWithContext`** — render with a custom context provider and value:
+
+```typescript
+import Anu from 'anu-verzum';
+import { renderWithContext } from 'anu-verzum/testing';
+import { ThemeContext } from './ThemeContext';
+
+test('reads theme from context', () => {
+    const { getByText } = renderWithContext(<ThemedButton />, ThemeContext.Provider, { theme: 'dark' });
+    expect(getByText('Dark button')).toBeDefined();
+});
+```
 
 <br>
 <hr>
