@@ -1,12 +1,13 @@
 import { createDomElement, updateDomProperties, SVG_ELEMENT_LIST } from './domUtils';
-import { AnuElement, ElementType, Props, Ref } from './elements';
+import { AnuElement, AnuNode, ElementType, Props, Ref, PORTAL_ELEMENT } from './elements';
 
 const HOST_COMPONENT = 'host';
 const CLASS_COMPONENT = 'class';
 const FUNCTION_COMPONENT = 'function';
 const HOST_ROOT = 'root';
+const PORTAL = 'portal';
 
-type FiberTag = typeof HOST_COMPONENT | typeof CLASS_COMPONENT | typeof FUNCTION_COMPONENT | typeof HOST_ROOT;
+type FiberTag = typeof HOST_COMPONENT | typeof CLASS_COMPONENT | typeof FUNCTION_COMPONENT | typeof HOST_ROOT | typeof PORTAL;
 
 const PLACEMENT = 1;
 const DELETION = 2;
@@ -134,9 +135,16 @@ const beginWork = (wipFiber: Fiber): void => {
         updateClassComponent(wipFiber);
     } else if (wipFiber.tag === FUNCTION_COMPONENT) {
         updateFunctionComponent(wipFiber);
+    } else if (wipFiber.tag === PORTAL) {
+        updatePortalComponent(wipFiber);
     } else {
         updateHostComponent(wipFiber);
     }
+};
+
+const updatePortalComponent = (wipFiber: Fiber): void => {
+    wipFiber.stateNode = wipFiber.props.container;
+    reconcileChildrenArray(wipFiber, wipFiber.props.children);
 };
 
 const updateHostComponent = (wipFiber: Fiber): void => {
@@ -219,6 +227,10 @@ const updateClassComponent = (wipFiber: Fiber): void => {
 const arrify = (val: any): AnuElement[] => (!val ? [] : Array.isArray(val) ? val : [val]);
 
 const getTag = (element: AnuElement): FiberTag => {
+    if (element.type === PORTAL_ELEMENT) {
+        return PORTAL;
+    }
+
     if (typeof element.type === 'string') {
         return HOST_COMPONENT;
     }
@@ -311,6 +323,10 @@ const reconcileChildrenArray = (wipFiber: Fiber, newChildElements: any): void =>
 };
 
 const getFirstHostNode = (fiber: Fiber): Node | null => {
+    if (fiber.tag === PORTAL) {
+        return null;
+    }
+
     if (fiber.tag === HOST_COMPONENT) {
         return fiber.stateNode ? (fiber.stateNode as Node) : null;
     }
@@ -537,6 +553,23 @@ const commitDeletion = (fiber: Fiber, domParent: HTMLElement): void => {
             continue;
         }
 
+        if (node.tag === PORTAL) {
+            if (node.child) {
+                commitDeletion(node.child, node.stateNode as HTMLElement);
+            }
+
+            while (node !== fiber && !node!.sibling) {
+                node = node!.parent;
+            }
+
+            if (node === fiber) {
+                return;
+            }
+
+            node = node!.sibling;
+            continue;
+        }
+
         if (domParent.contains(node.stateNode)) {
             domParent.removeChild(node.stateNode);
         }
@@ -555,6 +588,13 @@ const commitDeletion = (fiber: Fiber, domParent: HTMLElement): void => {
 
 export const createRef = <T = any>(): Ref<T> => ({
     current: null
+});
+
+export const createPortal = (children: AnuNode, container: Element): AnuElement => ({
+    type: PORTAL_ELEMENT,
+    props: { children, container },
+    key: null,
+    ref: null
 });
 
 export const scheduleUpdate = (

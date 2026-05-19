@@ -1,5 +1,5 @@
-import Anu, { Component } from '../../index';
-import { render, fireEvent, userEvent, waitFor, act } from '../index';
+import Anu, { Component, createPortal } from '../../index';
+import { render, fireEvent, userEvent, waitFor, act, within } from '../index';
 
 class Counter extends Component<{}, { count: number }> {
     state = { count: 0 };
@@ -112,6 +112,65 @@ describe('waitFor', () => {
         await expect(
             waitFor(() => { expect(queryByText('MISSING')).not.toBeNull(); }, { timeout: 100, interval: 20 })
         ).rejects.toThrow();
+    });
+});
+
+describe('createPortal', () => {
+    let portalContainer: HTMLDivElement;
+
+    beforeEach(() => {
+        portalContainer = document.createElement('div');
+        document.body.appendChild(portalContainer);
+    });
+
+    afterEach(() => {
+        if (portalContainer.parentNode) {
+            portalContainer.parentNode.removeChild(portalContainer);
+        }
+    });
+
+    const Portal = () => createPortal(
+        Anu.createElement('p', {}, 'Portal content'),
+        portalContainer
+    );
+
+    test('renders content into the portal container, not the render container', () => {
+        const { queryByText } = render(Anu.createElement(Portal, {}));
+        expect(portalContainer.textContent).toBe('Portal content');
+        expect(queryByText('Portal content')).toBeNull();
+    });
+
+    test('within() finds portal content', () => {
+        render(Anu.createElement(Portal, {}));
+        expect(within(portalContainer).getByText('Portal content')).toBeDefined();
+    });
+
+    test('portal content is removed from the container on unmount', () => {
+        const { unmount } = render(Anu.createElement(Portal, {}));
+        expect(portalContainer.textContent).toBe('Portal content');
+        unmount();
+        expect(portalContainer.textContent).toBe('');
+    });
+
+    test('portal content updates when parent state changes', () => {
+        class PortalParent extends Component<{}, { label: string }> {
+            state = { label: 'before' };
+            render() {
+                return Anu.createElement('div', {},
+                    Anu.createElement('button', {
+                        onClick: () => this.setState({ label: 'after' })
+                    }, 'update'),
+                    createPortal(
+                        Anu.createElement('p', {}, this.state.label),
+                        portalContainer
+                    )
+                );
+            }
+        }
+        const { getByRole } = render(Anu.createElement(PortalParent, {}));
+        expect(within(portalContainer).getByText('before')).toBeDefined();
+        fireEvent.click(getByRole('button'));
+        expect(within(portalContainer).getByText('after')).toBeDefined();
     });
 });
 
