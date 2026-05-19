@@ -255,3 +255,13 @@ class AnulyticsProvider extends Component<AnulyticsProviderProps> {
 }
 
 export default AnulyticsProvider;
+
+export const __testing = {
+    reset(): void {
+        if (process.env.NODE_ENV !== 'test') {
+            return;
+        }
+
+        AnulyticsState.setAnulyticsInstanceExist(false);
+    }
+};

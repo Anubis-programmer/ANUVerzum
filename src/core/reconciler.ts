@@ -180,7 +180,6 @@ const updateClassComponent = (wipFiber: Fiber): void => {
         const stateNode = createInstance(wipFiber);
         stateNode.context = { ...stateNode.context };
         instance = wipFiber.stateNode = stateNode;
-
         wipFiber.stateNode.setState = wipFiber.stateNode.setState.bind(wipFiber.stateNode);
 
         if ((wipFiber.type as any).prototype.componentDidMount) {
@@ -586,4 +585,44 @@ export const render = (elements: AnuElement | AnuElement[], containerDom: Elemen
     });
 
     requestIdleCallback(performWork);
+};
+
+export const unmountComponentAtNode = (containerDom: Element): void => {
+    if (!(containerDom as any)._rootContainerFiber) {
+        return;
+    }
+
+    updateQueue.push({
+        from: HOST_ROOT,
+        dom: containerDom,
+        newProps: { children: [] }
+    });
+    requestIdleCallback(performWork);
+};
+
+export const __testing = {
+    flushSync(): void {
+        if (process.env.NODE_ENV !== 'test') {
+            return;
+        }
+
+        const syncDeadline: IdleDeadline = { didTimeout: false, timeRemaining: () => 999 };
+
+        while (updateQueue.length > 0 || nextUnitOfWork != null) {
+            workLoop(syncDeadline);
+        }
+
+        nextUnitOfWork = null;
+        pendingCommit = null;
+    },
+    resetGlobals(): void {
+        if (process.env.NODE_ENV !== 'test') {
+            return;
+        }
+        
+        updateQueue.length = 0;
+        componentLifecyclesQueue.length = 0;
+        nextUnitOfWork = null;
+        pendingCommit = null;
+    }
 };

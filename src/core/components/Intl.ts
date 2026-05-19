@@ -214,3 +214,13 @@ const Intl = {
 };
 
 export default Intl;
+
+export const __testing = {
+    reset(): void {
+        if (process.env.NODE_ENV !== 'test') {
+            return;
+        }
+        
+        __messagesContext = { locale: undefined, messages: {} };
+    }
+};

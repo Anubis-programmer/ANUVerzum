@@ -259,3 +259,13 @@ const History = {
 };
 
 export default History;
+
+export const __testing = {
+    reset(): void {
+        if (process.env.NODE_ENV !== 'test') {
+            return;
+        }
+        
+        instances.length = 0;
+    }
+};
