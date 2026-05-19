@@ -7,6 +7,8 @@ import { createByTitleQueries } from './byTitle';
 import { createByAltTextQueries } from './byAltText';
 import type { BoundQueries, TextMatch, ByRoleOptions } from '../types';
 
+export const within = (element: Element): BoundQueries => buildQueries(element);
+
 export const buildQueries = (container: Element): BoundQueries => ({
     getByText: (text: TextMatch) => createByTextQueries(container, text).get(),
     queryByText: (text: TextMatch) => createByTextQueries(container, text).query(),

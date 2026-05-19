@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.22.1</strong></h3>
+<h3>@version: <strong>1.23.1</strong></h3>
 
 <br>
 
@@ -199,6 +199,7 @@ const Anu = {
     Anulytics: { Provider: AnulyticsProvider, trackEvent },
     createContext,
     createElement,
+    createPortal,
     createRef,
     Component,
     Fragment,
@@ -219,7 +220,7 @@ Individual named exports are also provided for tree-shaking friendliness and dir
 
 ```typescript
 // Value exports
-export { Component, Fragment, createElement, createRef, createContext, render, goTo };
+export { Component, Fragment, createElement, createRef, createPortal, createContext, render, goTo };
 export { AnulyticsProvider, trackEvent };
 export { store, ServerAPI, Utils, Connector, Feature, History, Intl };
 
@@ -437,11 +438,12 @@ type Fiber = {
 };
 ```
 
-The **four fiber tags** define how the reconciler processes each node:
+The **five fiber tags** define how the reconciler processes each node:
 - `HOST_COMPONENT` — a real DOM element (a string `type` like `'div'`).
 - `CLASS_COMPONENT` — a class that extends `Component`.
 - `FUNCTION_COMPONENT` — a plain function component.
 - `HOST_ROOT` — the root container fiber wrapping the entire tree.
+- `PORTAL` — a portal created by `createPortal(children, container)`. Its `stateNode` is the target container DOM node.
 
 The **three effect tags** describe what DOM mutation is needed:
 - `PLACEMENT (1)` — insert a new DOM node; queue `componentDidMount`.
@@ -489,6 +491,9 @@ requestIdleCallback(performWork)
 <h3 id="begin-work">Begin work phase</h3>
 
 `beginWork()` dispatches to one of three handlers based on `wipFiber.tag`:
+
+**`updatePortalComponent(wipFiber)`**
+Sets `wipFiber.stateNode = wipFiber.props.container` (the target DOM node), then calls `reconcileChildrenArray` with `wipFiber.props.children`. Because the portal fiber's `stateNode` is the container, `commitWork`'s DOM-parent walk stops there and renders all children into that container rather than into the normal parent. `getFirstHostNode` returns `null` for portal fibers so they are invisible to sibling insertion-order logic in the parent container.
 
 **`updateHostComponent(wipFiber)`**
 Creates the real DOM node on first visit (`wipFiber.stateNode = createDomElement(wipFiber)`), then calls `reconcileChildrenArray` with `wipFiber.props.children`.
@@ -547,7 +552,7 @@ The resulting fibers are linked into a sibling-chain as the new children of `wip
 - **`DELETION`:**
     - Calls `commitDeletion(effect, domParent)`, which runs in two phases:
         - **Phase 1 — lifecycle teardown:** `collectClassComponents` does an iterative DFS of the entire deleted subtree (including the root fiber), collects all `CLASS_COMPONENT` fibers, then reverses the list to get bottom-up order (children before parents). Each fiber then has `componentWillUnmount` called (individually wrapped in try/catch so one bad lifecycle does not abort the rest) and `stateNode.__fiber` nulled. This ensures every `ContextConsumer` and any other class component in the deleted subtree deregisters itself — preventing stale subscriber entries and the reconciliation loops they would otherwise cause.
-        - **Phase 2 — DOM removal:** walks the subtree, skipping class and function component fibers, and removes every host DOM node from the parent.
+        - **Phase 2 — DOM removal:** walks the subtree, skipping class and function component fibers, and removes every host DOM node from the parent. When a `PORTAL` fiber is encountered during the walk, `commitDeletion` is called recursively with the portal's `stateNode` as the `domParent`, ensuring portal children are removed from the correct container rather than from the outer parent.
 
 **`componentLifecyclesQueue`** is a module-level array of `{ fn, params }` entries. All lifecycle callbacks (`componentDidMount`, `componentDidUpdate`) are accumulated during the commit loop and flushed together at the very end — after all DOM mutations are complete. This ensures that lifecycle methods always observe the fully-updated DOM, matching React's semantics.
 
@@ -566,6 +571,9 @@ export const scheduleUpdate = (
     partialState: Record<string, any>,
     partialStateCallback?: (prevState: any, prevProps: any) => any
 ): void;
+
+// Render a subtree into an arbitrary DOM node while keeping it in the React fiber tree
+export const createPortal = (children: AnuNode, container: Element): AnuElement;
 ```
 
 <br>
@@ -1721,6 +1729,23 @@ export const cleanup = (): void => {
 | `renderWithRouter(ui, opts?)` | Pushes `opts.initialPath` (default `'/'`) to `window.history`, returns `navigate(path)` helper |
 | `renderWithIntl(ui, locale, messages, opts?)` | `<Anu.Intl.Provider locale={locale} messages={messages}>` |
 | `renderWithContext(ui, ContextProvider, value, opts?)` | `<ContextProvider {...value}>` |
+
+**Portal queries — `within(element)`**
+
+`render()` binds all queries to its `container` div. Content rendered through `createPortal` lives in a different DOM node and is not found by those queries. `within(element)` builds the full `BoundQueries` suite bound to any element:
+
+```typescript
+export const within = (element: Element): BoundQueries => buildQueries(element);
+```
+
+Usage:
+
+```typescript
+import { within } from 'anu-verzum/testing';
+
+const portalRoot = document.getElementById('modal-root')!;
+expect(within(portalRoot).getByText('Modal title')).toBeDefined();
+```
 
 <h3 id="atl-jest-setup">Jest configuration</h3>
 

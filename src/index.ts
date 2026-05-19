@@ -1,7 +1,7 @@
 import Utils from './misc/utils';
 import ServerAPI from './server-api/server-api';
 import { createElement, AnuElement, Props, Ref } from './core/elements';
-import { createRef, render } from './core/reconciler';
+import { createRef, render, createPortal } from './core/reconciler';
 import store from './store/store';
 import { createContext } from './core/components/Context';
 import { Component } from './core/components/Component';
@@ -38,6 +38,7 @@ const Anu = {
     },
     createContext,
     createElement,
+    createPortal,
     createRef,
     Component,
     Fragment,
@@ -58,7 +59,7 @@ export type { AnuElement, AnuChild, AnuNode, AnuCSSProperties, Props, Ref, Funct
 export type { ContextValue, ConsumerProps } from './core/components/Context';
 export type { Action, ThunkAction, Dispatch, Reducer, MiddlewareAPI, Middleware, Store, SelectorFn, CreateSelectorFn } from './store/store';
 export type { ApiSuccessResponse, ApiErrorResponse } from './server-api/server-api';
-export { Component, Fragment, createElement, createRef, createContext, render, goTo };
+export { Component, Fragment, createElement, createRef, createPortal, createContext, render, goTo };
 export { AnulyticsProvider, trackEvent };
 export { store, ServerAPI, Utils, Connector, Feature, History, Intl };
 export type { AbbreviateNumberOptions } from './core/components/Intl';

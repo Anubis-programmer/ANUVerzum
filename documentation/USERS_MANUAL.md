@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>1.22.1</strong></h3>
+<h3>@version: <strong>1.23.1</strong></h3>
 
 <br>
 
@@ -61,6 +61,9 @@
         </li>
         <li>
             <a href="#rendering-application">Rendering application</a>
+        </li>
+        <li>
+            <a href="#portals">Rendering outside the component tree - Portals</a>
         </li>
     </ul>
     <li>
@@ -207,6 +210,7 @@
         <li><a href="#testing-act">act()</a></li>
         <li><a href="#testing-rerender">rerender and unmount</a></li>
         <li><a href="#testing-wrappers">Provider wrappers</a></li>
+        <li><a href="#testing-within">Querying inside portals with within()</a></li>
     </ul>
 </ul>
 
@@ -1360,6 +1364,74 @@ when you want to imperatively modify a child outside of the typical dataflow.
             document.getElementById(ID) as Element
         );
         ```
+
+<br>
+
+<h3 id="portals">Rendering outside the component tree — Portals</h3>
+
+Use `Anu.createPortal(children, container)` to render a subtree into a DOM node that exists **outside** the normal parent hierarchy. The component remains logically part of the React tree — Context, `connect` HOC, and lifecycle methods all work as usual — but its DOM output appears in the target container instead.
+
+**When to use portals:**
+- Modals and dialogs that must overlay the entire page
+- Tooltips and popovers that would be clipped by a parent with `overflow: hidden`
+- Toast notifications that must always appear at a fixed screen position
+- Dropdowns whose lists would be cut off inside a scrollable container
+
+**Setup** — add a dedicated mount point in your HTML:
+
+```html
+<body>
+  <div id="root"></div>
+  <div id="modal-root"></div>
+</body>
+```
+
+**Example — a modal component:**
+
+```typescript
+import Anu from 'anu-verzum';
+
+interface ModalProps {
+    onClose: () => void;
+    children: any;
+}
+
+const Modal = ({ onClose, children }: ModalProps) => {
+    const modalRoot = document.getElementById('modal-root') as Element;
+
+    return Anu.createPortal(
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                {children}
+            </div>
+        </div>,
+        modalRoot
+    );
+};
+```
+
+The modal can be used anywhere in the component tree. It will always render into `#modal-root` at the top of the DOM, covering everything — with no z-index fights:
+
+```typescript
+class App extends Anu.Component<{}, { showModal: boolean }> {
+    state = { showModal: false };
+
+    render() {
+        return (
+            <div>
+                <button onClick={() => this.setState({ showModal: true })}>Open Modal</button>
+                {this.state.showModal && (
+                    <Modal onClose={() => this.setState({ showModal: false })}>
+                        <h2>Hello from the portal!</h2>
+                    </Modal>
+                )}
+            </div>
+        );
+    }
+}
+```
+
+> **Context and connect HOC work across portals.** Even though `Modal` renders its DOM into `#modal-root`, it is still a descendant of any `Context.Provider` or `Connector.Provider` that wraps `App` in the React tree. All context values and store subscriptions are fully available inside a portal.
 
 <br>
 
@@ -2912,6 +2984,35 @@ test('reads theme from context', () => {
     expect(getByText('Dark button')).toBeDefined();
 });
 ```
+
+<br>
+<hr>
+
+<h2 id="testing-within">Querying inside portals with <code>within()</code></h2>
+
+`render()` binds all its queries (`getByText`, `getByRole`, etc.) to the `container` div it creates. Content rendered through `Anu.createPortal` lives in a **different DOM node**, so those queries will not find it.
+
+Use `within(element)` to build the full query suite bound to any element — including a portal container:
+
+```typescript
+import { render, within } from 'anu-verzum/testing';
+
+test('modal content is accessible via within()', () => {
+    const modalRoot = document.createElement('div');
+    document.body.appendChild(modalRoot);
+    modalRoot.id = 'modal-root';
+
+    render(<AppWithModal />);
+
+    const { getByText, getByRole } = within(modalRoot);
+    expect(getByText('Confirm deletion')).toBeDefined();
+    expect(getByRole('button', { name: 'Cancel' })).toBeDefined();
+
+    document.body.removeChild(modalRoot);
+});
+```
+
+> The portal container (`#modal-root`) is not created or cleaned up by ATL — you must set it up and tear it down yourself in the test, just as you would in a real application's HTML file.
 
 <br>
 <hr>
