@@ -1,6 +1,6 @@
 {
   "name": "anu-verzum",
-  "version": "1.22.0",
+  "version": "1.22.1",
   "description": "A \"React-like\" UI library that supports JSX syntax, Redux-like state management, array-rendering, i18n, routing and many more.",
   "keywords": [
     "anu-verzum",
@@ -31,7 +31,9 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
-    "./testing": "./dist/testing/index.js"
+    "./testing": "./dist/testing/index.js",
+    "./babel-preset": "./babel-preset.js",
+    "./webpack.config": "./webpack.config.js"
   },
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('dist', {recursive:true, force:true})\"",
