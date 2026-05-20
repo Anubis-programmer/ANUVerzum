@@ -17,7 +17,8 @@ module.exports = (projectRoot, options = {}) => ({
                 test: /\.[jt]sx?$/,
                 exclude: /node_modules/,
                 use: 'babel-loader'
-            }
+            },
+            ...(options.rules ?? [])
         ]
     },
     resolve: {

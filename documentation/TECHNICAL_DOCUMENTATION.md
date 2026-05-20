@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>2.0.0</strong></h3>
+<h3>@version: <strong>2.1.0</strong></h3>
 
 <br>
 
@@ -1398,6 +1398,7 @@ The factory accepts `projectRoot` and an optional `options` object:
 | `template` | `index.html` | HTML template for `HtmlWebpackPlugin` |
 | `port` | `3000` | Dev server port |
 | `plugins` | `[]` | Additional plugins appended after `HtmlWebpackPlugin` |
+| `rules` | `[]` | Additional module rules appended after the built-in `babel-loader` rule |
 
 The config always runs in `'development'` mode, uses `babel-loader` for all `.js`, `.jsx`, `.ts`, `.tsx` files, sets `publicPath: '/'` (required for client-side routing), and enables `historyApiFallback: true` on the dev server (serves `index.html` for all 404s, so deep links work during development).
 

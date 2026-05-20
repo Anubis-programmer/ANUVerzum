@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>2.0.0</strong></h3>
+<h3>@version: <strong>2.1.0</strong></h3>
 
 <br>
 
@@ -284,6 +284,17 @@ module.exports = require('anu-verzum/webpack.config')(__dirname, {
         new webpack.DefinePlugin({
             'process.env.API_URL': JSON.stringify(process.env.API_URL)
         })
+    ]
+});
+```
+
+Use `rules` to append additional webpack module rules after the built-in `babel-loader` rule. This is how you wire up CSS, LESS, images, or any other asset type:
+
+```js
+module.exports = require('anu-verzum/webpack.config')(__dirname, {
+    rules: [
+        { test: /\.css$/, use: ['style-loader', 'css-loader'] },
+        { test: /\.less$/, use: ['style-loader', 'css-loader', 'less-loader'] }
     ]
 });
 ```
