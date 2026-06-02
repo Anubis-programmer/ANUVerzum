@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>2.1.0</strong></h3>
+<h3>@version: <strong>2.2.0</strong></h3>
 
 <br>
 
@@ -2434,6 +2434,34 @@ This currently supports only the <i>Hungarian</i> and the <i>English</i> abbrevi
             Anu.Intl.abbreviateNumber(-10000, option);        // → "-10 E."
             Anu.Intl.abbreviateNumber(-10234, option);        // → "-10,234 E."
             ```
+
+- For <strong>general</strong> (non-abbreviated) locale-aware number formatting and parsing, use <code>Anu.Intl.formatNumber()</code> and <code>Anu.Intl.parseNumber()</code>. Unlike <code>abbreviateNumber()</code>, these wrap the standard <code>Intl.NumberFormat</code> and apply the locale's real grouping and decimal separators (e.g. <code>.</code> in <i>en</i> vs <code>,</code> in <i>hu</i>).
+    - Both default to the locale set on the nearest <code>&lt;Anu.Intl.Provider /&gt;</code>, falling back to <code>defaultLocale</code> / the runtime default. You can override per call with an explicit <code>locale</code> option, in which case the Provider is not required.
+    - <strong>Locale format.</strong> The <code>locale</code> is a standard BCP 47 tag. Use the same value you give the <code>Provider</code> — typically the short, lowercase language subtag (<code>'hu'</code>, <code>'en'</code>) that <code>abbreviateNumber()</code> and your <code>messages</code> keys already use. A region subtag (<code>'en-US'</code>, <code>'en-GB'</code>, <code>'hu-HU'</code>) is optional and only needed when the region changes the result (e.g. currency, or <code>'en-IN'</code> lakh grouping). Casing does not matter — <code>'hu'</code>, <code>'HU'</code>, and <code>'hu-HU'</code> all resolve to Hungarian.
+    - <code>formatNumber(value, options?)</code> — <code>options</code> is an <code>Intl.NumberFormatOptions</code> object plus an optional <code>locale</code>; every standard option (<code>minimumFractionDigits</code>, <code>style: 'currency'</code>, etc.) passes straight through. Returns the formatted string (and the plain <code>String(value)</code> for non-numeric input rather than throwing).
+    - <code>parseNumber(text, options?)</code> — the inverse of <code>formatNumber</code>. It reads back a locale-formatted string (including grouping separators and the locale's decimal sign) into a <code>number</code>, or returns <code>null</code> when the text holds no parseable digits.
+
+        ```typescript
+        import Anu, { FormatNumberOptions, ParseNumberOptions } from 'anu-verzum';
+
+        // Formatting (short language subtag — same form the Provider uses):
+        Anu.Intl.formatNumber(1234.56, { locale: 'en' });                     // → "1,234.56"
+        Anu.Intl.formatNumber(1234.56, { locale: 'hu' });                     // → "1234,56" (Hungarian comma decimal)
+        Anu.Intl.formatNumber(1234567.89, { locale: 'hu' });                  // → "1 234 567,89" (space grouping)
+        Anu.Intl.formatNumber(5, { locale: 'en', minimumFractionDigits: 2 }); // → "5.00"
+        Anu.Intl.formatNumber(1234.56);  // uses the Provider's locale
+
+        // A region subtag only matters when it changes the result:
+        Anu.Intl.formatNumber(1234567.89, { locale: 'en-IN' });  // → "12,34,567.89" (Indian lakh grouping)
+
+        // Parsing (inverse of formatNumber):
+        Anu.Intl.parseNumber('1,234.56', { locale: 'en' });        // → 1234.56
+        Anu.Intl.parseNumber('1 234 567,89', { locale: 'hu' });    // → 1234567.89
+        Anu.Intl.parseNumber('-1234,56', { locale: 'hu' });        // → -1234.56
+        Anu.Intl.parseNumber('abc', { locale: 'en' });             // → null
+        ```
+
+    - This pair is the recommended foundation for a <code>NumberInput</code> or currency/decimal field: format the value for display, and parse the user's input back — without each component separately re-deriving the locale the Provider already holds.
 
 <br>
 

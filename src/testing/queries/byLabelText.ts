@@ -17,9 +17,13 @@ const queryAllByLabelText = (container: Element, label: TextMatch): Element[] =>
         const forAttr = labelEl.getAttribute('for');
 
         if (forAttr) {
-            const input = container.querySelector(`#${CSS.escape(forAttr)}`);
+            // The `for` attribute is already an element id, so resolve it with
+            // getElementById — no CSS.escape needed (jsdom omits the browser-only
+            // `CSS` global), and it handles any id characters. Scope to container.
+            const doc = container.ownerDocument ?? document;
+            const input = doc.getElementById(forAttr);
 
-            if (input) {
+            if (input && container.contains(input)) {
                 results.push(input);
             }
 
