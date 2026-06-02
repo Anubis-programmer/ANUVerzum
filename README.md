@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>2.1.0</strong></h3>
+<h3>@version: <strong>2.2.0</strong></h3>
 
 <br>
 
@@ -196,6 +196,8 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 | `CreateSelectorFn` | Overloaded interface for `Anu.store.createSelector` — enables full type inference on transformation parameters |
 | `ApiSuccessResponse<T>` | Successful HTTP response `{ status: number; response: T \| null }` |
 | `ApiErrorResponse` | Error HTTP response `{ status: number; response: null }` |
+| `FormatNumberOptions` | Options for `Anu.Intl.formatNumber` — `Intl.NumberFormatOptions` plus an optional `locale` |
+| `ParseNumberOptions` | Options for `Anu.Intl.parseNumber` — `{ locale?: string }` |
 
 #### Library development scripts
 

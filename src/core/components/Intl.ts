@@ -31,6 +31,17 @@ export interface AbbreviateNumberOptions {
     decimalSign?: string;
 }
 
+// `Intl.NumberFormatOptions` here refers to the global ECMAScript Intl namespace
+// (type space), not the local `Intl` API object declared at the bottom of this
+// file — a `const` introduces only a value binding, so the type reference is safe.
+export interface FormatNumberOptions extends Intl.NumberFormatOptions {
+    locale?: string;
+}
+
+export interface ParseNumberOptions {
+    locale?: string;
+}
+
 const IntlProvider = ({ locale, messages, defaultLocale, children }: IntlProviderProps): AnuElement | null => {
     let selectedMessage: Record<string, string> | undefined;
 
@@ -148,9 +159,17 @@ const formatMessage = (id: string, values?: Record<string, string | number>, def
     return textValue;
 };
 
+// Reduce any BCP 47 tag to its lowercase language subtag, e.g. 'hu-HU' / 'HU' → 'hu'.
+// Used for the exact dictionary-key lookups below (UNITS / DECIMAL_SIGN), which key
+// on the language only — so a Provider locale of 'hu', 'HU', or 'hu-HU' all resolve
+// to the same Hungarian entry. (formatNumber/parseNumber keep the full tag, since the
+// region subtag is meaningful to Intl.NumberFormat — e.g. en-US vs en-GB vs en-IN.)
+const getLanguageSubtag = (locale?: string): string | undefined =>
+    locale ? locale.toLowerCase().split('-')[0] : undefined;
+
 const abbreviateNumber = (value: number, options: AbbreviateNumberOptions = {}): string | number => {
     const getByLocale = (values: Record<string, any>): any =>
-        values[__messagesContext.locale || 'default'] || values['default'];
+        values[getLanguageSubtag(__messagesContext.locale) || 'default'] || values['default'];
 
     const UNITS: Record<string, string[]> = {
         hu: ['E', 'm', 'M', 'b'],
@@ -206,8 +225,80 @@ const abbreviateNumber = (value: number, options: AbbreviateNumberOptions = {}):
     return value;
 };
 
+// The local `Intl` object below shadows the global ECMAScript `Intl`, so number
+// formatting/parsing must reach the real `Intl.NumberFormat` via `globalThis.Intl`.
+const resolveLocale = (locale?: string): string | undefined => locale || __messagesContext.locale || undefined;
+
+const formatNumber = (value: number, options: FormatNumberOptions = {}): string => {
+    const { locale, ...numberFormatOptions } = options;
+
+    if (typeof value !== 'number' || isNaN(value)) {
+        return String(value);
+    }
+
+    try {
+        return new globalThis.Intl.NumberFormat(resolveLocale(locale), numberFormatOptions).format(value);
+    } catch (err) {
+        console.error(err);
+
+        return String(value);
+    }
+};
+
+const parseNumber = (text: string, options: ParseNumberOptions = {}): number | null => {
+    if (typeof text !== 'string') {
+        return null;
+    }
+
+    try {
+        // Discover the locale's grouping/decimal/minus marks from a known sample,
+        // then normalize the input back into a plain JS-parseable number string.
+        const parts = new globalThis.Intl.NumberFormat(resolveLocale(options.locale)).formatToParts(-12345.6);
+        const groupSign = parts.find((p) => p.type === 'group')?.value ?? '';
+        const decimalSign = parts.find((p) => p.type === 'decimal')?.value ?? '.';
+        const minusSign = parts.find((p) => p.type === 'minusSign')?.value ?? '-';
+
+        let normalized = text.trim();
+        const isNegative = normalized.indexOf('-') > -1 || (!!minusSign && normalized.indexOf(minusSign) > -1);
+
+        // Drop grouping separators: the explicit locale group sign plus any
+        // whitespace (JS `\s` covers NBSP/NNBSP, which several locales group with).
+        if (groupSign) {
+            normalized = normalized.split(groupSign).join('');
+        }
+
+        normalized = normalized.replace(/\s/g, '');
+
+        // Convert the locale decimal sign to a dot.
+        if (decimalSign && decimalSign !== '.') {
+            normalized = normalized.split(decimalSign).join('.');
+        }
+
+        // Keep only digits and the decimal dot; sign is reapplied from isNegative.
+        normalized = normalized.replace(/[^0-9.]/g, '');
+
+        if (normalized === '' || normalized === '.') {
+            return null;
+        }
+
+        const result = Number(normalized);
+
+        if (isNaN(result)) {
+            return null;
+        }
+
+        return isNegative ? -result : result;
+    } catch (err) {
+        console.error(err);
+
+        return null;
+    }
+};
+
 const Intl = {
     abbreviateNumber,
+    formatNumber,
+    parseNumber,
     FormattedMessage,
     formatMessage,
     Provider: IntlProvider

@@ -4,7 +4,7 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>2.1.0</strong></h3>
+<h3>@version: <strong>2.2.0</strong></h3>
 
 <br>
 
@@ -78,6 +78,7 @@
         <li><a href="#formatted-message">The <code>FormattedMessage</code> component</a></li>
         <li><a href="#format-message">The <code>formatMessage()</code> utility</a></li>
         <li><a href="#abbreviate-number">The <code>abbreviateNumber()</code> utility</a></li>
+        <li><a href="#format-number">The <code>formatNumber()</code> and <code>parseNumber()</code> utilities</a></li>
     </ul>
     <li><a href="#feature-flags">Feature Flags — <code>src/core/components/Feature.ts</code></a></li>
     <li><a href="#anulytics">Analytics — <code>src/core/components/AnulyticsProvider.ts</code></a></li>
@@ -230,7 +231,7 @@ export type { ContextValue, ConsumerProps };
 export type { Action, ThunkAction, Dispatch, Reducer, MiddlewareAPI, Middleware,
               Store, SelectorFn, CreateSelectorFn };
 export type { ApiSuccessResponse, ApiErrorResponse };
-export type { AbbreviateNumberOptions };
+export type { AbbreviateNumberOptions, FormatNumberOptions, ParseNumberOptions };
 ```
 
 The `JSX` global namespace is also declared here so TypeScript recognizes JSX syntax in consumer projects without any additional configuration:
@@ -1035,7 +1036,7 @@ const IntlProvider = ({
 
 `IntlProvider` is a function component. It validates the `locale` and `messages` props, selects the correct message dictionary (`messages[locale]` or `messages[defaultLocale]` as fallback), and updates the module-level `__messagesContext` singleton. It then renders the internal `_Intl.ContextProvider` with the selected messages, making them available to all `FormattedMessage` descendants.
 
-The `__messagesContext` singleton is also used by `formatMessage()` and `abbreviateNumber()` for imperative (non-JSX) message resolution.
+The `__messagesContext` singleton is also used by `formatMessage()`, `abbreviateNumber()`, `formatNumber()`, and `parseNumber()` for imperative (non-JSX) message and locale resolution.
 
 <h3 id="formatted-message">The <code>FormattedMessage</code> component</h3>
 
@@ -1084,7 +1085,34 @@ Abbreviates large numbers with locale-aware units and decimal separators:
 | `hu` (Hungarian) | `['E', 'm', 'M', 'b']` | `,` |
 | default | `['K', 'M', 'B', 'T']` | `.` |
 
+The `UNITS` / `DECIMAL_SIGN` dictionaries are keyed on the language only, so the active locale is first reduced to its lowercase language subtag via `getLanguageSubtag(locale)` (`'hu-HU'` / `'HU'` → `'hu'`). This keeps the lookup robust to whatever BCP 47 form the `IntlProvider` was given, and consistent with `formatNumber`/`parseNumber`, which accept the same range of tags.
+
 The algorithm iterates from the largest unit downward. When a threshold is met (e.g. `value >= 1_000` for `K`), it divides and rounds to `decimalPlaces` (default: 2). It handles the edge case where rounding causes rollover to the next unit (e.g. `999,999` rounding to `1,000K` should become `1M`). All defaults can be overridden via `options`.
+
+<h3 id="format-number">The <code>formatNumber()</code> and <code>parseNumber()</code> utilities</h3>
+
+Where `abbreviateNumber` produces short forms, `formatNumber`/`parseNumber` are a general locale-aware round-trip pair built directly on the standard `Intl.NumberFormat`. Both resolve their locale via `resolveLocale(locale)` — the explicit `locale` option, else `__messagesContext.locale` (the active `IntlProvider` locale), else the runtime default. Unlike `abbreviateNumber`, they pass the **full** BCP 47 tag to `Intl.NumberFormat` rather than reducing it to the language subtag, because the region is meaningful here (`en-US` vs `en-GB` vs `en-IN`). Casing is irrelevant — `Intl.NumberFormat` canonicalizes `'hu'`, `'HU'`, and `'hu-HU'` alike.
+
+```typescript
+export interface FormatNumberOptions extends Intl.NumberFormatOptions {
+    locale?: string;
+}
+
+export interface ParseNumberOptions {
+    locale?: string;
+}
+
+const formatNumber = (value: number, options: FormatNumberOptions = {}): string;
+const parseNumber  = (text: string, options: ParseNumberOptions = {}): number | null;
+```
+
+**Self-reference hazard.** The module's own `Intl` object (the default export) shadows the global ECMAScript `Intl` value binding. Both functions therefore reach the real formatter via `globalThis.Intl.NumberFormat` — a bare `Intl.NumberFormat` at runtime would resolve to the local API object, which has no `NumberFormat`. The `Intl.NumberFormatOptions` *type* reference is unaffected, because a `const` declaration introduces only a value binding, not a type-space entry.
+
+**`formatNumber`** strips the `locale` key and forwards the remaining `Intl.NumberFormatOptions` straight to `new Intl.NumberFormat(locale, options).format(value)`. Non-numeric input (`NaN`, non-`number`) returns `String(value)` rather than throwing; a thrown `NumberFormat` error is caught, logged, and also degraded to `String(value)`.
+
+**`parseNumber`** is the inverse. Because separator characters are locale-specific, it discovers them at runtime from a known sample via `new Intl.NumberFormat(locale).formatToParts(-12345.6)` — extracting the `group`, `decimal`, and `minusSign` parts. It then normalizes the input: strips the group sign and all whitespace (JavaScript's `\s` covers the NBSP/NNBSP that several locales group with, e.g. `hu-HU`), converts the locale decimal sign to a dot, keeps only `[0-9.]`, and reapplies the sign detected earlier. Empty / sign-only / non-numeric results return `null`.
+
+> **Build note:** `formatToParts` is typed under the `ES2018.Intl` library, which is included in `tsconfig.json`'s `lib` array. This affects type-checking only — Babel's emitted output is unchanged.
 
 <br>
 <hr>
@@ -1615,6 +1643,8 @@ Available query types and their matching strategy:
 | `ByTestId` | `data-testid` attribute |
 | `ByTitle` | `title` attribute |
 | `ByAltText` | `alt` attribute |
+
+**`byLabelText.ts` `for=` resolution** — the `<label for="">` branch resolves the associated control with `container.ownerDocument.getElementById(forAttr)`, then re-scopes the hit to the query container via `container.contains(input)`. It deliberately does **not** use `container.querySelector('#' + CSS.escape(forAttr))`: jsdom (the environment ATL targets) does not implement the browser-only `CSS` global, so `CSS.escape` throws `ReferenceError: CSS is not defined`. `getElementById` needs no escaping and handles ids that are not valid bare CSS selectors.
 
 **`byRole.ts` implicit role map** — maps ARIA roles to CSS selectors. The `textbox` role additionally filters `<input>` by type (`text`, `search`, `email`, `tel`, `url`) using `Array.prototype.indexOf` (not `.includes()`, which is not available in the library's ES6 target):
 

@@ -62,7 +62,7 @@ export type { ApiSuccessResponse, ApiErrorResponse } from './server-api/server-a
 export { Component, Fragment, createElement, createRef, createPortal, createContext, render, goTo };
 export { AnulyticsProvider, trackEvent };
 export { store, ServerAPI, Utils, Connector, Feature, History, Intl };
-export type { AbbreviateNumberOptions } from './core/components/Intl';
+export type { AbbreviateNumberOptions, FormatNumberOptions, ParseNumberOptions } from './core/components/Intl';
 
 /* eslint-disable @typescript-eslint/no-namespace, @typescript-eslint/no-empty-object-type */
 declare global {
