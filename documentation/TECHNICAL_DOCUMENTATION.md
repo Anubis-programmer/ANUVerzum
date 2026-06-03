@@ -1656,6 +1656,7 @@ const IMPLICIT_ROLES: Record<string, string[]> = {
     link: ['a'],
     heading: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
     combobox: ['select'],
+    textbox: ['textarea'],
     img: ['img'],
     list: ['ul', 'ol'],
     listitem: ['li'],
