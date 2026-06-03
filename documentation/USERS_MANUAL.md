@@ -478,6 +478,7 @@ Supports both <i>HTML</i> and <i>inline-SVG</i> element creation, "stateful" (or
 - If you wish to use the SVG <code>&lt;a&gt;</code>, <code>&lt;style&gt;</code> or <code>&lt;title&gt;</code> tags, please use instead <code>&lt;anchor&gt;</code>, <code>&lt;svgStyle&gt;</code> or <code>&lt;svgTitle&gt;</code> respectively)!
 - <code>&lt;script&gt;</code> SVG tag is not supported! Please create a separate component for the elements and define their behavior as you would do in case of a regular component!
 - When creating <code>&lt;svg&gt;</code> tag, you don't have to define the <code>xmlns</code> attribute. 
+- Standard attributes placed on a host element are forwarded to the real DOM node — lowercase single-word names (<code>placeholder</code>, <code>name</code>, <code>type</code>), hyphenated names (<code>aria-*</code>, <code>data-*</code>), and React-style <strong>camelCase</strong> HTML attributes (<code>inputMode</code>, <code>autoComplete</code>, <code>tabIndex</code>, <code>spellCheck</code>, …), which are translated to their DOM form automatically. Use <code>className</code> for the <code>class</code> attribute and <code>htmlFor</code> for <code>for</code>; attach event listeners with the <code>on&lt;Event&gt;</code> camelCase form (<code>onClick</code>, <code>onInput</code>).
 - Adding style definition inside <code>&lt;svgStyle&gt;</code> should be done as a string template as <code>children</code>, e.g.:
 
     ```typescript
