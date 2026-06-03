@@ -84,6 +84,12 @@ describe('getByRole implicit-role mapping for native inputs', () => {
 
         expect((getByRole('textbox') as HTMLInputElement).type).toBe('email');
     });
+
+    test('<textarea> resolves as textbox via its implicit role', () => {
+        const { getByRole } = render(Anu.createElement('textarea', { 'aria-label': 'Bio' }));
+
+        expect(getByRole('textbox').tagName.toLowerCase()).toBe('textarea');
+    });
 });
 
 describe('fireEvent applies the { target } init before dispatch', () => {
