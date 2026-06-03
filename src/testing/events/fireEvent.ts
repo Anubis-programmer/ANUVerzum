@@ -21,6 +21,10 @@ const buildEvent = (eventName: string, init?: EventInit): Event => {
         return new PointerEvent(eventName, opts);
     }
 
+    if (/^wheel/i.test(eventName)) {
+        return new WheelEvent(eventName, opts);
+    }
+
     return new Event(eventName, opts);
 };
 
@@ -49,3 +53,4 @@ fireEvent.keyPress = (el: Element, init?: EventInit) => fireEvent(el, 'keypress'
 fireEvent.submit = (el: Element, init?: EventInit) => fireEvent(el, 'submit', init);
 fireEvent.mouseDown = (el: Element, init?: EventInit) => fireEvent(el, 'mousedown', init);
 fireEvent.mouseUp = (el: Element, init?: EventInit) => fireEvent(el, 'mouseup', init);
+fireEvent.wheel = (el: Element, init?: EventInit) => fireEvent(el, 'wheel', init);

@@ -1683,11 +1683,11 @@ Explicit `role=""` attributes always take precedence over implicit roles. Access
 
 <h3 id="atl-events">Event utilities</h3>
 
-**`src/testing/events/fireEvent.ts`** — dispatches synthetic DOM events. It selects the correct event constructor (`MouseEvent`, `KeyboardEvent`, `FocusEvent`, `PointerEvent`, or generic `Event`) based on the event name, dispatches it on the element, then calls `flushEffects()` to ensure any resulting state updates (e.g. from `onClick` handlers that call `setState`) are committed to the DOM before the test assertion runs.
+**`src/testing/events/fireEvent.ts`** — dispatches synthetic DOM events. It selects the correct event constructor (`MouseEvent`, `KeyboardEvent`, `FocusEvent`, `PointerEvent`, `WheelEvent`, or generic `Event`) based on the event name, dispatches it on the element, then calls `flushEffects()` to ensure any resulting state updates (e.g. from `onClick` handlers that call `setState`) are committed to the DOM before the test assertion runs.
 
 Before dispatching, if the `init` object carries a `target` property, those values are applied to the element first (`Object.assign(element, init.target)`) — matching Testing Library — so `fireEvent.input(node, { target: { value: 'x' } })` sets `node.value` before the event fires and handlers read the new value. The remaining `init` keys are forwarded to the event constructor.
 
-Named shorthands: `click`, `dblclick`, `change`, `input`, `focus`, `blur`, `keyDown`, `keyUp`, `keyPress`, `submit`, `mouseDown`, `mouseUp`.
+Named shorthands: `click`, `dblclick`, `change`, `input`, `focus`, `blur`, `keyDown`, `keyUp`, `keyPress`, `submit`, `mouseDown`, `mouseUp`, `wheel`.
 
 **`src/testing/events/userEvent.ts`** — simulates higher-level user interactions by composing multiple `fireEvent` calls:
 

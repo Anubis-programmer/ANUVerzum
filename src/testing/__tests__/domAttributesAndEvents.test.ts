@@ -115,3 +115,25 @@ describe('fireEvent applies the { target } init before dispatch', () => {
         expect(input.value).toBe('manual');
     });
 });
+
+describe('fireEvent.wheel dispatches a WheelEvent', () => {
+    test('wheel handler receives the deltaY from the init', () => {
+        let seenDelta: number | null = null;
+        let seenType = '';
+        const { getByRole } = render(
+            Anu.createElement('input', {
+                type: 'number',
+                onWheel: (e: WheelEvent) => {
+                    seenDelta = e.deltaY;
+                    seenType = e.type;
+                }
+            })
+        );
+
+        const returned = fireEvent.wheel(getByRole('spinbutton'), { deltaY: -100 });
+
+        expect(seenType).toBe('wheel');
+        expect(seenDelta).toBe(-100);
+        expect(returned).toBe(true);
+    });
+});

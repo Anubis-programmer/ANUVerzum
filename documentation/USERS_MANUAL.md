@@ -2791,6 +2791,7 @@ describe('fireEvent', () => {
 | `fireEvent.keyUp(el, init?)` | `KeyboardEvent` — `keyup` |
 | `fireEvent.keyPress(el, init?)` | `KeyboardEvent` — `keypress` |
 | `fireEvent.submit(el, init?)` | `Event` — `submit` |
+| `fireEvent.wheel(el, init?)` | `WheelEvent` — `wheel` |
 
 You can also call `fireEvent(element, 'eventname', eventInit?)` directly for any event name not covered by a shorthand.
 
