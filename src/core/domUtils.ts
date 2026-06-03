@@ -1,5 +1,10 @@
 import { TEXT_ELEMENT, AnuElement, Props } from './elements';
 
+const HTML_ATTRIBUTE_NAME_MAP: Record<string, string> = {
+    acceptCharset: 'accept-charset',
+    httpEquiv: 'http-equiv'
+};
+
 export const getHTMLValidSvgTag = (fiberType: string): string => {
     switch (fiberType) {
         case 'anchor':
@@ -137,8 +142,18 @@ export const updateDomProperties = (
                     (dom as SVGElement).setAttribute(name, nextProps[name]);
                 }
             } else {
-                if (name.includes('-') || name === 'role') {
+                if (name === 'className' || name === 'htmlFor') {
+                    // Both have working IDL aliases (el.className / el.htmlFor).
+                    el[name] = nextProps[name];
+                } else if (name.includes('-') || name === 'role') {
                     (dom as HTMLElement).setAttribute(name, nextProps[name]);
+                } else if (dom.nodeType === 1 && /[A-Z]/.test(name)) {
+                    // camelCase HTML attribute (inputMode, autoComplete, …): the
+                    // DOM name is the lowercased key, except for the hyphenated
+                    // cases captured in HTML_ATTRIBUTE_NAME_MAP. Setting these as
+                    // IDL properties is unreliable (e.g. el.autoComplete is not a
+                    // reflected property), so route them through setAttribute.
+                    (dom as HTMLElement).setAttribute(HTML_ATTRIBUTE_NAME_MAP[name] ?? name.toLowerCase(), nextProps[name]);
                 } else {
                     el[name] = nextProps[name];
                 }

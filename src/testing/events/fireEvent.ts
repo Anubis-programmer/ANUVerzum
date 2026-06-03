@@ -1,6 +1,6 @@
 import { flushEffects } from '../act';
 
-type EventInit = globalThis.EventInit & Record<string, any>;
+type EventInit = globalThis.EventInit & { target?: Record<string, any> } & Record<string, any>;
 
 const buildEvent = (eventName: string, init?: EventInit): Event => {
     const opts = { bubbles: true, cancelable: true, ...init };
@@ -25,21 +25,27 @@ const buildEvent = (eventName: string, init?: EventInit): Event => {
 };
 
 export const fireEvent = (element: Element, eventName: string, init?: EventInit): boolean => {
-    const dispatched = element.dispatchEvent(buildEvent(eventName, init));
+    const { target, ...eventInit } = init ?? {};
+
+    if (target) {
+        Object.assign(element, target);
+    }
+
+    const dispatched = element.dispatchEvent(buildEvent(eventName, eventInit));
     flushEffects();
 
     return dispatched;
 };
 
-fireEvent.click = (el: Element, init?: MouseEventInit) => fireEvent(el, 'click', init);
-fireEvent.dblclick = (el: Element, init?: MouseEventInit) => fireEvent(el, 'dblclick', init);
-fireEvent.change = (el: Element, init?: globalThis.EventInit) => fireEvent(el, 'change', init);
-fireEvent.input = (el: Element, init?: globalThis.EventInit) => fireEvent(el, 'input', init);
-fireEvent.focus = (el: Element, init?: FocusEventInit) => fireEvent(el, 'focus', init);
-fireEvent.blur = (el: Element, init?: FocusEventInit) => fireEvent(el, 'blur', init);
-fireEvent.keyDown = (el: Element, init?: KeyboardEventInit) => fireEvent(el, 'keydown', init);
-fireEvent.keyUp = (el: Element, init?: KeyboardEventInit) => fireEvent(el, 'keyup', init);
-fireEvent.keyPress = (el: Element, init?: KeyboardEventInit) => fireEvent(el, 'keypress', init);
-fireEvent.submit = (el: Element, init?: globalThis.EventInit) => fireEvent(el, 'submit', init);
-fireEvent.mouseDown = (el: Element, init?: MouseEventInit) => fireEvent(el, 'mousedown', init);
-fireEvent.mouseUp = (el: Element, init?: MouseEventInit) => fireEvent(el, 'mouseup', init);
+fireEvent.click = (el: Element, init?: EventInit) => fireEvent(el, 'click', init);
+fireEvent.dblclick = (el: Element, init?: EventInit) => fireEvent(el, 'dblclick', init);
+fireEvent.change = (el: Element, init?: EventInit) => fireEvent(el, 'change', init);
+fireEvent.input = (el: Element, init?: EventInit) => fireEvent(el, 'input', init);
+fireEvent.focus = (el: Element, init?: EventInit) => fireEvent(el, 'focus', init);
+fireEvent.blur = (el: Element, init?: EventInit) => fireEvent(el, 'blur', init);
+fireEvent.keyDown = (el: Element, init?: EventInit) => fireEvent(el, 'keydown', init);
+fireEvent.keyUp = (el: Element, init?: EventInit) => fireEvent(el, 'keyup', init);
+fireEvent.keyPress = (el: Element, init?: EventInit) => fireEvent(el, 'keypress', init);
+fireEvent.submit = (el: Element, init?: EventInit) => fireEvent(el, 'submit', init);
+fireEvent.mouseDown = (el: Element, init?: EventInit) => fireEvent(el, 'mousedown', init);
+fireEvent.mouseUp = (el: Element, init?: EventInit) => fireEvent(el, 'mouseup', init);
