@@ -4,7 +4,6 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>2.2.0</strong></h3>
 
 <br>
 
@@ -2730,7 +2729,7 @@ test('getByRole with name', () => {
 });
 ```
 
-Supported implicit ARIA roles: `button`, `link`, `heading` (h1–h6), `textbox`, `checkbox`, `radio`, `combobox`, `img`, `list`, `listitem`, `form`, `navigation`, `main`, `banner`, `contentinfo`. Elements with an explicit `role=""` attribute are also matched.
+Supported implicit ARIA roles: `button`, `link`, `heading` (h1–h6), `textbox`, `checkbox`, `radio`, `spinbutton`, `slider`, `combobox`, `img`, `list`, `listitem`, `form`, `navigation`, `main`, `banner`, `contentinfo`. Native `<input>` elements resolve their role from the `type` attribute — `text` / `search` / `email` / `tel` / `url` → `textbox`, `number` → `spinbutton`, `range` → `slider`, `checkbox` → `checkbox`, `radio` → `radio`, `submit` / `reset` / `button` / `image` → `button` (a `type` with no ARIA role, such as `hidden` or `password`, matches nothing). Elements with an explicit `role=""` attribute are also matched.
 
 <br>
 <hr>
@@ -2779,20 +2778,34 @@ describe('fireEvent', () => {
 
 | Shorthand | Event type |
 |-----------|-----------|
-| `fireEvent.click(el)` | `MouseEvent` — `click` |
-| `fireEvent.dblclick(el)` | `MouseEvent` — `dblclick` |
-| `fireEvent.mouseDown(el)` | `MouseEvent` — `mousedown` |
-| `fireEvent.mouseUp(el)` | `MouseEvent` — `mouseup` |
-| `fireEvent.change(el)` | `Event` — `change` |
-| `fireEvent.input(el)` | `Event` — `input` |
-| `fireEvent.focus(el)` | `FocusEvent` — `focus` |
-| `fireEvent.blur(el)` | `FocusEvent` — `blur` |
+| `fireEvent.click(el, init?)` | `MouseEvent` — `click` |
+| `fireEvent.dblclick(el, init?)` | `MouseEvent` — `dblclick` |
+| `fireEvent.mouseDown(el, init?)` | `MouseEvent` — `mousedown` |
+| `fireEvent.mouseUp(el, init?)` | `MouseEvent` — `mouseup` |
+| `fireEvent.change(el, init?)` | `Event` — `change` |
+| `fireEvent.input(el, init?)` | `Event` — `input` |
+| `fireEvent.focus(el, init?)` | `FocusEvent` — `focus` |
+| `fireEvent.blur(el, init?)` | `FocusEvent` — `blur` |
 | `fireEvent.keyDown(el, init?)` | `KeyboardEvent` — `keydown` |
 | `fireEvent.keyUp(el, init?)` | `KeyboardEvent` — `keyup` |
 | `fireEvent.keyPress(el, init?)` | `KeyboardEvent` — `keypress` |
-| `fireEvent.submit(el)` | `Event` — `submit` |
+| `fireEvent.submit(el, init?)` | `Event` — `submit` |
 
 You can also call `fireEvent(element, 'eventname', eventInit?)` directly for any event name not covered by a shorthand.
+
+**Setting form values** — pass a `target` option and `fireEvent` assigns those properties to the element *before* dispatching (mirroring Testing Library), so the handler reads the updated value:
+
+```typescript
+test('typing into an input', () => {
+    const { getByRole } = render(<input type="text" />);
+    const input = getByRole('textbox') as HTMLInputElement;
+
+    fireEvent.input(input, { target: { value: 'hello' } });
+    expect(input.value).toBe('hello');
+});
+```
+
+Every shorthand accepts an optional `init` object: any `target` properties are applied to the element, and the remaining keys (e.g. `key`, `bubbles`) are forwarded to the underlying event constructor.
 
 <br>
 <hr>

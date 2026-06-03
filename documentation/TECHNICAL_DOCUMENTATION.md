@@ -4,7 +4,6 @@
 
 <h3>@author: <strong>Anubis-programmer</strong></h3>
 <h3>@license: <strong>MIT</strong></h3>
-<h3>@version: <strong>2.2.0</strong></h3>
 
 <br>
 
@@ -611,7 +610,10 @@ This function applies the minimal diff between `prevProps` and `nextProps` to th
 
 2. **Remove stale attributes.** Attributes present in `prevProps` but absent from `nextProps` are removed. `className` maps to the `class` attribute; `htmlFor` maps to `for`.
 
-3. **Set new / changed attributes.** For SVG elements, all attributes are set via `setAttribute()`. For HTML elements, any prop whose name contains a hyphen (e.g. `aria-*`, `data-*`) or equals `role` is set via `setAttribute()` — hyphenated names are never valid IDL properties, so property assignment would silently create a JS object property rather than an HTML attribute. All other props are set directly (e.g. `el.className = ...`) for performance.
+3. **Set new / changed attributes.** For SVG elements, all attributes are set via `setAttribute()`. For HTML elements:
+   - any prop whose name contains a hyphen (e.g. `aria-*`, `data-*`) or equals `role` is set via `setAttribute()` — hyphenated names are never valid IDL properties, so property assignment would silently create a JS object property rather than an HTML attribute;
+   - **camelCase HTML attribute names** (e.g. `inputMode`, `autoComplete`, `tabIndex`, `spellCheck`) are likewise routed through `setAttribute()` using the lowercased name — or a hyphenated form from a small exception map (`HTML_ATTRIBUTE_NAME_MAP`: `httpEquiv` → `http-equiv`, `acceptCharset` → `accept-charset`). This is necessary because their IDL property either differs from the prop name (the DOM property behind `autoComplete` is `autocomplete`, so `el.autoComplete = ...` silently creates a dead JS property) or is not reflected by jsdom (`inputMode`). The branch is guarded to element nodes (`dom.nodeType === 1`) so `Text` nodes — whose only prop is the camelCase `nodeValue` — still use property assignment;
+   - `className` and `htmlFor` keep their working IDL aliases (`el.className`, `el.htmlFor`), and all remaining (already-lowercase) props are set directly (e.g. `el.value = ...`) for performance.
 
 4. **Diff inline styles.** Changed `style` keys are applied via `style.setProperty(key, value)`. Keys present in `prevStyle` but absent from `nextStyle` are cleared by setting them to `''`.
 
@@ -1646,16 +1648,13 @@ Available query types and their matching strategy:
 
 **`byLabelText.ts` `for=` resolution** — the `<label for="">` branch resolves the associated control with `container.ownerDocument.getElementById(forAttr)`, then re-scopes the hit to the query container via `container.contains(input)`. It deliberately does **not** use `container.querySelector('#' + CSS.escape(forAttr))`: jsdom (the environment ATL targets) does not implement the browser-only `CSS` global, so `CSS.escape` throws `ReferenceError: CSS is not defined`. `getElementById` needs no escaping and handles ids that are not valid bare CSS selectors.
 
-**`byRole.ts` implicit role map** — maps ARIA roles to CSS selectors. The `textbox` role additionally filters `<input>` by type (`text`, `search`, `email`, `tel`, `url`) using `Array.prototype.indexOf` (not `.includes()`, which is not available in the library's ES6 target):
+**`byRole.ts` implicit role map** — maps ARIA roles to CSS selectors for non-input elements, alongside a dedicated `<input>` type→role table. Native inputs resolve their implicit role from the `type` attribute, not from a tag selector:
 
 ```typescript
 const IMPLICIT_ROLES: Record<string, string[]> = {
     button: ['button'],
     link: ['a'],
     heading: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-    textbox: ['input'],
-    checkbox: ['input[type="checkbox"]'],
-    radio: ['input[type="radio"]'],
     combobox: ['select'],
     img: ['img'],
     list: ['ul', 'ol'],
@@ -1666,13 +1665,27 @@ const IMPLICIT_ROLES: Record<string, string[]> = {
     banner: ['header'],
     contentinfo: ['footer'],
 };
+
+// ARIA implicit role of a native <input>, keyed by its `type`
+const INPUT_TYPE_ROLES: Record<string, string> = {
+    text: 'textbox', search: 'textbox', email: 'textbox', tel: 'textbox', url: 'textbox',
+    number: 'spinbutton',
+    range: 'slider',
+    checkbox: 'checkbox',
+    radio: 'radio',
+    button: 'button', submit: 'button', reset: 'button', image: 'button',
+};
 ```
+
+`hasRole()` short-circuits for `<input>` elements: it reads the (lowercased) `type`, defaulting to `text`, and matches when `INPUT_TYPE_ROLES[type] === role`. A `type` absent from the table (e.g. `hidden`, `password`) has no implicit role. Every other element falls through to the `IMPLICIT_ROLES` selector lookup via `el.matches(sel)`.
 
 Explicit `role=""` attributes always take precedence over implicit roles. Accessible-name matching checks `aria-label`, then `aria-labelledby` (resolving the referenced element's `textContent`), then the element's own `textContent`.
 
 <h3 id="atl-events">Event utilities</h3>
 
-**`src/testing/events/fireEvent.ts`** — dispatches synthetic DOM events. It selects the correct event constructor (`MouseEvent`, `KeyboardEvent`, `FocusEvent`, or generic `Event`) based on the event name, dispatches it on the element, then calls `flushEffects()` to ensure any resulting state updates (e.g. from `onClick` handlers that call `setState`) are committed to the DOM before the test assertion runs.
+**`src/testing/events/fireEvent.ts`** — dispatches synthetic DOM events. It selects the correct event constructor (`MouseEvent`, `KeyboardEvent`, `FocusEvent`, `PointerEvent`, or generic `Event`) based on the event name, dispatches it on the element, then calls `flushEffects()` to ensure any resulting state updates (e.g. from `onClick` handlers that call `setState`) are committed to the DOM before the test assertion runs.
+
+Before dispatching, if the `init` object carries a `target` property, those values are applied to the element first (`Object.assign(element, init.target)`) — matching Testing Library — so `fireEvent.input(node, { target: { value: 'x' } })` sets `node.value` before the event fires and handlers read the new value. The remaining `init` keys are forwarded to the event constructor.
 
 Named shorthands: `click`, `dblclick`, `change`, `input`, `focus`, `blur`, `keyDown`, `keyUp`, `keyPress`, `submit`, `mouseDown`, `mouseUp`.
 

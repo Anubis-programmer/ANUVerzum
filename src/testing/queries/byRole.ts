@@ -5,9 +5,6 @@ const IMPLICIT_ROLES: Record<string, string[]> = {
     button: ['button'],
     link: ['a'],
     heading: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
-    textbox: ['input'],
-    checkbox: ['input[type="checkbox"]'],
-    radio: ['input[type="radio"]'],
     combobox: ['select'],
     img: ['img'],
     list: ['ul', 'ol'],
@@ -17,6 +14,22 @@ const IMPLICIT_ROLES: Record<string, string[]> = {
     main: ['main'],
     banner: ['header'],
     contentinfo: ['footer'],
+};
+
+const INPUT_TYPE_ROLES: Record<string, string> = {
+    text: 'textbox',
+    search: 'textbox',
+    email: 'textbox',
+    tel: 'textbox',
+    url: 'textbox',
+    number: 'spinbutton',
+    range: 'slider',
+    checkbox: 'checkbox',
+    radio: 'radio',
+    button: 'button',
+    submit: 'button',
+    reset: 'button',
+    image: 'button',
 };
 
 const getAccessibleName = (el: Element): string => {
@@ -50,21 +63,19 @@ const hasRole = (el: Element, role: string): boolean => {
         return true;
     }
 
+    if (el.tagName.toLowerCase() === 'input') {
+        const type = (el.getAttribute('type') ?? 'text').toLowerCase();
+
+        return INPUT_TYPE_ROLES[type] === role;
+    }
+
     const selectors = IMPLICIT_ROLES[role];
 
     if (!selectors) {
         return false;
     }
 
-    return selectors.some((sel) => {
-        if (sel === 'input' && role === 'textbox') {
-            const type = el.getAttribute('type') ?? 'text';
-
-            return el.tagName.toLowerCase() === 'input' && ['text', 'search', 'email', 'tel', 'url'].indexOf(type) >= 0;
-        }
-
-        return el.matches(sel);
-    });
+    return selectors.some((sel) => el.matches(sel));
 };
 
 const queryAllByRole = (container: Element, role: string, options?: ByRoleOptions): Element[] => {
