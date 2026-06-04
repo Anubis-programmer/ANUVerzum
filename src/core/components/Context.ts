@@ -19,11 +19,7 @@ export type Context<T extends Record<string, any> = Record<string, any>> = {
 };
 
 export const createContext = <T extends Record<string, any> = Record<string, any>>(context: T): Context<T> => {
-    const providerContext: { defaultContext: { value: T }; value: Partial<T>; subscribers: Set<Component> } = {
-        defaultContext: { value: context },
-        value: {},
-        subscribers: new Set()
-    };
+    const defaultContext: { value: T } = { value: context };
 
     const getPureProps = (props: Props): Partial<T> => {
         const pureProps: Record<string, any> = {};
@@ -38,17 +34,21 @@ export const createContext = <T extends Record<string, any> = Record<string, any
     };
 
     class ContextProvider extends Component<Props> {
+        value: Partial<T>;
+        subscribers: Set<Component>;
+
         constructor(props: Props) {
             super(props);
-            providerContext.value = { ...getPureProps(props) };
+            this.value = { ...getPureProps(props) };
+            this.subscribers = new Set();
         }
 
         componentDidUpdate(): void {
             const pureProps = getPureProps(this.props);
 
-            if (!deepEqual(providerContext.value as Record<string, any>, pureProps as Record<string, any>)) {
-                providerContext.value = { ...pureProps };
-                providerContext.subscribers.forEach((consumer) => (consumer as any).setState());
+            if (!deepEqual(this.value as Record<string, any>, pureProps as Record<string, any>)) {
+                this.value = { ...pureProps };
+                this.subscribers.forEach((consumer) => (consumer as any).setState());
             }
         }
 
@@ -69,24 +69,58 @@ export const createContext = <T extends Record<string, any> = Record<string, any
         }
     }
 
+    const resolveProvider = (consumer: Component): ContextProvider | null => {
+        let fiber = (consumer as any).__fiber?.parent;
+
+        while (fiber) {
+            if (fiber.stateNode instanceof ContextProvider) {
+                return fiber.stateNode as ContextProvider;
+            }
+
+            fiber = fiber.parent;
+        }
+
+        return null;
+    };
+
     class ContextConsumer extends Component<Props> {
-        componentDidMount(): void {
-            providerContext.subscribers.add(this);
+        private provider: ContextProvider | null = null;
+
+        private subscribeTo(provider: ContextProvider | null): void {
+            if (this.provider === provider) {
+                return;
+            }
+
+            if (this.provider) {
+                this.provider.subscribers.delete(this);
+            }
+
+            this.provider = provider;
+
+            if (provider) {
+                provider.subscribers.add(this);
+            }
         }
 
         componentWillUnmount(): void {
-            providerContext.subscribers.delete(this);
+            if (this.provider) {
+                this.provider.subscribers.delete(this);
+                this.provider = null;
+            }
         }
 
         render(): AnuElement | AnuElement[] | null {
             const children = this.props.children as AnuElement[] | undefined;
-            const { value, defaultContext } = providerContext;
 
             try {
                 if (!children || children.length !== 1) {
                     throw new Error('Context Component must have exactly one child element!');
                 }
 
+                const provider = resolveProvider(this);
+                this.subscribeTo(provider);
+
+                const value = provider ? provider.value : defaultContext.value;
                 const { type } = children[0];
                 const childProps: ContextValue<T> = { value, defaultContext };
 

@@ -5,7 +5,6 @@ export abstract class Component<P extends Record<string, any> = Props, S extends
     props: P;
     state: S;
     context: Record<string, any>;
-    /** @internal Set by the reconciler. */
     __fiber?: any;
 
     static isAnuComponent = true;

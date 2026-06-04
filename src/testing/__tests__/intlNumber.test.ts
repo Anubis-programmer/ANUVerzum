@@ -84,8 +84,6 @@ describe('Intl locale normalization', () => {
         );
     };
 
-    // abbreviateNumber keys on the language subtag only, so every spelling of the
-    // Hungarian locale must resolve to the same Hungarian units ('1,5m', not '1.5M').
     test.each(['hu', 'HU', 'hu-HU'])('abbreviateNumber uses Hungarian units for Provider locale "%s"', (locale) => {
         renderWithLocale(locale);
         expect(Anu.Intl.abbreviateNumber(1500000)).toBe('1,5m');

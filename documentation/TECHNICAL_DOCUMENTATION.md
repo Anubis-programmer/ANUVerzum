@@ -718,18 +718,10 @@ export const createContext = <T extends Record<string, any> = Record<string, any
 ): Context<T>
 ```
 
-`createContext` is a factory function. Each call creates an isolated Provider/Consumer pair that communicate through a **shared closure** — the `providerContext` object. This means that `createContext` calls are not global; each returned `{ Provider, Consumer }` pair is entirely independent.
+`createContext` is a factory function. Each call creates an isolated Provider/Consumer pair scoped to its own class identities. The only state shared across the whole context is the **default value** — the closure-level `defaultContext`, which is what a Consumer reads when no Provider sits above it. Every Provider's *current* value lives on the Provider instance, not in the closure, so the context is **tree-scoped**: multiple Providers of the same context can coexist on a page, each scoping its value to its own subtree.
 
 ```typescript
-const providerContext: {
-    defaultContext: { value: T };
-    value: Partial<T>;
-    subscribers: Set<Component>;
-} = {
-    defaultContext: { value: context },  // the value passed to createContext()
-    value: {},                           // the current value set by the Provider
-    subscribers: new Set()               // all mounted Consumers of this context
-};
+const defaultContext: { value: T } = { value: context }; // the value passed to createContext()
 ```
 
 The function returns four exports for two use cases:
@@ -743,25 +735,29 @@ The function returns four exports for two use cases:
 
 <h3 id="context-provider-internals">Provider internals</h3>
 
-`ContextProvider` is a class component. On construction, it extracts all non-`children` props and stores them as `providerContext.value`. On `componentDidUpdate`, it uses `deepEqual` to check whether props have actually changed before updating — this prevents unnecessary re-renders when the parent re-renders but the context value is structurally identical.
+`ContextProvider` is a class component. On construction, it extracts all non-`children` props and stores them as `this.value` — **per instance**, so two Providers of the same context never clobber each other. Each instance also owns its own `subscribers` set (the Consumers resolved to it). On `componentDidUpdate`, it uses `deepEqual` to check whether props have actually changed before updating — this prevents unnecessary re-renders when the parent re-renders but the context value is structurally identical — and then notifies **only its own** subscribers, not every Consumer of the context app-wide.
 
 ```typescript
 componentDidUpdate(): void {
     const pureProps = getPureProps(this.props);
 
-    if (!deepEqual(providerContext.value as Record<string, any>, pureProps as Record<string, any>)) {
-        providerContext.value = { ...pureProps };
-        providerContext.subscribers.forEach((consumer) => (consumer as any).setState());
+    if (!deepEqual(this.value as Record<string, any>, pureProps as Record<string, any>)) {
+        this.value = { ...pureProps };
+        this.subscribers.forEach((consumer) => (consumer as any).setState());
     }
 }
 ```
 
 <h3 id="context-consumer-internals">Consumer internals</h3>
 
-`ContextConsumer` is a class component that expects exactly one child — a function (the render prop). On render, it calls that function with `{ value: providerContext.value, defaultContext: providerContext.defaultContext }`.
+`ContextConsumer` is a class component that expects exactly one child — a function (the render prop). On every render it resolves the **nearest ancestor Provider** of this context by walking up the fiber tree, reads that Provider's `value` (or the closure `defaultContext` value if there is no Provider above it), and calls the render prop with `{ value, defaultContext }`.
 
 ```typescript
 render(): AnuElement | AnuElement[] | null {
+    const provider = resolveProvider(this);
+    this.subscribeTo(provider);
+
+    const value = provider ? provider.value : defaultContext.value;
     const { type } = children[0];
     const childProps: ContextValue<T> = { value, defaultContext };
 
@@ -771,23 +767,13 @@ render(): AnuElement | AnuElement[] | null {
 }
 ```
 
-`ContextConsumer` registers itself in `providerContext.subscribers` on mount and removes itself on unmount:
+<h3 id="subscriber-registry">Nearest-ancestor resolution &amp; the subscriber registry</h3>
 
-```typescript
-componentDidMount(): void {
-    providerContext.subscribers.add(this);
-}
+`resolveProvider` walks the Consumer's `__fiber.parent` chain until it finds a fiber whose `stateNode instanceof ContextProvider` — and because each `createContext()` call mints a *distinct* `ContextProvider` class, the `instanceof` check matches only Providers of **this** context, ignoring host, function, portal, and other-context fibers along the way. The walk passes transparently through `createPortal`, since a portal fiber's parent pointer follows the component tree (not the DOM container), so a Consumer rendered inside a portal still sees the Provider that logically encloses it.
 
-componentWillUnmount(): void {
-    providerContext.subscribers.delete(this);
-}
-```
+To make the walk read the live work-in-progress tree (not a stale committed one) during re-renders, `updateClassComponent` in the reconciler assigns `wipFiber.stateNode.__fiber = wipFiber` immediately before calling `render()`. This is idempotent with the assignment `completeWork` already performs for class fibers.
 
-<h3 id="subscriber-registry">The subscriber registry</h3>
-
-The Provider and Consumer are sibling subtrees, not parent-child. Rather than relying on the render tree to propagate updates, the Provider holds a `Set<Component>` of every mounted Consumer and calls `setState()` on each one directly when the context value changes.
-
-This replaces a previous flag-polling approach (`__notifySub`) that broke inside `connect`-ed components: the flag was only checked in `componentDidUpdate`, which only ran when the Consumer's parent re-rendered. If the parent was a `connect`-ed component that bailed out of re-rendering (because Redux state hadn't changed), the Consumer never saw the updated context. The direct `setState()` call bypasses that dependency entirely — the Consumer always re-renders immediately when the Provider value changes, regardless of what the surrounding tree is doing.
+Updates propagate by registration rather than through the render tree: on each render the Consumer calls `subscribeTo(provider)`, adding itself to that Provider instance's `subscribers` set (and removing itself from any previous Provider if it re-resolved to a different one). It removes itself on unmount. When a Provider's value changes it calls `setState()` directly on each of its own subscribers — bypassing the render tree entirely, so an intervening `connect`-ed ancestor that bails out of re-rendering can never swallow the update.
 
 <br>
 <hr>
@@ -1038,7 +1024,9 @@ const IntlProvider = ({
 
 `IntlProvider` is a function component. It validates the `locale` and `messages` props, selects the correct message dictionary (`messages[locale]` or `messages[defaultLocale]` as fallback), and updates the module-level `__messagesContext` singleton. It then renders the internal `_Intl.ContextProvider` with the selected messages, making them available to all `FormattedMessage` descendants.
 
-The `__messagesContext` singleton is also used by `formatMessage()`, `abbreviateNumber()`, `formatNumber()`, and `parseNumber()` for imperative (non-JSX) message and locale resolution.
+It also accepts an optional **flat `options`** prop — number-formatting defaults that apply app-wide so a single locale choice drives translated text *and* number formatting consistently. On render it computes an aggregated option set and stores it on the singleton: it starts from the engine defaults that `new Intl.NumberFormat(locale)` resolves for that locale (`resolvedOptions()`, minus `locale`), then overlays the user-provided `options` on top (user values win; any key the user omits is polyfilled from the engine default). The flat object can carry both `Intl.NumberFormatOptions` keys and `abbreviateNumber`'s own keys (`units`, `decimalPlaces`, `decimalSign`); each function later picks out the keys it understands.
+
+The `__messagesContext` singleton — `{ locale, messages, options }` — is used by `formatMessage()`, `abbreviateNumber()`, `formatNumber()`, and `parseNumber()` for imperative (non-JSX) message, locale, and option resolution. Each of the three number functions resolves its effective options as `{ ...aggregatedProviderOptions, ...perCallOptions }`, so a per-call `options` argument overrides the Provider defaults, which in turn override the engine defaults. With no Provider mounted the aggregated set is empty, so each function behaves exactly as a bare `Intl.NumberFormat` call with only its per-call options.
 
 <h3 id="formatted-message">The <code>FormattedMessage</code> component</h3>
 
@@ -1075,21 +1063,28 @@ The imperative equivalent of `FormattedMessage`. Reads directly from `__messages
 
 ```typescript
 const abbreviateNumber = (
-    value: number,
-    options: AbbreviateNumberOptions = {}
-): string | number
+    value: number | string | null | undefined,
+    options: FormatNumberOptions & AbbreviateNumberOptions = {}
+): string | number | null | undefined
 ```
 
-Abbreviates large numbers with locale-aware units and decimal separators:
+Abbreviates large numbers with locale-aware units, and is built **on top of** `formatNumber`/`parseNumber` so it composes with them.
 
-| Locale | Units | Decimal sign |
-|--------|-------|-------------|
-| `hu` (Hungarian) | `['E', 'm', 'M', 'b']` | `,` |
-| default | `['K', 'M', 'B', 'T']` | `.` |
+**Input** — accepts a `number`, a `string`, or `null`/`undefined`:
+- a `number` is abbreviated directly;
+- a `string` (e.g. the output of `formatNumber`) is first run through `parseNumber` using the active locale, then abbreviated — so `abbreviateNumber(formatNumber(x))` works;
+- `null`, `NaN`, or an unparseable string is returned unchanged (preserving the historical non-number passthrough), which also makes `abbreviateNumber(parseNumber(x))` safe when the parse misses.
 
-The `UNITS` / `DECIMAL_SIGN` dictionaries are keyed on the language only, so the active locale is first reduced to its lowercase language subtag via `getLanguageSubtag(locale)` (`'hu-HU'` / `'HU'` → `'hu'`). This keeps the lookup robust to whatever BCP 47 form the `IntlProvider` was given, and consistent with `formatNumber`/`parseNumber`, which accept the same range of tags.
+The result (`string | number`) drops straight into `<FormattedMessage values>` / `formatMessage(id, values)`.
 
-The algorithm iterates from the largest unit downward. When a threshold is met (e.g. `value >= 1_000` for `K`), it divides and rounds to `decimalPlaces` (default: 2). It handles the edge case where rounding causes rollover to the next unit (e.g. `999,999` rounding to `1,000K` should become `1M`). All defaults can be overridden via `options`.
+**Unit table** — still keyed on the language subtag (`getLanguageSubtag(perCallLocale ?? providerLocale)`, so `'hu-HU'` / `'HU'` → `'hu'`):
+
+| Locale | Units |
+|--------|-------|
+| `hu` (Hungarian) | `['E', 'm', 'M', 'b']` |
+| default | `['K', 'M', 'B', 'T']` |
+
+**Output** — the algorithm iterates from the largest unit downward; when a threshold is met it divides and rounds to `decimalPlaces` (default 2), handling rollover to the next unit (e.g. `999,999` rounding to `1,000K` becomes `1M`). The numeric mantissa is then formatted **through `formatNumber`** (passing `maximumFractionDigits: decimalPlaces`), so the decimal sign and numbering system come from the locale and the aggregated Provider options — there is no longer a separate hardcoded `DECIMAL_SIGN` table. `units`, `decimalPlaces`, and `decimalSign` remain overridable via `options` (an explicit `decimalSign` replaces the locale separator post-format).
 
 <h3 id="format-number">The <code>formatNumber()</code> and <code>parseNumber()</code> utilities</h3>
 
@@ -1110,9 +1105,9 @@ const parseNumber  = (text: string, options: ParseNumberOptions = {}): number | 
 
 **Self-reference hazard.** The module's own `Intl` object (the default export) shadows the global ECMAScript `Intl` value binding. Both functions therefore reach the real formatter via `globalThis.Intl.NumberFormat` — a bare `Intl.NumberFormat` at runtime would resolve to the local API object, which has no `NumberFormat`. The `Intl.NumberFormatOptions` *type* reference is unaffected, because a `const` declaration introduces only a value binding, not a type-space entry.
 
-**`formatNumber`** strips the `locale` key and forwards the remaining `Intl.NumberFormatOptions` straight to `new Intl.NumberFormat(locale, options).format(value)`. Non-numeric input (`NaN`, non-`number`) returns `String(value)` rather than throwing; a thrown `NumberFormat` error is caught, logged, and also degraded to `String(value)`.
+**`formatNumber`** strips the `locale` key and forwards the effective options — `{ ...aggregatedProviderOptions, ...perCallOptions }` — to `new Intl.NumberFormat(locale, options).format(value)`. Non-numeric input (`NaN`, non-`number`) returns `String(value)` rather than throwing; a thrown `NumberFormat` error is caught, logged, and also degraded to `String(value)`.
 
-**`parseNumber`** is the inverse. Because separator characters are locale-specific, it discovers them at runtime from a known sample via `new Intl.NumberFormat(locale).formatToParts(-12345.6)` — extracting the `group`, `decimal`, and `minusSign` parts. It then normalizes the input: strips the group sign and all whitespace (JavaScript's `\s` covers the NBSP/NNBSP that several locales group with, e.g. `hu-HU`), converts the locale decimal sign to a dot, keeps only `[0-9.]`, and reapplies the sign detected earlier. Empty / sign-only / non-numeric results return `null`.
+**`parseNumber`** is the inverse. Because separator characters are locale-specific, it discovers them at runtime from a known sample via `new Intl.NumberFormat(locale, …).formatToParts(-12345.6)` — extracting the `group`, `decimal`, and `minusSign` parts. The discovery formatter consumes only the `numberingSystem` from the resolved options (per-call, else aggregated) and **forces `useGrouping: true`** for the sample, so a Provider `useGrouping: false` can never hide the group separator from the parser. It then normalizes the input: strips the group sign and all whitespace (JavaScript's `\s` covers the NBSP/NNBSP that several locales group with, e.g. `hu-HU`), converts the locale decimal sign to a dot, keeps only `[0-9.]`, and reapplies the sign detected earlier. Empty / sign-only / non-numeric results return `null`.
 
 > **Build note:** `formatToParts` is typed under the `ES2018.Intl` library, which is included in `tsconfig.json`'s `lib` array. This affects type-checking only — Babel's emitted output is unchanged.
 

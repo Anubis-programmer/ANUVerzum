@@ -220,6 +220,7 @@ const updateClassComponent = (wipFiber: Fiber): void => {
     instance.state = nextState;
     wipFiber.partialState = undefined;
     delete wipFiber.partialStateCallback;
+    wipFiber.stateNode.__fiber = wipFiber;
     const newChildElements = wipFiber.stateNode.render();
     reconcileChildrenArray(wipFiber, newChildElements);
 };
