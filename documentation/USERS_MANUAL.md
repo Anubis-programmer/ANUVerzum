@@ -2318,10 +2318,23 @@ This time, the keys will be the strings you mark the supported languages and the
 <h3 id="adding-language-objects-to-provider">Adding the language objects to the Intl provider</h3>
 
 - Within this step, wrap the outermost component (this should contain all your "internationalized" components, texts, etc.) within the <code>&lt;Anu.Intl.Provider /&gt;</code>.
-This component takes three props:
+This component takes four props:
     - The <code>messages</code> property should be the object that contains all the translations for all the languages your application supports.
     - The <code>locale</code> property is practically a short string that is the preferred language (it must match with one of the keys of the outermost object passed as <code>messages</code>).
     - The <code>defaultLocale</code> property is optional and will refer to the default language if <code>messages[locale]</code> couldn't be found.
+    - The <code>options</code> property is optional and is a single, flat object of number-formatting defaults that apply app-wide — so one locale choice drives translated text <em>and</em> number formatting together (a Hungarian user sees Hungarian text, number formats and abbreviations; an English user sees English). It accepts any <code>Intl.NumberFormatOptions</code> key (e.g. <code>minimumFractionDigits</code>, <code>style: 'currency'</code>, <code>currency</code>) plus <code>abbreviateNumber</code>'s own keys (<code>units</code>, <code>decimalPlaces</code>, <code>decimalSign</code>). Any key you omit is polyfilled from the engine defaults for the chosen <code>locale</code>, and any value can still be overridden per call by passing <code>options</code> directly to <code>formatNumber()</code> / <code>parseNumber()</code> / <code>abbreviateNumber()</code> (per-call wins over the Provider, which wins over the engine default).
+
+        ```typescript
+        const LocaleContainer = (): AnuElement => (
+            <Anu.Intl.Provider
+                messages={messages}
+                locale="hu"
+                options={{ minimumFractionDigits: 2, decimalPlaces: 1 }}
+            >
+                <Your_page />
+            </Anu.Intl.Provider>
+        );
+        ```
 
         ```typescript
         // This will use the first 2 letters of the language set in browser settings (e.g.: "en", "it", "hu", ...):
@@ -2380,16 +2393,19 @@ This component takes three props:
 - If you want to abbreviate a large number, the <code>Anu.Intl.abbreviateNumber()</code> function comes handy.
 - This function is also part of the <strong>INTL API</strong> so, it is able to read the language set within <code>&lt;Anu.IntlProvider /&gt;</code> (and you must use it within <code>&lt;Anu.IntlProvider /&gt;</code>).<br>
 This currently supports only the <i>Hungarian</i> and the <i>English</i> abbreviations by default, but you can define your custom abbreviation rules as well.
+- <strong>It composes with <code>formatNumber()</code> and <code>parseNumber()</code>.</strong> The <code>value</code> may be a <code>number</code>, or a <code>string</code> produced by <code>formatNumber()</code> (it is parsed back with <code>parseNumber()</code> first), or <code>null</code>. So both <code>abbreviateNumber(formatNumber(x))</code> and <code>abbreviateNumber(parseNumber(x))</code> work, and the result drops straight into a <code>&lt;FormattedMessage values={{ ... }} /&gt;</code> or <code>formatMessage(id, { ... })</code>. A <code>null</code> / unparseable input is returned unchanged.
+- The numeric part is formatted through <code>formatNumber()</code>, so its decimal sign comes from the active locale (and the Provider's <code>options</code>) automatically — no separate decimal-sign list.
 - The function takes two arguments:
-    - The first argument is the numeric <code>value</code>: the number to abbreviate.<br>
+    - The first argument is the <code>value</code>: a <code>number</code>, a locale-formatted <code>string</code>, or <code>null</code>.<br>
     If there is no match for the selected language and you didn't specify a custom <code>options</code> object, the system will fall back to the default (English) options.
-    - The second, optional argument is the <code>options</code>, which is an object:
-        - The first member is <code>units</code> - an array of strings to be used as abbreviation units.<br>
+    - The second, optional argument is the <code>options</code> (per-call overrides of the Provider <code>options</code>), which is an object:
+        - <code>units</code> - an array of strings to be used as abbreviation units.<br>
         When not specified, it will use the default (english) abbreviation units ('K', 'M', 'B', 'T').
-        - The second member is <code>decimalPlaces</code> - a number that represents the decimal places.<br>
+        - <code>decimalPlaces</code> - a number that represents the decimal places.<br>
         If not specified, the system will fall back to use two decimal places.
-        - The third member is <code>decimalSign</code> - a string to replace the standard (at least in english speaking countries) dot (<code>.</code>) sign with the one of choice.<br>
-        If not specified, the system will fall back to the default dot (<code>.</code>) sign.
+        - <code>decimalSign</code> - a string that replaces the locale's decimal sign with one of your choice.<br>
+        If not specified, the locale's own decimal sign (via <code>formatNumber()</code>) is used.
+        - any <code>Intl.NumberFormatOptions</code> key and an optional <code>locale</code> — forwarded to <code>formatNumber()</code> when formatting the numeric part.
 
             ```typescript
             import Anu, { AbbreviateNumberOptions } from 'anu-verzum';
@@ -2438,7 +2454,7 @@ This currently supports only the <i>Hungarian</i> and the <i>English</i> abbrevi
 - For <strong>general</strong> (non-abbreviated) locale-aware number formatting and parsing, use <code>Anu.Intl.formatNumber()</code> and <code>Anu.Intl.parseNumber()</code>. Unlike <code>abbreviateNumber()</code>, these wrap the standard <code>Intl.NumberFormat</code> and apply the locale's real grouping and decimal separators (e.g. <code>.</code> in <i>en</i> vs <code>,</code> in <i>hu</i>).
     - Both default to the locale set on the nearest <code>&lt;Anu.Intl.Provider /&gt;</code>, falling back to <code>defaultLocale</code> / the runtime default. You can override per call with an explicit <code>locale</code> option, in which case the Provider is not required.
     - <strong>Locale format.</strong> The <code>locale</code> is a standard BCP 47 tag. Use the same value you give the <code>Provider</code> — typically the short, lowercase language subtag (<code>'hu'</code>, <code>'en'</code>) that <code>abbreviateNumber()</code> and your <code>messages</code> keys already use. A region subtag (<code>'en-US'</code>, <code>'en-GB'</code>, <code>'hu-HU'</code>) is optional and only needed when the region changes the result (e.g. currency, or <code>'en-IN'</code> lakh grouping). Casing does not matter — <code>'hu'</code>, <code>'HU'</code>, and <code>'hu-HU'</code> all resolve to Hungarian.
-    - <code>formatNumber(value, options?)</code> — <code>options</code> is an <code>Intl.NumberFormatOptions</code> object plus an optional <code>locale</code>; every standard option (<code>minimumFractionDigits</code>, <code>style: 'currency'</code>, etc.) passes straight through. Returns the formatted string (and the plain <code>String(value)</code> for non-numeric input rather than throwing).
+    - <code>formatNumber(value, options?)</code> — <code>options</code> is an <code>Intl.NumberFormatOptions</code> object plus an optional <code>locale</code>; every standard option (<code>minimumFractionDigits</code>, <code>style: 'currency'</code>, etc.) passes straight through. The effective options are the Provider's aggregated <code>options</code> with these per-call values layered on top (per-call wins). Returns the formatted string (and the plain <code>String(value)</code> for non-numeric input rather than throwing).
     - <code>parseNumber(text, options?)</code> — the inverse of <code>formatNumber</code>. It reads back a locale-formatted string (including grouping separators and the locale's decimal sign) into a <code>number</code>, or returns <code>null</code> when the text holds no parseable digits.
 
         ```typescript
