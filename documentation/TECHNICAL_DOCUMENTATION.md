@@ -366,8 +366,8 @@ The function performs the following steps:
 1. **Extract special props.** `key` and `ref` are pulled out of `config` and stored separately. They are removed from the `props` object so they never reach the component as regular props.
 
 2. **Normalize children.** If `args` is non-empty, they are flattened into a single array (handling both direct children and nested array spreads). Each child is then processed:
-    - `null` and `false` children are filtered out entirely — this is how conditional rendering works.
-    - Plain values (`string`, `number`, `boolean`) are wrapped in a `TEXT_ELEMENT` virtual node: `{ type: TEXT_ELEMENT, props: { nodeValue: String(value) }, key: null, ref: null }`.
+    - `null`, `undefined`, and booleans (`false` *and* `true`) are filtered out entirely and render nothing — matching React. This is how conditional rendering works: `{cond && <El/>}` renders nothing whether `cond` is `false` or `undefined`, and `: undefined` / `: null` ternary branches are equally safe.
+    - Plain values (`string`, `number`) are wrapped in a `TEXT_ELEMENT` virtual node: `{ type: TEXT_ELEMENT, props: { nodeValue: String(value) }, key: null, ref: null }`. Note `0` renders as the text `"0"` (only `null`/`undefined`/booleans are skipped), and `''` produces an empty text node.
     - Functions (bare component references passed as children) are wrapped with `createElement(fn, fn.props || {})`.
     - Objects are passed through as-is (already `AnuElement` instances).
 
@@ -1683,7 +1683,7 @@ Explicit `role=""` attributes always take precedence over implicit roles. Access
 
 Before dispatching, if the `init` object carries a `target` property, those values are applied to the element first (`Object.assign(element, init.target)`) — matching Testing Library — so `fireEvent.input(node, { target: { value: 'x' } })` sets `node.value` before the event fires and handlers read the new value. The remaining `init` keys are forwarded to the event constructor.
 
-Named shorthands: `click`, `dblclick`, `change`, `input`, `focus`, `blur`, `keyDown`, `keyUp`, `keyPress`, `submit`, `mouseDown`, `mouseUp`, `wheel`.
+Named shorthands: `click`, `dblclick`, `change`, `input`, `focus`, `blur`, `keyDown`, `keyUp`, `keyPress`, `submit`, `mouseDown`, `mouseUp`, `wheel`, `error`, `load`, `abort`.
 
 **`src/testing/events/userEvent.ts`** — simulates higher-level user interactions by composing multiple `fireEvent` calls:
 

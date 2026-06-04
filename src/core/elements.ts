@@ -46,7 +46,7 @@ export const createElement = (type: ElementType, config: Props | null, ...args: 
     if (args.length > 0) {
         const rawChildren = ([] as any[]).concat(...args);
         props.children = rawChildren
-            .filter((c: any) => c !== null && c !== false)
+            .filter((c: any) => c !== null && c !== undefined && typeof c !== 'boolean')
             .map((c: any) =>
                 typeof c === 'function'
                     ? createElement(c, { ...(c.props || {}) })

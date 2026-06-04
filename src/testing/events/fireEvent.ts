@@ -54,3 +54,6 @@ fireEvent.submit = (el: Element, init?: EventInit) => fireEvent(el, 'submit', in
 fireEvent.mouseDown = (el: Element, init?: EventInit) => fireEvent(el, 'mousedown', init);
 fireEvent.mouseUp = (el: Element, init?: EventInit) => fireEvent(el, 'mouseup', init);
 fireEvent.wheel = (el: Element, init?: EventInit) => fireEvent(el, 'wheel', init);
+fireEvent.error = (el: Element, init?: EventInit) => fireEvent(el, 'error', init);
+fireEvent.load = (el: Element, init?: EventInit) => fireEvent(el, 'load', init);
+fireEvent.abort = (el: Element, init?: EventInit) => fireEvent(el, 'abort', init);
