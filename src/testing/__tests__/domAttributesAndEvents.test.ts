@@ -122,6 +122,49 @@ describe('fireEvent applies the { target } init before dispatch', () => {
     });
 });
 
+describe('fireEvent resource/media helpers (error/load/abort)', () => {
+    test('fireEvent.error fires an <img> error event handled by onError', () => {
+        let errored = false;
+        const { container } = render(
+            Anu.createElement('img', {
+                src: 'broken.png',
+                onError: () => {
+                    errored = true;
+                }
+            })
+        );
+
+        const img = container.querySelector('img') as HTMLImageElement;
+        const returned = fireEvent.error(img);
+
+        expect(errored).toBe(true);
+        expect(returned).toBe(true);
+    });
+
+    test('fireEvent.load and fireEvent.abort reach their handlers', () => {
+        let loaded = false;
+        let aborted = false;
+        const { container } = render(
+            Anu.createElement('img', {
+                src: 'pic.png',
+                onLoad: () => {
+                    loaded = true;
+                },
+                onAbort: () => {
+                    aborted = true;
+                }
+            })
+        );
+
+        const img = container.querySelector('img') as HTMLImageElement;
+        fireEvent.load(img);
+        fireEvent.abort(img);
+
+        expect(loaded).toBe(true);
+        expect(aborted).toBe(true);
+    });
+});
+
 describe('fireEvent.wheel dispatches a WheelEvent', () => {
     test('wheel handler receives the deltaY from the init', () => {
         let seenDelta: number | null = null;
