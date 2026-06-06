@@ -561,10 +561,10 @@ Supports both <i>HTML</i> and <i>inline-SVG</i> element creation, "stateful" (or
 - You can use <code>setState()</code> to re-render the component.
 It takes <strong>ONE</strong> argument which can either be:
     - A <code>state</code> object which will be merged with the old state
-    - A <code>setStateCallback</code> function which takes the actual <code>state</code> and <code>props</code> as arguments (useful if <code>state</code> and <code>props</code> were updated asynchronously) and returns the new <code>state</code> value.
+    - A <code>setStateCallback</code> function which takes the actual <code>state</code> and <code>props</code> as arguments (useful if <code>state</code> and <code>props</code> were updated asynchronously) and returns a partial state object which will be merged with the old state — exactly like the object form (you can return only the keys you want to change).
 
         ```typescript
-        type SetStateCallbackType<S, P> = (prevState: S, props: P) => S;
+        type SetStateCallbackType<S, P> = (prevState: S, props: P) => Partial<S>;
         setState(partialState: Partial<S> | SetStateCallbackType<S, P>): void;
         ```
 
@@ -2799,6 +2799,11 @@ describe('fireEvent', () => {
 | `fireEvent.dblclick(el, init?)` | `MouseEvent` — `dblclick` |
 | `fireEvent.mouseDown(el, init?)` | `MouseEvent` — `mousedown` |
 | `fireEvent.mouseUp(el, init?)` | `MouseEvent` — `mouseup` |
+| `fireEvent.mouseEnter(el, init?)` | `MouseEvent` — `mouseenter` |
+| `fireEvent.mouseLeave(el, init?)` | `MouseEvent` — `mouseleave` |
+| `fireEvent.mouseOver(el, init?)` | `MouseEvent` — `mouseover` |
+| `fireEvent.mouseOut(el, init?)` | `MouseEvent` — `mouseout` |
+| `fireEvent.mouseMove(el, init?)` | `MouseEvent` — `mousemove` |
 | `fireEvent.change(el, init?)` | `Event` — `change` |
 | `fireEvent.input(el, init?)` | `Event` — `input` |
 | `fireEvent.focus(el, init?)` | `FocusEvent` — `focus` |
