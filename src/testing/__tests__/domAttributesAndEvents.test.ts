@@ -186,3 +186,29 @@ describe('fireEvent.wheel dispatches a WheelEvent', () => {
         expect(returned).toBe(true);
     });
 });
+
+describe('fireEvent named helpers for the mouse-move family', () => {
+    const cases: Array<[keyof typeof fireEvent, string, string]> = [
+        ['mouseEnter', 'onMouseEnter', 'mouseenter'],
+        ['mouseLeave', 'onMouseLeave', 'mouseleave'],
+        ['mouseOver', 'onMouseOver', 'mouseover'],
+        ['mouseOut', 'onMouseOut', 'mouseout'],
+        ['mouseMove', 'onMouseMove', 'mousemove']
+    ];
+
+    test.each(cases)('fireEvent.%s dispatches a MouseEvent reaching %s', (helper, handler, eventType) => {
+        let seenType = '';
+        const { getByRole } = render(
+            Anu.createElement('button', {
+                [handler]: (e: MouseEvent) => {
+                    seenType = e.type;
+                }
+            })
+        );
+
+        const returned = (fireEvent[helper] as (el: Element) => boolean)(getByRole('button'));
+
+        expect(seenType).toBe(eventType);
+        expect(returned).toBe(true);
+    });
+});

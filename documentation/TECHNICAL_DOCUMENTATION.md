@@ -485,7 +485,7 @@ Creates a lightweight wrapper instance `{ props, render: type }` on first visit.
 **`updateClassComponent(wipFiber)`**
 - **First visit:** instantiates the class via `new type(props, context)`, binds lifecycle methods (`setState`, `componentDidMount`, `componentDidUpdate`, `componentWillUnmount`), and sets `instance.__fiber = fiber`.
 - **Subsequent visits:** performs an **early bailout** if `wipFiber.props === instance.props` and no `partialState` or `partialStateCallback` is pending (clones children without re-rendering). Because `instance.props` is assigned directly from `wipFiber.props` (same reference, matching the function component pattern), the reference check fires correctly when a parent bails out via `cloneChildFibers` and the child's fiber props are unchanged. The bailout still records `wipFiber.prevState = { ...instance.state }` before cloning: a bailed-out fiber retains its `UPDATE` effect tag (set when its parent reconciled it), so when a **descendant** `setState` re-renders the tree from the root, this ancestor's `componentDidUpdate(prevProps, prevState)` is still enqueued — and must receive a defined `prevState`/`prevProps` (`prevProps` comes from `effect.alternate.props`). Since nothing on this fiber changed, `prevState` equals the current state, matching React.
-- **Normal update:** merges the new state (either via `Object.assign` for object partial state, or by calling `partialStateCallback(prevState, wipFiber.props)` for functional updates), saves the old state to `wipFiber.prevState` (for `componentDidUpdate`), then calls `instance.render()`.
+- **Normal update:** computes a state *patch* — the object partial state directly, or the return value of `partialStateCallback(prevState, wipFiber.props)` for functional updates — then merges it onto the previous state with `Object.assign({}, instance.state, patch)`. Both forms merge (a functional updater may return only the changed keys, matching React), saves the old state to `wipFiber.prevState` (for `componentDidUpdate`), then calls `instance.render()`.
 
 <h3 id="reconcile-children">Reconciling children</h3>
 
@@ -646,9 +646,9 @@ export abstract class Component<
         this.state = (this as any).state || ({} as S);
     }
 
-    setState(partialState: Partial<S> | ((prevState: S, prevProps: P) => S) = {}): void {
+    setState(partialState: Partial<S> | ((prevState: S, prevProps: P) => Partial<S>) = {}): void {
         let partialStateObject: Partial<S> = {};
-        let partialStateCallback: ((prevState: S, prevProps: P) => S) | undefined;
+        let partialStateCallback: ((prevState: S, prevProps: P) => Partial<S>) | undefined;
 
         if (typeof partialState === 'object') {
             partialStateObject = { ...partialStateObject, ...partialState };

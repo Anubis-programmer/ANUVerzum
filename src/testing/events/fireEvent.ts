@@ -53,6 +53,11 @@ fireEvent.keyPress = (el: Element, init?: EventInit) => fireEvent(el, 'keypress'
 fireEvent.submit = (el: Element, init?: EventInit) => fireEvent(el, 'submit', init);
 fireEvent.mouseDown = (el: Element, init?: EventInit) => fireEvent(el, 'mousedown', init);
 fireEvent.mouseUp = (el: Element, init?: EventInit) => fireEvent(el, 'mouseup', init);
+fireEvent.mouseEnter = (el: Element, init?: EventInit) => fireEvent(el, 'mouseenter', init);
+fireEvent.mouseLeave = (el: Element, init?: EventInit) => fireEvent(el, 'mouseleave', init);
+fireEvent.mouseOver = (el: Element, init?: EventInit) => fireEvent(el, 'mouseover', init);
+fireEvent.mouseOut = (el: Element, init?: EventInit) => fireEvent(el, 'mouseout', init);
+fireEvent.mouseMove = (el: Element, init?: EventInit) => fireEvent(el, 'mousemove', init);
 fireEvent.wheel = (el: Element, init?: EventInit) => fireEvent(el, 'wheel', init);
 fireEvent.error = (el: Element, init?: EventInit) => fireEvent(el, 'error', init);
 fireEvent.load = (el: Element, init?: EventInit) => fireEvent(el, 'load', init);

@@ -208,13 +208,10 @@ const updateClassComponent = (wipFiber: Fiber): void => {
         return;
     }
 
-    let nextState: Record<string, any>;
-
-    if (!wipFiber.partialStateCallback) {
-        nextState = Object.assign({}, instance.state, wipFiber.partialState);
-    } else {
-        nextState = wipFiber.partialStateCallback(instance.state, wipFiber.props);
-    }
+    const statePatch = wipFiber.partialStateCallback
+        ? wipFiber.partialStateCallback(instance.state, wipFiber.props)
+        : wipFiber.partialState;
+    const nextState = Object.assign({}, instance.state, statePatch);
 
     wipFiber.prevState = { ...instance.state };
     instance.props = wipFiber.props;
