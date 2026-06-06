@@ -1739,11 +1739,14 @@ export const waitFor = <T>(callback: () => T, options: WaitForOptions = {}): Pro
 
 <h3 id="atl-cleanup">Cleanup</h3>
 
-`src/testing/cleanup.ts` maintains a `Set<Element>` of all containers created by `render()`. After each test, `cleanup()` removes them from the DOM and resets all module-level state:
+`src/testing/cleanup.ts` maintains a `Set<Element>` of all containers created by `render()`. After each test, `cleanup()` **unmounts** each tracked root, then removes the container from the DOM and resets all module-level state:
 
 ```typescript
 export const cleanup = (): void => {
-    mountedContainers.forEach((container) => { container.parentNode?.removeChild(container); });
+    mountedContainers.forEach((container) => {
+        act(() => { unmountComponentAtNode(container); });   // componentWillUnmount + portal commitDeletion
+        container.parentNode?.removeChild(container);
+    });
     mountedContainers.clear();
     __testing.resetGlobals();        // reconciler: updateQueue, nextUnitOfWork, pendingCommit
     HistoryTesting.reset();          // History: instances registry
@@ -1751,6 +1754,8 @@ export const cleanup = (): void => {
     AnulyticsTesting.reset();        // Anulytics: singleton flag
 };
 ```
+
+The `unmountComponentAtNode` step is essential: detaching the container alone leaves the fiber tree mounted, so `componentWillUnmount` never fires (leaking any `document`/`window` listeners a component registered) and portal children — which live in a *different* DOM subtree than the container (e.g. a `#modal-root`) — are never removed. Unmounting first runs `commitDeletion`, which tears both down. This matches React Testing Library, whose `cleanup()` unmounts every mounted root.
 
 `setupAutoCleanup()` is called in `jest.setup.ts` and registers `cleanup` with Jest's `afterEach` hook.
 
