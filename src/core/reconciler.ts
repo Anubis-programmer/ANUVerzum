@@ -202,6 +202,7 @@ const updateClassComponent = (wipFiber: Fiber): void => {
             wipFiber.stateNode.componentWillUnmount = wipFiber.stateNode.componentWillUnmount.bind(wipFiber.stateNode);
         }
     } else if (wipFiber.props === instance.props && !wipFiber.partialState && !wipFiber.partialStateCallback) {
+        wipFiber.prevState = { ...instance.state };
         cloneChildFibers(wipFiber);
 
         return;
