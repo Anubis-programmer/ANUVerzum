@@ -545,45 +545,41 @@ const commitDeletion = (fiber: Fiber, domParent: HTMLElement): void => {
         node.stateNode.__fiber = null;
     });
 
-    let node: Fiber | undefined = fiber;
+    removeFiberDom(fiber, domParent);
+};
 
-    while (node) {
-        if (node.tag === CLASS_COMPONENT || node.tag === FUNCTION_COMPONENT) {
-            node = node.child;
+const removeFiberDom = (fiber: Fiber, domParent: HTMLElement): void => {
+    if (fiber.tag === PORTAL) {
+        let child: Fiber | undefined = fiber.child;
 
-            continue;
+        while (child) {
+            removeFiberDom(child, fiber.stateNode as HTMLElement);
+            child = child.sibling;
         }
 
-        if (node.tag === PORTAL) {
-            if (node.child) {
-                commitDeletion(node.child, node.stateNode as HTMLElement);
-            }
+        return;
+    }
 
-            while (node !== fiber && !node!.sibling) {
-                node = node!.parent;
-            }
+    if (fiber.tag === HOST_COMPONENT) {
+        let child: Fiber | undefined = fiber.child;
 
-            if (node === fiber) {
-                return;
-            }
-
-            node = node!.sibling;
-            continue;
+        while (child) {
+            removeFiberDom(child, fiber.stateNode as HTMLElement);
+            child = child.sibling;
         }
 
-        if (domParent.contains(node.stateNode)) {
-            domParent.removeChild(node.stateNode);
+        if (domParent.contains(fiber.stateNode)) {
+            domParent.removeChild(fiber.stateNode);
         }
 
-        while (node !== fiber && !node!.sibling) {
-            node = node!.parent;
-        }
+        return;
+    }
 
-        if (node === fiber) {
-            return;
-        }
+    let child: Fiber | undefined = fiber.child;
 
-        node = node!.sibling;
+    while (child) {
+        removeFiberDom(child, domParent);
+        child = child.sibling;
     }
 };
 
