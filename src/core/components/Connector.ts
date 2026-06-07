@@ -1,6 +1,6 @@
 import { createElement } from '../elements';
 import { Component } from './Component';
-import { AnuElement, Props, ComponentConstructor } from '../elements';
+import { AnuElement, AnuChild, Props, ComponentConstructor, toChildArray } from '../elements';
 
 type StoreShape = {
     getState: () => any;
@@ -58,11 +58,11 @@ class Provider extends Component<ConnectorProviderProps> {
         providerStore.setContext({ ...this.context });
     }
 
-    render(): AnuElement | AnuElement[] | null {
-        const children = this.props.children as AnuElement[] | undefined;
+    render(): AnuChild[] | null {
+        const children = toChildArray(this.props.children);
 
         try {
-            if (!children || children.length !== 1) {
+            if (children.length !== 1) {
                 throw new Error('Provider must have one child element!');
             }
 

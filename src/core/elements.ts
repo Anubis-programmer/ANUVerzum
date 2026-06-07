@@ -43,20 +43,34 @@ export const createElement = (type: ElementType, config: Props | null, ...args: 
     delete props.key;
     delete props.ref;
 
-    if (args.length > 0) {
-        const rawChildren = ([] as any[]).concat(...args);
-        props.children = rawChildren
-            .filter((c: any) => c !== null && c !== undefined && typeof c !== 'boolean')
-            .map((c: any) =>
-                typeof c === 'function'
-                    ? createElement(c, { ...(c.props || {}) })
-                    : c instanceof Object
-                      ? (c as AnuElement)
-                      : createTextElement(c)
-            );
-    } else {
-        props.children = props.children ?? [];
+    if (args.length === 1) {
+        props.children = args[0];
+    } else if (args.length > 1) {
+        props.children = args;
     }
 
     return { type, props, key, ref };
 };
+
+const flattenChildren = (children: AnuNode, acc: AnuChild[] = []): AnuChild[] => {
+    if (Array.isArray(children)) {
+        for (const child of children) {
+            flattenChildren(child, acc);
+        }
+    } else if (children !== null && children !== undefined && typeof children !== 'boolean') {
+        acc.push(children);
+    }
+
+    return acc;
+};
+
+export const toChildArray = (children: AnuNode): AnuChild[] => flattenChildren(children);
+
+export const normalizeChildren = (children: AnuNode): AnuElement[] =>
+    flattenChildren(children).map((c: any) =>
+        typeof c === 'function'
+            ? createElement(c, { ...(c.props || {}) })
+            : c instanceof Object
+              ? (c as AnuElement)
+              : createTextElement(c as string | number)
+    );

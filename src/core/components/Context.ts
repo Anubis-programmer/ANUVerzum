@@ -1,6 +1,6 @@
 import { deepEqual } from '../../misc/utils';
 import { Component } from './Component';
-import { AnuElement, Props } from '../elements';
+import { AnuElement, AnuChild, Props, toChildArray } from '../elements';
 
 export type ContextValue<T> = {
     value: Partial<T>;
@@ -52,11 +52,11 @@ export const createContext = <T extends Record<string, any> = Record<string, any
             }
         }
 
-        render(): AnuElement | AnuElement[] | null {
-            const children = this.props.children as AnuElement[] | undefined;
+        render(): AnuChild[] | null {
+            const children = toChildArray(this.props.children);
 
             try {
-                if (!children || children.length !== 1) {
+                if (children.length !== 1) {
                     throw new Error('Context Component must have exactly one child element!');
                 }
 
@@ -110,10 +110,10 @@ export const createContext = <T extends Record<string, any> = Record<string, any
         }
 
         render(): AnuElement | AnuElement[] | null {
-            const children = this.props.children as AnuElement[] | undefined;
+            const children = toChildArray(this.props.children);
 
             try {
-                if (!children || children.length !== 1) {
+                if (children.length !== 1) {
                     throw new Error('Context Component must have exactly one child element!');
                 }
 
@@ -121,11 +121,11 @@ export const createContext = <T extends Record<string, any> = Record<string, any
                 this.subscribeTo(provider);
 
                 const value = provider ? provider.value : defaultContext.value;
-                const { type } = children[0];
+                const renderChild = children[0];
                 const childProps: ContextValue<T> = { value, defaultContext };
 
-                if (typeof type === 'function') {
-                    return (type as (ctx: ContextValue<T>) => AnuElement | AnuElement[] | null)(childProps);
+                if (typeof renderChild === 'function') {
+                    return (renderChild as (ctx: ContextValue<T>) => AnuElement | AnuElement[] | null)(childProps);
                 } else {
                     throw new Error('Context component child element must be a function!');
                 }

@@ -1,4 +1,4 @@
-import { createElement, AnuElement, Props } from '../elements';
+import { createElement, AnuElement, AnuChild, Props, toChildArray } from '../elements';
 import { Component } from './Component';
 import { createContext } from './Context';
 import { Fragment } from './Fragment';
@@ -18,11 +18,13 @@ export interface FeatureToggleProps extends Props {
     defaultComponent?: AnuElement | AnuElement[] | null;
 }
 
-const resolveDefault = (defaultComponent: AnuElement | AnuElement[] | null): AnuElement | AnuElement[] | null => {
+const resolveDefault = (
+    defaultComponent: AnuElement | AnuElement[] | null
+): AnuElement | AnuChild[] | null => {
     if (defaultComponent && !Array.isArray(defaultComponent) && (defaultComponent as AnuElement).type === Fragment) {
-        return ((defaultComponent as AnuElement).props.children as AnuElement[]) ?? null;
+        return toChildArray((defaultComponent as AnuElement).props.children);
     }
-    
+
     return defaultComponent;
 };
 
