@@ -240,13 +240,15 @@ declare global {
     namespace JSX {
         interface IntrinsicAttributes { key?: string | number | null; ref?: Ref<any> | null; }
         interface Element extends AnuElement<any, any> {}
-        interface ElementClass { render(): AnuElement | AnuElement[] | string | number | boolean | null | undefined; }
+        interface ElementClass { render(): AnuNode; }
         interface ElementAttributesProperty { props: Record<string, unknown>; }
         interface ElementChildrenAttribute { children: Record<string, unknown>; }
         interface IntrinsicElements { [elemName: string]: Props; }
     }
 }
 ```
+
+`JSX.ElementClass.render` **must stay in sync with `Component`'s abstract `render()`** — both return `AnuNode`. TypeScript validates every class component used in JSX against `ElementClass`, so if `Component.render` returns a shape wider than `ElementClass.render` declares (e.g. `Fragment.render(): AnuChild[]`), `<Anu.Fragment />` silently fails the check and stops resolving to a valid `JSX.Element`. This repo's own `tsconfig.json` does not set `jsx`, so `npm run typecheck` never exercises the `JSX` namespace — JSX-contract regressions only surface in consumer/editor contexts.
 
 <h3 id="build-pipeline">Build pipeline</h3>
 
@@ -692,7 +694,7 @@ export abstract class Component<
         scheduleUpdate(this, partialStateObject, partialStateCallback);
     }
 
-    abstract render(): AnuElement | AnuElement[] | string | number | boolean | null | undefined;
+    abstract render(): AnuNode;
 
     componentDidMount(): void {}
     componentDidUpdate(_prevProps: P, _prevState: S): void {}
