@@ -1,7 +1,5 @@
 import { __testing } from '../core/reconciler';
 
-const FAKE_DEADLINE: IdleDeadline = { didTimeout: false, timeRemaining: () => 999 };
-
 let _installed = false;
 
 export const installSyncScheduler = (): void => {
@@ -10,16 +8,12 @@ export const installSyncScheduler = (): void => {
     }
 
     _installed = true;
-    (window as any).requestIdleCallback = (cb: IdleRequestCallback): number => {
-        cb(FAKE_DEADLINE);
-
-        return 0;
-    };
-    (window as any).cancelIdleCallback = (): void => {};
+    __testing.installSyncScheduler();
 };
 
 export const uninstallSyncScheduler = (): void => {
     _installed = false;
+    __testing.uninstallSyncScheduler();
 };
 
 export const flushEffects = (): void => {

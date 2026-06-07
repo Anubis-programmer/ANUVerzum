@@ -104,9 +104,64 @@ const performWork = (deadline: IdleDeadline): void => {
     workLoop(deadline);
 
     if (nextUnitOfWork || updateQueue.length > 0) {
-        requestIdleCallback(performWork);
+        scheduleWork();
     }
 };
+
+const FRAME_BUDGET = 5;
+
+const now = (): number =>
+    typeof performance !== 'undefined' && typeof performance.now === 'function'
+        ? performance.now()
+        : Date.now();
+
+let frameDeadline = 0;
+
+const FRAME_DEADLINE: IdleDeadline = {
+    didTimeout: false,
+    timeRemaining: () => Math.max(0, frameDeadline - now())
+};
+
+const SYNC_DEADLINE: IdleDeadline = { didTimeout: false, timeRemaining: () => 999 };
+
+const createMacroTaskScheduler = (): (() => void) => {
+    let scheduled = false;
+
+    const flush = (): void => {
+        scheduled = false;
+        frameDeadline = now() + FRAME_BUDGET;
+        performWork(FRAME_DEADLINE);
+    };
+
+    let post: () => void;
+
+    if (typeof MessageChannel !== 'undefined') {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = flush;
+        post = () => channel.port2.postMessage(null);
+    } else {
+        post = () => {
+            setTimeout(flush, 0);
+        };
+    }
+
+    return () => {
+        if (scheduled) {
+            return;
+        }
+
+        scheduled = true;
+        post();
+    };
+};
+
+const defaultScheduleWork = createMacroTaskScheduler();
+
+const syncScheduleWork = (): void => {
+    performWork(SYNC_DEADLINE);
+};
+
+let scheduleWork: () => void = defaultScheduleWork;
 
 const performUnitOfWork = (wipFiber: Fiber): Fiber | undefined => {
     beginWork(wipFiber);
@@ -609,7 +664,7 @@ export const scheduleUpdate = (
 
     updateQueue.push(updateFiber);
 
-    requestIdleCallback(performWork);
+    scheduleWork();
 };
 
 export const render = (elements: AnuElement | AnuElement[], containerDom: Element): void => {
@@ -619,7 +674,7 @@ export const render = (elements: AnuElement | AnuElement[], containerDom: Elemen
         newProps: { children: Array.isArray(elements) ? elements : [elements] }
     });
 
-    requestIdleCallback(performWork);
+    scheduleWork();
 };
 
 export const unmountComponentAtNode = (containerDom: Element): void => {
@@ -632,7 +687,7 @@ export const unmountComponentAtNode = (containerDom: Element): void => {
         dom: containerDom,
         newProps: { children: [] }
     });
-    requestIdleCallback(performWork);
+    scheduleWork();
 };
 
 export const __testing = {
@@ -641,20 +696,32 @@ export const __testing = {
             return;
         }
 
-        const syncDeadline: IdleDeadline = { didTimeout: false, timeRemaining: () => 999 };
-
         while (updateQueue.length > 0 || nextUnitOfWork != null) {
-            workLoop(syncDeadline);
+            workLoop(SYNC_DEADLINE);
         }
 
         nextUnitOfWork = null;
         pendingCommit = null;
     },
+    installSyncScheduler(): void {
+        if (process.env.NODE_ENV !== 'test') {
+            return;
+        }
+
+        scheduleWork = syncScheduleWork;
+    },
+    uninstallSyncScheduler(): void {
+        if (process.env.NODE_ENV !== 'test') {
+            return;
+        }
+
+        scheduleWork = defaultScheduleWork;
+    },
     resetGlobals(): void {
         if (process.env.NODE_ENV !== 'test') {
             return;
         }
-        
+
         updateQueue.length = 0;
         componentLifecyclesQueue.length = 0;
         nextUnitOfWork = null;
