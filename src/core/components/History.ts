@@ -184,33 +184,42 @@ class HistoryRoute extends Component<HistoryRouteProps> {
     }
 }
 
+const isModifiedEvent = (event: MouseEvent): boolean =>
+    !!(event.metaKey || event.altKey || event.ctrlKey || event.shiftKey);
+
+const shouldProcessLinkClick = (event: MouseEvent, target?: string): boolean =>
+    event.button === 0 && (!target || target === '_self') && !isModifiedEvent(event);
+
 class HistoryLink extends Component<HistoryLinkProps> {
     constructor(props: HistoryLinkProps) {
         super(props);
         this.handleClick = this.handleClick.bind(this);
     }
 
-    handleClick(event: Event): void {
-        event.preventDefault();
-        const { replace, to } = this.props;
+    handleClick(event: MouseEvent): void {
+        const { onClick, target, replace, to } = this.props;
 
-        if (replace) {
-            historyReplace(to);
-        } else {
-            historyPush(to);
+        if (typeof onClick === 'function') {
+            onClick(event);
+        }
+
+        if (!event.defaultPrevented && shouldProcessLinkClick(event, target)) {
+            event.preventDefault();
+            goTo(to, replace);
         }
     }
 
     render(): AnuElement {
         const { to, children, ariaLabel, ...restProps } = this.props;
+        delete restProps.replace;
 
         return createElement(
             'a',
             {
                 href: to,
                 ariaLabel: `historyLink${ariaLabel ? `-${ariaLabel}` : ''}`,
-                onClick: this.handleClick,
-                ...restProps
+                ...restProps,
+                onClick: this.handleClick
             },
             children
         );
