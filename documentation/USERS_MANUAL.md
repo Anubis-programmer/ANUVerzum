@@ -1760,7 +1760,7 @@ Every tracked event (user interaction, navigation, state change, page leave) is 
 
 <h3 id="anulytics-provider">Wrapping up your front-end project within the <code>&lt;Anu.Anulytics.Provider /&gt;</code> component</h3>
 
-- This component configures the analytics endpoint and sends each tracked event to the server as an individual HTTP POST request. It can have only one child element.
+- This component configures the analytics endpoint and sends each tracked event to the server as an individual HTTP POST request. It accepts any number of children (typically your app root).
 - Every event — initialization, navigation, user action, state change, or page leave — is sent immediately when it occurs.
 - It takes 4 properties:
     - <code>analyticsUrl</code>, which is a string that represents the URL of the server you want to send the data you collected.
@@ -1903,6 +1903,7 @@ It takes a <code>context</code> argument which can be reached later as <code>con
 
 - Context props defined on <code>&lt;ThemedContext.Provider /&gt;</code> can be accessed from within the function child of the <code>&lt;ThemedContext.Consumer /&gt;</code> as <code>context.value</code>.
 - Context providers can have multiple context consumer descendents.
+- A context provider accepts <strong>any number of direct children</strong> (zero, one, or several siblings), matching React — no need to wrap sibling children in an <code>Anu.Fragment</code>.
 - Context consumers can have one function-as-a-child (which takes the <code>context</code> as argument) which must return a valid HTML, inline-SVG element, component (either class-based or function) or <code>null</code>.
 - You can have as many elements between the context provider and consumer(s), as you want.<br>
 No need to pass the <code>context</code> all the way down within the "props flow"; the function child of the context consumer will have access to it by default.<br>

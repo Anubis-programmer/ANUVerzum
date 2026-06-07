@@ -52,20 +52,8 @@ export const createContext = <T extends Record<string, any> = Record<string, any
             }
         }
 
-        render(): AnuChild[] | null {
-            const children = toChildArray(this.props.children);
-
-            try {
-                if (children.length !== 1) {
-                    throw new Error('Context Component must have exactly one child element!');
-                }
-
-                return children;
-            } catch (err) {
-                console.error(err);
-
-                return null;
-            }
+        render(): AnuChild[] {
+            return toChildArray(this.props.children);
         }
     }
 
@@ -110,25 +98,20 @@ export const createContext = <T extends Record<string, any> = Record<string, any
         }
 
         render(): AnuElement | AnuElement[] | null {
-            const children = toChildArray(this.props.children);
+            const renderChild = toChildArray(this.props.children)[0];
 
             try {
-                if (children.length !== 1) {
-                    throw new Error('Context Component must have exactly one child element!');
+                if (typeof renderChild !== 'function') {
+                    throw new Error('Context component child element must be a function!');
                 }
 
                 const provider = resolveProvider(this);
                 this.subscribeTo(provider);
 
                 const value = provider ? provider.value : defaultContext.value;
-                const renderChild = children[0];
                 const childProps: ContextValue<T> = { value, defaultContext };
 
-                if (typeof renderChild === 'function') {
-                    return (renderChild as (ctx: ContextValue<T>) => AnuElement | AnuElement[] | null)(childProps);
-                } else {
-                    throw new Error('Context component child element must be a function!');
-                }
+                return (renderChild as (ctx: ContextValue<T>) => AnuElement | AnuElement[] | null)(childProps);
             } catch (err) {
                 console.error(err);
 

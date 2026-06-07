@@ -125,6 +125,36 @@ describe('createContext — tree-scoped semantics', () => {
         portalContainer.remove();
     });
 
+    test('a Provider accepts multiple sibling children (React parity, no Fragment wrap)', () => {
+        const Ctx = createContext<Theme>({ variant: 'default' });
+
+        const { getByTestId } = render(
+            Anu.createElement(Ctx.Provider, { variant: 'shared' },
+                Anu.createElement(Ctx.Consumer, {},
+                    (c: { value: Partial<Theme> }) =>
+                        Anu.createElement('span', { 'data-testid': 'a' }, c.value.variant)
+                ),
+                Anu.createElement(Ctx.Consumer, {},
+                    (c: { value: Partial<Theme> }) =>
+                        Anu.createElement('span', { 'data-testid': 'b' }, c.value.variant)
+                ),
+                Anu.createElement('span', { 'data-testid': 'plain' }, 'static')
+            )
+        );
+
+        expect(getByTestId('a').textContent).toBe('shared');
+        expect(getByTestId('b').textContent).toBe('shared');
+        expect(getByTestId('plain').textContent).toBe('static');
+    });
+
+    test('a Provider renders nothing (not an error) when given no children', () => {
+        const Ctx = createContext<Theme>({ variant: 'default' });
+
+        const { container } = render(Anu.createElement(Ctx.Provider, { variant: 'x' }));
+
+        expect(container.textContent).toBe('');
+    });
+
     test('two contexts do not interfere with each other', () => {
         const ColorCtx = createContext<{ color: string }>({ color: 'black' });
         const SizeCtx = createContext<{ size: string }>({ size: 'm' });
