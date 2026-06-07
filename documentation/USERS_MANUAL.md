@@ -2806,8 +2806,10 @@ describe('fireEvent', () => {
 | `fireEvent.mouseMove(el, init?)` | `MouseEvent` — `mousemove` |
 | `fireEvent.change(el, init?)` | `Event` — `change` |
 | `fireEvent.input(el, init?)` | `Event` — `input` |
-| `fireEvent.focus(el, init?)` | `FocusEvent` — `focus` |
-| `fireEvent.blur(el, init?)` | `FocusEvent` — `blur` |
+| `fireEvent.focus(el, init?)` | `FocusEvent` — `focus` (does not bubble) |
+| `fireEvent.blur(el, init?)` | `FocusEvent` — `blur` (does not bubble) |
+| `fireEvent.focusIn(el, init?)` | `FocusEvent` — `focusin` (bubbles) |
+| `fireEvent.focusOut(el, init?)` | `FocusEvent` — `focusout` (bubbles) |
 | `fireEvent.keyDown(el, init?)` | `KeyboardEvent` — `keydown` |
 | `fireEvent.keyUp(el, init?)` | `KeyboardEvent` — `keyup` |
 | `fireEvent.keyPress(el, init?)` | `KeyboardEvent` — `keypress` |

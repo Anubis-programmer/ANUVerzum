@@ -47,6 +47,8 @@ fireEvent.change = (el: Element, init?: EventInit) => fireEvent(el, 'change', in
 fireEvent.input = (el: Element, init?: EventInit) => fireEvent(el, 'input', init);
 fireEvent.focus = (el: Element, init?: EventInit) => fireEvent(el, 'focus', init);
 fireEvent.blur = (el: Element, init?: EventInit) => fireEvent(el, 'blur', init);
+fireEvent.focusIn = (el: Element, init?: EventInit) => fireEvent(el, 'focusin', init);
+fireEvent.focusOut = (el: Element, init?: EventInit) => fireEvent(el, 'focusout', init);
 fireEvent.keyDown = (el: Element, init?: EventInit) => fireEvent(el, 'keydown', init);
 fireEvent.keyUp = (el: Element, init?: EventInit) => fireEvent(el, 'keyup', init);
 fireEvent.keyPress = (el: Element, init?: EventInit) => fireEvent(el, 'keypress', init);

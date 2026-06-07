@@ -212,3 +212,57 @@ describe('fireEvent named helpers for the mouse-move family', () => {
         expect(returned).toBe(true);
     });
 });
+
+describe('fireEvent.focusIn / focusOut dispatch the bubbling focus events', () => {
+    test('focusIn/focusOut bubble to a listener bound on an ancestor', () => {
+        const seen: string[] = [];
+        const { container, getByRole } = render(
+            Anu.createElement('div', {}, Anu.createElement('button', {}, 'child'))
+        );
+
+        const region = container.querySelector('div') as HTMLDivElement;
+        region.addEventListener('focusin', (e) => seen.push(e.type));
+        region.addEventListener('focusout', (e) => seen.push(e.type));
+
+        const button = getByRole('button');
+        const inReturned = fireEvent.focusIn(button);
+        const outReturned = fireEvent.focusOut(button);
+
+        expect(seen).toEqual(['focusin', 'focusout']);
+        expect(inReturned).toBe(true);
+        expect(outReturned).toBe(true);
+    });
+
+    test('the non-bubbling focus helper does not trigger a focusin ancestor listener', () => {
+        const seen: string[] = [];
+        const { container, getByRole } = render(
+            Anu.createElement('div', {}, Anu.createElement('button', {}, 'child'))
+        );
+
+        const region = container.querySelector('div') as HTMLDivElement;
+        region.addEventListener('focusin', (e) => seen.push(e.type));
+
+        fireEvent.focus(getByRole('button'));
+
+        expect(seen).toEqual([]);
+    });
+
+    test('focusIn/focusOut construct FocusEvent instances', () => {
+        let inEvent: Event | null = null;
+        let outEvent: Event | null = null;
+        const { container, getByRole } = render(
+            Anu.createElement('div', {}, Anu.createElement('button', {}, 'child'))
+        );
+
+        const region = container.querySelector('div') as HTMLDivElement;
+        region.addEventListener('focusin', (e) => (inEvent = e));
+        region.addEventListener('focusout', (e) => (outEvent = e));
+
+        const button = getByRole('button');
+        fireEvent.focusIn(button);
+        fireEvent.focusOut(button);
+
+        expect(inEvent).toBeInstanceOf(FocusEvent);
+        expect(outEvent).toBeInstanceOf(FocusEvent);
+    });
+});
