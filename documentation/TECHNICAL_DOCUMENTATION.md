@@ -412,7 +412,7 @@ This object is lightweight and immutable by convention — the reconciler reads 
 Normalization is deferred to consumption time, in two helpers exported from `elements.ts`:
 
 - **`normalizeChildren(children)`** — used by the reconciler's `reconcileChildrenArray`. It recursively flattens nested arrays, drops `null`/`undefined`/booleans (`false` *and* `true`), wraps plain `string`/`number` values in a `TEXT_ELEMENT` node (`{ type: TEXT_ELEMENT, props: { nodeValue: String(value) }, key: null, ref: null }`), wraps bare function children via `createElement(fn, fn.props || {})`, and passes existing `AnuElement` objects through unchanged. This is why conditional rendering still works (`{cond && <El/>}` renders nothing for `false` *or* `undefined`), `0` renders as `"0"`, and `''` produces an empty text node.
-- **`toChildArray(children)`** — the same flatten-and-filter pass *without* the `TEXT_ELEMENT`/function wrapping. Components that introspect or count their children (`Context` Provider/Consumer, `Connector`/`Anulytics` `Provider`, `Fragment`, `Feature`'s `resolveDefault`) call this to coerce the raw `props.children` (which may be a single value, an array, or `undefined`) into a filtered array — so a single child is treated as length 1 while still exposing the raw value (e.g. the `Context` Consumer reads its render-prop function directly as `children[0]`).
+- **`toChildArray(children)`** — the same flatten-and-filter pass *without* the `TEXT_ELEMENT`/function wrapping. Components that introspect their children (`Context` Provider/Consumer, `Connector`/`Anulytics` `Provider`, `Fragment`, `Feature`'s `resolveDefault`) call this to coerce the raw `props.children` (which may be a single value, an array, or `undefined`) into a filtered array while still exposing the raw values — e.g. the `Context` Consumer reads its render-prop function directly as `children[0]`. None of these wrapper components enforce a child *count* any more: `Context`/`Connector`/`Anulytics` `Provider` and `Fragment` all render whatever children they receive (zero, one, or many — React parity); the `Context` Consumer is the only one with a child constraint, and it validates that the single render-prop is a *function*, not the count.
 
 <br>
 <hr>
@@ -715,28 +715,17 @@ export abstract class Component<
 
 <h2 id="fragment">Fragment — <code>src/core/components/Fragment.ts</code></h2>
 
-`Fragment` is a class component that simply returns its children array without wrapping them in any DOM element. It allows sibling elements to be grouped in JSX without introducing a superfluous `<div>`.
+`Fragment` is a class component that simply returns its children array without wrapping them in any DOM element. It allows sibling elements to be grouped in JSX without introducing a superfluous `<div>`. It accepts **any number of children, including zero** (an empty fragment renders nothing) — matching `React.Fragment`.
 
 ```typescript
 export class Fragment extends Component {
     render(): AnuChild[] {
-        const children = toChildArray(this.props.children);
-
-        try {
-            if (!children.length) {
-                throw new Error('Fragment must have at least one child element!');
-            }
-
-            return children;
-        } catch (err) {
-            console.error(err);
-            return [];
-        }
+        return toChildArray(this.props.children);
     }
 }
 ```
 
-`toChildArray` coerces the raw `props.children` (a single value, an array, or `undefined`) into a filtered array, so the length check works regardless of how many children were authored. The reconciler handles array returns from `render()` natively — `reconcileChildrenArray` accepts arrays and flattens them into sibling fibers. The `<>...</>` fragment shorthand is wired via `babel-preset.js` (`pragmaFrag: 'Anu.Fragment'`), which transforms it to `Anu.createElement(Anu.Fragment, null, ...)`.
+`toChildArray` coerces the raw `props.children` (a single value, an array, or `undefined`) into a filtered array regardless of how many children were authored. The reconciler handles array returns from `render()` natively — `reconcileChildrenArray` accepts arrays and flattens them into sibling fibers. The `<>...</>` fragment shorthand is wired via `babel-preset.js` (`pragmaFrag: 'Anu.Fragment'`), which transforms it to `Anu.createElement(Anu.Fragment, null, ...)`.
 
 <br>
 <hr>
@@ -772,6 +761,14 @@ The function returns four exports for two use cases:
 
 `ContextProvider` is a class component. On construction, it extracts all non-`children` props and stores them as `this.value` — **per instance**, so two Providers of the same context never clobber each other. Each instance also owns its own `subscribers` set (the Consumers resolved to it). On `componentDidUpdate`, it uses `deepEqual` to check whether props have actually changed before updating — this prevents unnecessary re-renders when the parent re-renders but the context value is structurally identical — and then notifies **only its own** subscribers, not every Consumer of the context app-wide.
 
+Its `render()` simply returns `toChildArray(this.props.children)` — **any number of children, matching React** (zero renders nothing; sibling children render directly with no `Fragment` wrapper required). The reconciler flattens the returned array into sibling fibers.
+
+```typescript
+render(): AnuChild[] {
+    return toChildArray(this.props.children);
+}
+```
+
 ```typescript
 componentDidUpdate(): void {
     const pureProps = getPureProps(this.props);
@@ -785,22 +782,23 @@ componentDidUpdate(): void {
 
 <h3 id="context-consumer-internals">Consumer internals</h3>
 
-`ContextConsumer` is a class component that expects exactly one child — a function (the render prop). On every render it resolves the **nearest ancestor Provider** of this context by walking up the fiber tree, reads that Provider's `value` (or the closure `defaultContext` value if there is no Provider above it), and calls the render prop with `{ value, defaultContext }`. Because `props.children` is now stored raw, the render-prop function *is* the child: `toChildArray` yields `[fn]` and the Consumer reads `children[0]` as the function directly (previously `createElement` wrapped it into an element, so the function was recovered from `children[0].type`).
+`ContextConsumer` is a class component driven by a render prop. On every render it resolves the **nearest ancestor Provider** of this context by walking up the fiber tree, reads that Provider's `value` (or the closure `defaultContext` value if there is no Provider above it), and calls the render prop with `{ value, defaultContext }`. It does **not** enforce a child count — it validates that the render prop *is a function* and throws otherwise (mirroring React, which requires a function child but doesn't care about the Provider's child count). Because `props.children` is stored raw, the render-prop function *is* the child: `toChildArray` yields `[fn]` and the Consumer reads `children[0]` as the function directly (previously `createElement` wrapped it into an element, so the function was recovered from `children[0].type`).
 
 ```typescript
 render(): AnuElement | AnuElement[] | null {
-    const children = toChildArray(this.props.children);
-    // ...exactly-one-child check elided...
+    const renderChild = toChildArray(this.props.children)[0];
+
+    if (typeof renderChild !== 'function') {
+        throw new Error('Context component child element must be a function!');
+    }
+
     const provider = resolveProvider(this);
     this.subscribeTo(provider);
 
     const value = provider ? provider.value : defaultContext.value;
-    const renderChild = children[0];
     const childProps: ContextValue<T> = { value, defaultContext };
 
-    if (typeof renderChild === 'function') {
-        return (renderChild as (ctx: ContextValue<T>) => AnuElement | null)(childProps);
-    }
+    return (renderChild as (ctx: ContextValue<T>) => AnuElement | null)(childProps);
 }
 ```
 

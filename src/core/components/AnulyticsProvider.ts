@@ -237,20 +237,8 @@ class AnulyticsProvider extends Component<AnulyticsProviderProps> {
         }
     }
 
-    render(): AnuChild[] | null {
-        const children = toChildArray(this.props.children);
-
-        try {
-            if (children.length !== 1) {
-                throw new Error('Provider must have one child element!');
-            }
-
-            return children;
-        } catch (err) {
-            console.error(err);
-
-            return null;
-        }
+    render(): AnuChild[] {
+        return toChildArray(this.props.children);
     }
 }
 
