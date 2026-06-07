@@ -1,5 +1,5 @@
 import { scheduleUpdate } from '../reconciler';
-import { AnuElement, Props } from '../elements';
+import { AnuNode, Props } from '../elements';
 
 export abstract class Component<P extends Record<string, any> = Props, S extends Record<string, any> = Record<string, any>> {
     props: P;
@@ -28,7 +28,7 @@ export abstract class Component<P extends Record<string, any> = Props, S extends
         scheduleUpdate(this, partialStateObject, partialStateCallback);
     }
 
-    abstract render(): AnuElement | AnuElement[] | string | number | boolean | null | undefined;
+    abstract render(): AnuNode;
 
     componentDidMount(): void {}
 

@@ -395,11 +395,7 @@ The function performs the following steps:
 
 1. **Extract special props.** `key` and `ref` are pulled out of `config` and stored separately. They are removed from the `props` object so they never reach the component as regular props.
 
-2. **Normalize children.** If `args` is non-empty, they are flattened into a single array (handling both direct children and nested array spreads). Each child is then processed:
-    - `null`, `undefined`, and booleans (`false` *and* `true`) are filtered out entirely and render nothing — matching React. This is how conditional rendering works: `{cond && <El/>}` renders nothing whether `cond` is `false` or `undefined`, and `: undefined` / `: null` ternary branches are equally safe.
-    - Plain values (`string`, `number`) are wrapped in a `TEXT_ELEMENT` virtual node: `{ type: TEXT_ELEMENT, props: { nodeValue: String(value) }, key: null, ref: null }`. Note `0` renders as the text `"0"` (only `null`/`undefined`/booleans are skipped), and `''` produces an empty text node.
-    - Functions (bare component references passed as children) are wrapped with `createElement(fn, fn.props || {})`.
-    - Objects are passed through as-is (already `AnuElement` instances).
+2. **Store children raw — React parity.** `createElement` does **not** normalize children. It mirrors React's shape exactly: a single child argument is stored verbatim (`props.children = args[0]`), multiple children are stored as the raw array (`props.children = args`), and with no children `props.children` is left `undefined`. So `<C>New</C>` yields `props.children === 'New'` (the raw string), not a wrapped `TEXT_ELEMENT` array — symmetric with plain props like `label="More"` → `props.label === 'More'`. Any code that *introspects* children (compound/composition APIs that read child labels) therefore sees the author's original values.
 
 3. **Return the element descriptor.**
 
@@ -408,6 +404,13 @@ return { type, props, key, ref };
 ```
 
 This object is lightweight and immutable by convention — the reconciler reads it but never mutates it.
+
+<h4>Where child normalization actually happens</h4>
+
+Normalization is deferred to consumption time, in two helpers exported from `elements.ts`:
+
+- **`normalizeChildren(children)`** — used by the reconciler's `reconcileChildrenArray`. It recursively flattens nested arrays, drops `null`/`undefined`/booleans (`false` *and* `true`), wraps plain `string`/`number` values in a `TEXT_ELEMENT` node (`{ type: TEXT_ELEMENT, props: { nodeValue: String(value) }, key: null, ref: null }`), wraps bare function children via `createElement(fn, fn.props || {})`, and passes existing `AnuElement` objects through unchanged. This is why conditional rendering still works (`{cond && <El/>}` renders nothing for `false` *or* `undefined`), `0` renders as `"0"`, and `''` produces an empty text node.
+- **`toChildArray(children)`** — the same flatten-and-filter pass *without* the `TEXT_ELEMENT`/function wrapping. Components that introspect or count their children (`Context` Provider/Consumer, `Connector`/`Anulytics` `Provider`, `Fragment`, `Feature`'s `resolveDefault`) call this to coerce the raw `props.children` (which may be a single value, an array, or `undefined`) into a filtered array — so a single child is treated as length 1 while still exposing the raw value (e.g. the `Context` Consumer reads its render-prop function directly as `children[0]`).
 
 <br>
 <hr>
@@ -714,11 +717,11 @@ export abstract class Component<
 
 ```typescript
 export class Fragment extends Component {
-    render(): AnuElement[] {
-        const children = this.props.children as AnuElement[] | undefined;
+    render(): AnuChild[] {
+        const children = toChildArray(this.props.children);
 
         try {
-            if (!children || !children.length) {
+            if (!children.length) {
                 throw new Error('Fragment must have at least one child element!');
             }
 
@@ -731,7 +734,7 @@ export class Fragment extends Component {
 }
 ```
 
-The reconciler handles array returns from `render()` natively — `reconcileChildrenArray` accepts arrays and flattens them into sibling fibers. The `<>...</>` fragment shorthand is wired via `babel-preset.js` (`pragmaFrag: 'Anu.Fragment'`), which transforms it to `Anu.createElement(Anu.Fragment, null, ...)`.
+`toChildArray` coerces the raw `props.children` (a single value, an array, or `undefined`) into a filtered array, so the length check works regardless of how many children were authored. The reconciler handles array returns from `render()` natively — `reconcileChildrenArray` accepts arrays and flattens them into sibling fibers. The `<>...</>` fragment shorthand is wired via `babel-preset.js` (`pragmaFrag: 'Anu.Fragment'`), which transforms it to `Anu.createElement(Anu.Fragment, null, ...)`.
 
 <br>
 <hr>
@@ -780,19 +783,21 @@ componentDidUpdate(): void {
 
 <h3 id="context-consumer-internals">Consumer internals</h3>
 
-`ContextConsumer` is a class component that expects exactly one child — a function (the render prop). On every render it resolves the **nearest ancestor Provider** of this context by walking up the fiber tree, reads that Provider's `value` (or the closure `defaultContext` value if there is no Provider above it), and calls the render prop with `{ value, defaultContext }`.
+`ContextConsumer` is a class component that expects exactly one child — a function (the render prop). On every render it resolves the **nearest ancestor Provider** of this context by walking up the fiber tree, reads that Provider's `value` (or the closure `defaultContext` value if there is no Provider above it), and calls the render prop with `{ value, defaultContext }`. Because `props.children` is now stored raw, the render-prop function *is* the child: `toChildArray` yields `[fn]` and the Consumer reads `children[0]` as the function directly (previously `createElement` wrapped it into an element, so the function was recovered from `children[0].type`).
 
 ```typescript
 render(): AnuElement | AnuElement[] | null {
+    const children = toChildArray(this.props.children);
+    // ...exactly-one-child check elided...
     const provider = resolveProvider(this);
     this.subscribeTo(provider);
 
     const value = provider ? provider.value : defaultContext.value;
-    const { type } = children[0];
+    const renderChild = children[0];
     const childProps: ContextValue<T> = { value, defaultContext };
 
-    if (typeof type === 'function') {
-        return (type as (ctx: ContextValue<T>) => AnuElement | null)(childProps);
+    if (typeof renderChild === 'function') {
+        return (renderChild as (ctx: ContextValue<T>) => AnuElement | null)(childProps);
     }
 }
 ```
@@ -1163,20 +1168,20 @@ const Feature = {
 
 `FeatureToggle` is a class component that reads the `features` map from context and renders `children` if `features[name] === true`, or `defaultComponent` (defaults to `null`) otherwise. `defaultComponent` accepts a single `AnuElement`, an `AnuElement[]`, or `null`.
 
-When `defaultComponent` is a `Fragment` element, `resolveDefault()` unwraps it and returns `Fragment.props.children` (the array of children) directly. This prevents the reconciler from receiving a Fragment CLASS_COMPONENT as the output of the ContextConsumer render-prop, which would corrupt the surrounding fiber tree (duplicate sibling renders and broken context propagation).
+When `defaultComponent` is a `Fragment` element, `resolveDefault()` unwraps it and returns its children via `toChildArray(Fragment.props.children)` directly. This prevents the reconciler from receiving a Fragment CLASS_COMPONENT as the output of the ContextConsumer render-prop, which would corrupt the surrounding fiber tree (duplicate sibling renders and broken context propagation). `toChildArray` is used because `props.children` is now stored raw — a Fragment with a single child holds that child directly rather than a one-element array.
 
 `FeatureToggle` is a class component (not a function component) so that the render-prop passed to `ContextConsumer` always reads `this.props` — the current props at call time. A function component would close over the `name`, `children`, and `defaultComponent` parameters at the time `FeatureToggle` itself was called, and those captured values would become stale if the parent re-rendered with new props before the `ContextConsumer` render-prop fired again.
 
 ```typescript
 const resolveDefault = (
     defaultComponent: AnuElement | AnuElement[] | null
-): AnuElement | AnuElement[] | null => {
+): AnuElement | AnuChild[] | null => {
     if (
         defaultComponent &&
         !Array.isArray(defaultComponent) &&
         (defaultComponent as AnuElement).type === Fragment
     ) {
-        return ((defaultComponent as AnuElement).props.children as AnuElement[]) ?? null;
+        return toChildArray((defaultComponent as AnuElement).props.children);
     }
     return defaultComponent;
 };

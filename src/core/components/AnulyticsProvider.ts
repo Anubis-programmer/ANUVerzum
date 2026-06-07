@@ -1,5 +1,5 @@
 import { Component } from './Component';
-import { AnuElement, Props } from '../elements';
+import { AnuChild, Props, toChildArray } from '../elements';
 import ServerAPI from '../../server-api/server-api';
 
 const EventTypes = {
@@ -237,11 +237,11 @@ class AnulyticsProvider extends Component<AnulyticsProviderProps> {
         }
     }
 
-    render(): AnuElement | AnuElement[] | null {
-        const children = this.props.children as AnuElement[] | undefined;
+    render(): AnuChild[] | null {
+        const children = toChildArray(this.props.children);
 
         try {
-            if (!children || children.length !== 1) {
+            if (children.length !== 1) {
                 throw new Error('Provider must have one child element!');
             }
 

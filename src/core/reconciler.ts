@@ -1,5 +1,5 @@
 import { createDomElement, updateDomProperties, SVG_ELEMENT_LIST } from './domUtils';
-import { AnuElement, AnuNode, ElementType, Props, Ref, PORTAL_ELEMENT } from './elements';
+import { AnuElement, AnuNode, ElementType, Props, Ref, PORTAL_ELEMENT, normalizeChildren } from './elements';
 
 const HOST_COMPONENT = 'host';
 const CLASS_COMPONENT = 'class';
@@ -278,8 +278,6 @@ const updateClassComponent = (wipFiber: Fiber): void => {
     reconcileChildrenArray(wipFiber, newChildElements);
 };
 
-const arrify = (val: any): AnuElement[] => (!val ? [] : Array.isArray(val) ? val : [val]);
-
 const getTag = (element: AnuElement): FiberTag => {
     if (element.type === PORTAL_ELEMENT) {
         return PORTAL;
@@ -301,7 +299,7 @@ const getTag = (element: AnuElement): FiberTag => {
 };
 
 const reconcileChildrenArray = (wipFiber: Fiber, newChildElements: any): void => {
-    const elements = arrify(newChildElements);
+    const elements = normalizeChildren(newChildElements);
     const oldFiberMap = new Map<string | number, Fiber>();
     let oldFiber: Fiber | undefined = wipFiber.alternate ? wipFiber.alternate.child : undefined;
     let oldIndex = 0;
