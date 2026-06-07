@@ -12,25 +12,6 @@ import History, { goTo } from './core/components/History';
 import Intl from './core/components/Intl';
 import AnulyticsProvider, { trackEvent } from './core/components/AnulyticsProvider';
 
-if (!window.requestIdleCallback) {
-    window.requestIdleCallback = (callback: IdleRequestCallback): number => {
-        const start = Date.now();
-
-        return setTimeout(() => {
-            callback({
-                didTimeout: false,
-                timeRemaining: () => Math.max(0, 50 - (Date.now() - start))
-            });
-        }, 1) as unknown as number;
-    };
-}
-
-if (!window.cancelIdleCallback) {
-    window.cancelIdleCallback = (id: number): void => {
-        clearTimeout(id);
-    };
-}
-
 const Anu = {
     Anulytics: {
         Provider: AnulyticsProvider,

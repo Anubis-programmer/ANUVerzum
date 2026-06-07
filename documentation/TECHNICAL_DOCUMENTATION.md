@@ -16,7 +16,7 @@
         <li><a href="#module-ecosystem">Module ecosystem</a></li>
         <li><a href="#the-anu-namespace">The <code>Anu</code> namespace</a></li>
         <li><a href="#build-pipeline">Build pipeline</a></li>
-        <li><a href="#requestidlecallback-polyfill">The <code>requestIdleCallback</code> polyfill</a></li>
+        <li><a href="#scheduler">The scheduler — why MessageChannel, not <code>requestIdleCallback</code></a></li>
     </ul>
     <li><a href="#virtual-dom-and-jsx">Virtual DOM &amp; JSX — <code>src/core/elements.ts</code></a></li>
     <ul>
@@ -272,30 +272,60 @@ The `package.json` build scripts:
 }
 ```
 
-<h3 id="requestidlecallback-polyfill">The <code>requestIdleCallback</code> polyfill</h3>
+<h3 id="scheduler">The scheduler — why MessageChannel, not <code>requestIdleCallback</code></h3>
 
-The reconciler relies on `requestIdleCallback` to schedule incremental rendering. Because some browsers (most notably Safari, prior to version 16) do not support it, `src/index.ts` installs a polyfill at module load time:
+The reconciler defers all work to a macro-task rather than running it synchronously, so rendering can be time-sliced (see the [Work loop](#work-loop)). The macro-task is scheduled through a **`MessageChannel`** — the same mechanism React's scheduler uses — not `requestIdleCallback`.
+
+Earlier versions scheduled via `requestIdleCallback(performWork)`. That starves under continuous or rapid user input: `requestIdleCallback` only fires when the browser is idle, so updates driven by heavy input (menu arrow-key navigation, sliders, drag, fast typing) would not commit until the input paused — the UI appeared to lag and then freeze, catching up only when the user stopped. Passing `{ timeout }` does not fix it: a timed-out idle callback reports `timeRemaining() === 0`, so the time-sliced work loop would do **zero** units of work and merely reschedule, never progressing under sustained load.
+
+A `MessageChannel` message is delivered as soon as the current task (including the input handler that triggered the update) finishes, regardless of idle state, so input-driven updates commit promptly. The scheduler lives in `src/core/reconciler.ts`:
 
 ```typescript
-if (!window.requestIdleCallback) {
-    window.requestIdleCallback = (callback: IdleRequestCallback): number => {
-        const start = Date.now();
-        
-        return setTimeout(() => {
-            callback({
-                didTimeout: false,
-                timeRemaining: () => Math.max(0, 50 - (Date.now() - start))
-            });
-        }, 1) as unknown as number;
-    };
-}
+const FRAME_BUDGET = 5;
 
-if (!window.cancelIdleCallback) {
-    window.cancelIdleCallback = (id: number): void => clearTimeout(id);
-}
+let frameDeadline = 0;
+
+const FRAME_DEADLINE: IdleDeadline = {
+    didTimeout: false,
+    timeRemaining: () => Math.max(0, frameDeadline - now())
+};
+
+const createMacroTaskScheduler = (): (() => void) => {
+    let scheduled = false;
+
+    const flush = (): void => {
+        scheduled = false;
+        frameDeadline = now() + FRAME_BUDGET;
+        performWork(FRAME_DEADLINE);
+    };
+
+    let post: () => void;
+
+    if (typeof MessageChannel !== 'undefined') {
+        const channel = new MessageChannel();
+        channel.port1.onmessage = flush;
+        post = () => channel.port2.postMessage(null);
+    } else {
+        post = () => { setTimeout(flush, 0); };
+    }
+
+    return () => {
+        if (scheduled) {
+            return;
+        }
+
+        scheduled = true;
+        post();
+    };
+};
 ```
 
-The polyfill mimics the real API by granting a fixed budget of up to **50 ms** and firing via `setTimeout(..., 1)`. This approximation is less efficient than the real API but functionally correct.
+Two details carry weight:
+
+- **The `IdleDeadline` the work loop consumes is synthesized** from a fixed `FRAME_BUDGET` of 5 ms (`now()` is `performance.now()`, falling back to `Date.now()`). Each flush stamps `frameDeadline = now() + FRAME_BUDGET`, and `timeRemaining()` counts down from there, so the existing `deadline.timeRemaining() > ENOUGH_TIME` time-slicing is preserved unchanged. When a slice runs out, `performWork` schedules the next macro-task, yielding to the browser between slices.
+- **Scheduling is coalesced** via the `scheduled` flag: many `setState` calls in one tick post a single message that drains the whole batched queue, rather than one message per update.
+
+`MessageChannel` is available in every real browser (more universally than `requestIdleCallback` ever was) and in jsdom, so no polyfill is required; the `setTimeout(0)` branch is only a fallback for exotic environments without it. Because the reconciler no longer depends on `requestIdleCallback`, the old `requestIdleCallback`/`cancelIdleCallback` polyfill was removed from `src/index.ts`.
 
 <br>
 <hr>
@@ -384,7 +414,7 @@ This object is lightweight and immutable by convention — the reconciler reads 
 
 <h2 id="fiber-reconciler">Fiber Reconciler — <code>src/core/reconciler.ts</code></h2>
 
-The reconciler is the heart of ANUVerzum. It implements a fiber-based architecture inspired by React's reconciler, using `requestIdleCallback` to spread rendering work across multiple browser idle periods.
+The reconciler is the heart of ANUVerzum. It implements a fiber-based architecture inspired by React's reconciler, spreading rendering work across multiple [MessageChannel](#scheduler) macro-tasks so the browser stays responsive between slices.
 
 <h3 id="fiber-data-structure">The Fiber data structure</h3>
 
@@ -446,12 +476,12 @@ const updateQueue: Array<{
 }> = [];
 ```
 
-`Anu.render()` pushes a `HOST_ROOT` entry. `setState()` pushes a `CLASS_COMPONENT` entry. Work is not started immediately — a `requestIdleCallback(performWork)` call is made, and the reconciler processes the queue during the next idle period.
+`Anu.render()` pushes a `HOST_ROOT` entry. `setState()` pushes a `CLASS_COMPONENT` entry. Work is not started immediately — `scheduleWork()` posts a [MessageChannel](#scheduler) macro-task, and the reconciler processes the queue when that task runs.
 
 <h3 id="work-loop">The work loop</h3>
 
 ```
-requestIdleCallback(performWork)
+scheduleWork()  →  MessageChannel macro-task
     └── performWork(deadline)
             └── workLoop(deadline)
                     ├── resetNextUnitOfWork()   ← pulls from updateQueue
@@ -467,7 +497,7 @@ requestIdleCallback(performWork)
 2. If there is a `child`, return it (go deeper).
 3. Otherwise, call `completeWork(wipFiber)` and return `sibling` or walk up to the parent, completing each ancestor until a sibling is found.
 
-**`ENOUGH_TIME = 1`** is the minimum remaining time in milliseconds. If less than 1 ms remains in the current idle slice, the loop pauses and re-schedules via `requestIdleCallback` — allowing the browser to remain responsive.
+**`ENOUGH_TIME = 1`** is the minimum remaining time in milliseconds. If less than 1 ms remains in the current slice of the synthesized 5 ms [frame budget](#scheduler), the loop pauses and re-schedules via `scheduleWork()` — posting the next macro-task and allowing the browser to remain responsive.
 
 <h3 id="begin-work">Begin work phase</h3>
 
@@ -1491,45 +1521,34 @@ ATL uses plain Jest assertions; it adds no custom matchers. Every query comes in
 
 <h3 id="atl-sync-scheduler">The synchronous scheduler problem</h3>
 
-ANUVerzum's reconciler defers all work via `requestIdleCallback`. In a real browser this yields between frames. In Jest/jsdom there is no frame scheduler, so `requestIdleCallback` is undefined by default and asynchronous work would require explicit timer flushing in every test.
+ANUVerzum's reconciler defers all work to a [MessageChannel](#scheduler) macro-task. In a real browser this yields between slices. In Jest/jsdom that macro-task would still resolve asynchronously, so assertions that follow a `render`/`setState` in the same tick would require explicit flushing in every test.
 
-**Solution**: `src/testing/act.ts` installs a synchronous polyfill before any tests run:
+**Solution**: `src/testing/act.ts` swaps the reconciler's scheduler for a synchronous one before any tests run, through the `__testing` seam:
 
 ```typescript
-const FAKE_DEADLINE: IdleDeadline = { didTimeout: false, timeRemaining: () => 999 };
-
 export const installSyncScheduler = (): void => {
     if (_installed) {
         return;
     }
 
     _installed = true;
-    (window as any).requestIdleCallback = (cb: IdleRequestCallback): number => {
-        cb(FAKE_DEADLINE);
-
-        return 0;
-    };
-    (window as any).cancelIdleCallback = (): void => {};
+    __testing.installSyncScheduler();
 };
 ```
 
-Because `performWork` and `scheduleUpdate` always call `requestIdleCallback(performWork)`, replacing the scheduler makes every `Anu.render()` and `setState()` call execute synchronously in-call. The polyfill is installed once in `jest.setup.ts` via `setupFilesAfterEnv`, so it applies to every test file automatically.
-
-`(window as any)` is used instead of `(global as any)` because the library's `tsconfig.json` includes `"DOM"` in `lib` (which provides `window`), but not `"node"` (which would provide `global`).
+`__testing.installSyncScheduler()` points the reconciler's `scheduleWork` at `() => performWork(SYNC_DEADLINE)` (a deadline reporting `timeRemaining() => 999`), so every `Anu.render()` and `setState()` reconciles synchronously in-call instead of posting a macro-task. `uninstallSyncScheduler()` restores the production MessageChannel scheduler. The swap is installed once in `jest.setup.ts` via `setupFilesAfterEnv`, so it applies to every test file automatically — and because it drives the reconciler's own seam rather than overriding `window.requestIdleCallback`, no real macro-tasks leak between tests.
 
 **Safety net — `__testing.flushSync()`**: After every `act()` call, `flushEffects()` calls `__testing.flushSync()` from the reconciler to drain any remaining work:
 
 ```typescript
-export const flushSync = (): void => {
-    const syncDeadline: IdleDeadline = { didTimeout: false, timeRemaining: () => 999 };
-
+flushSync(): void {
     while (updateQueue.length > 0 || nextUnitOfWork != null) {
-        workLoop(syncDeadline);
+        workLoop(SYNC_DEADLINE);
     }
 
     nextUnitOfWork = null;
     pendingCommit = null;
-};
+}
 ```
 
 <h3 id="atl-testing-exports">The <code>__testing</code> module exports</h3>
@@ -1538,7 +1557,7 @@ Several modules maintain module-level state that must be reset between tests. Ra
 
 | Module | `__testing` methods | State reset |
 |--------|---------------------|-------------|
-| `src/core/reconciler.ts` | `flushSync()`, `resetGlobals()` | `updateQueue`, `componentLifecyclesQueue`, `nextUnitOfWork`, `pendingCommit` |
+| `src/core/reconciler.ts` | `flushSync()`, `installSyncScheduler()`, `uninstallSyncScheduler()`, `resetGlobals()` | `updateQueue`, `componentLifecyclesQueue`, `nextUnitOfWork`, `pendingCommit`, `scheduleWork` |
 | `src/core/components/History.ts` | `reset()` | `instances: Component[]` registry |
 | `src/core/components/Intl.ts` | `reset()` | `__messagesContext` module variable |
 | `src/core/components/AnulyticsProvider.ts` | `reset()` | `AnulyticsState.setAnulyticsInstanceExist(false)` |

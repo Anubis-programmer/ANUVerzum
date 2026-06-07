@@ -9,7 +9,7 @@
 
 A lightweight React-inspired UI library for building component-based web applications in JavaScript and TypeScript.
 
-- Fiber-based virtual DOM with time-sliced rendering (`requestIdleCallback`)
+- Fiber-based virtual DOM with time-sliced rendering (MessageChannel scheduler)
 - Class components with full lifecycle support and function components
 - JSX via a custom Babel preset — no separate TypeScript preset needed
 - Redux-compatible state management with thunk middleware and memoized selectors
