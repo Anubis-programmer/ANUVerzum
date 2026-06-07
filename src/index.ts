@@ -1,6 +1,6 @@
 import Utils from './misc/utils';
 import ServerAPI from './server-api/server-api';
-import { createElement, AnuElement, Props, Ref } from './core/elements';
+import { createElement, AnuElement, AnuNode, Props, Ref } from './core/elements';
 import { createRef, render, createPortal } from './core/reconciler';
 import store from './store/store';
 import { createContext } from './core/components/Context';
@@ -54,7 +54,7 @@ declare global {
         }
         interface Element extends AnuElement<any, any> {}
         interface ElementClass {
-            render(): AnuElement | AnuElement[] | string | number | boolean | null | undefined;
+            render(): AnuNode;
         }
         interface ElementAttributesProperty {
             props: Record<string, unknown>;
