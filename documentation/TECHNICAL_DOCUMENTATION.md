@@ -868,7 +868,13 @@ The pathname is split on `/` and the resulting segments are iterated in pairs. E
 Registers with the global instance list on mount and listens for `popstate` (back/forward browser navigation). On render, calls `matchPath` against `window.location.pathname`. If it matches, renders either `createElement(component, { match })` or `render({ match })`. Returns `null` if no match.
 
 **`HistoryLink`**
-Renders as an `<a>` tag with `href={to}`. Intercepts clicks via `onClick`, calls `event.preventDefault()`, and delegates to `historyPush` or `historyReplace`. Adds an `ariaLabel` of `historyLink[-ariaLabel]` for accessibility.
+Renders as an `<a>` tag with `href={to}`, mirroring React Router's `<Link>`. Adds an `ariaLabel` of `historyLink[-ariaLabel]` for accessibility, and strips the Link-only `replace` prop so it never reaches the DOM. Its click handling matches React Router:
+
+- It **composes** a consumer-supplied `onClick` rather than replacing it — the user's `onClick` runs first, and navigation only proceeds if the handler did not call `event.preventDefault()` (`!event.defaultPrevented`).
+- It only intercepts **plain left-clicks**, gated by `shouldProcessLinkClick(event, target)` (`event.button === 0`, no `meta`/`ctrl`/`shift`/`alt` modifier, and `target` unset or `_self`). For modifier-clicks, middle/right-clicks, or `target="_blank"`, it leaves the browser's native behavior intact (open-in-new-tab, etc.).
+- When it does process the click, it calls `event.preventDefault()` and navigates via `goTo(to, replace)` → `historyPush`/`historyReplace`.
+
+For a non-anchor / custom link element, consumers build their own and call the exported `Anu.History.goTo()` from their handler (ANUVerzum exposes the imperative function rather than a React-Router-style hook).
 
 **`HistoryRedirect`**
 Renders nothing (`return null`), but fires `historyPush` or `historyReplace` in `componentDidMount`. This makes it a declarative redirect — rendering it causes navigation.

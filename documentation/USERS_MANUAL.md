@@ -1452,6 +1452,9 @@ class App extends Anu.Component<{}, { showModal: boolean }> {
 
 - You can use <code>&lt;Anu.History.Link /&gt;</code> elements those work just like "normal" links but without the reload of the page:
     - The <code>&lt;Anu.History.Link /&gt;</code> element has a <code>to</code> prop. When clicking on it, its <code>to</code> prop will be matched against the <code>path</code> prop of <code>&lt;Anu.History.Route /&gt;</code>.
+    - It renders a real <code>&lt;a href&gt;</code> and behaves like React Router's <code>&lt;Link&gt;</code>: it only hijacks <strong>plain left-clicks</strong>. Modifier-clicks (⌘/Ctrl/Shift/Alt), middle-clicks, and <code>target="_blank"</code> fall back to the browser's native behavior (e.g. open-in-new-tab).
+    - Any <code>onClick</code> you pass is preserved — it runs first, and if it calls <code>event.preventDefault()</code> the client-side navigation is skipped. Pass <code>replace</code> to navigate via <code>replaceState</code> instead of <code>pushState</code>.
+    - To make a custom (non-anchor) link, call <code>Anu.History.goTo(path, replace?)</code> from your own handler.
 - Use the <code>&lt;Anu.History.Route /&gt;</code> component that takes a <code>path</code> argument and if the link you clicked matches the <code>path</code>, it will render the attached component:
     - The <code>&lt;Anu.History.Route /&gt;</code> component has a <code>path</code> prop to match against the URL. If it has an <code>exact</code> prop, it doesn't allow partial matching.
     - The <code>&lt;Anu.History.Route /&gt;</code> can also have a <code>component</code> (must be a component) or a <code>render</code> prop (it must be a function that returns a component).
