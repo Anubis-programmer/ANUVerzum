@@ -4,7 +4,9 @@ export type AnuChild = AnuElement | string | number | boolean | null | undefined
 
 export type AnuNode = AnuChild | AnuNode[];
 
-export type AnuCSSProperties = Partial<Record<keyof CSSStyleDeclaration, string | number>>;
+export type AnuCSSProperties = Partial<Record<keyof CSSStyleDeclaration, string | number>> & {
+    [customProperty: `--${string}`]: string | number;
+};
 
 export type Props = {
     children?: AnuNode;

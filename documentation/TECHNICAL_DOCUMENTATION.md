@@ -348,8 +348,11 @@ export type AnuChild = AnuElement | string | number | boolean | null | undefined
 // Recursive tree — allows arrays and nested arrays (e.g. from .map())
 export type AnuNode = AnuChild | AnuNode[];
 
-// Style props accept both strings and unitless numbers (e.g. zIndex: 10)
-export type AnuCSSProperties = Partial<Record<keyof CSSStyleDeclaration, string | number>>;
+// Style props accept both strings and unitless numbers (e.g. zIndex: 10),
+// plus arbitrary CSS custom properties keyed by `--*`
+export type AnuCSSProperties = Partial<Record<keyof CSSStyleDeclaration, string | number>> & {
+    [customProperty: `--${string}`]: string | number;
+};
 
 // Base props shape: open index signature, optional children and style
 export type Props = {
@@ -645,12 +648,12 @@ This function applies the minimal diff between `prevProps` and `nextProps` to th
 
 2. **Remove stale attributes.** Attributes present in `prevProps` but absent from `nextProps` are removed. `className` maps to the `class` attribute; `htmlFor` maps to `for`.
 
-3. **Set new / changed attributes.** For SVG elements, all attributes are set via `setAttribute()`. For HTML elements:
-   - any prop whose name contains a hyphen (e.g. `aria-*`, `data-*`) or equals `role` is set via `setAttribute()` — hyphenated names are never valid IDL properties, so property assignment would silently create a JS object property rather than an HTML attribute;
+3. **Set new / changed attributes.** A new/changed prop whose value is `undefined` or `null` is treated as a **removal** — the attribute is taken off the node (`removeAttribute`, with `className`→`class`/`htmlFor`→`for` remaps) rather than coerced to the string `"undefined"`. This mirrors the initial-render behaviour, where an `undefined` prop is filtered out by the `prev[key] !== next[key]` diff and never written, so `attr={cond ? value : undefined}` cleanly drops the attribute when the condition flips. Otherwise, for SVG elements, all attributes are set via `setAttribute()`. For HTML elements:
+   - any prop whose name contains a hyphen (e.g. `aria-*`, `data-*`), equals `role`, or is in `ATTRIBUTE_ONLY_PROPS` (`loading`, `decoding`, `fetchpriority`) is set via `setAttribute()` — hyphenated names are never valid IDL properties, so property assignment would silently create a JS object property rather than an HTML attribute, and the `ATTRIBUTE_ONLY_PROPS` reflected attributes are not implemented as IDL properties under jsdom, so `el.loading = 'lazy'` would silently create a dead JS property instead of an attribute;
    - **camelCase HTML attribute names** (e.g. `inputMode`, `autoComplete`, `tabIndex`, `spellCheck`) are likewise routed through `setAttribute()` using the lowercased name — or a hyphenated form from a small exception map (`HTML_ATTRIBUTE_NAME_MAP`: `httpEquiv` → `http-equiv`, `acceptCharset` → `accept-charset`). This is necessary because their IDL property either differs from the prop name (the DOM property behind `autoComplete` is `autocomplete`, so `el.autoComplete = ...` silently creates a dead JS property) or is not reflected by jsdom (`inputMode`). The branch is guarded to element nodes (`dom.nodeType === 1`) so `Text` nodes — whose only prop is the camelCase `nodeValue` — still use property assignment;
    - `className` and `htmlFor` keep their working IDL aliases (`el.className`, `el.htmlFor`), and all remaining (already-lowercase) props are set directly (e.g. `el.value = ...`) for performance.
 
-4. **Diff inline styles.** Changed `style` keys are applied via `style.setProperty(key, value)`. Keys present in `prevStyle` but absent from `nextStyle` are cleared by setting them to `''`.
+4. **Diff inline styles.** Changed `style` keys are applied via `style.setProperty(cssName, value)`, where `cssName` is the **kebab-cased** form of the JS key (`objectFit` → `object-fit`, `backgroundColor` → `background-color`, `WebkitTransform` → `-webkit-transform`) — `CSSStyleDeclaration.setProperty` only accepts CSS-valid property names, so a camelCase key like `objectFit` would otherwise be silently discarded. Custom-property keys (`--accent`) are passed through verbatim. Keys present in `prevStyle` but absent from `nextStyle` are cleared by setting them to `''`.
 
 5. **Add new event listeners.** New or changed `on*` props are registered via `addEventListener`. Event names are derived by lower-casing the prop name and stripping the `on` prefix (e.g. `onClick` → `click`).
 
