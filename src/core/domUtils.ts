@@ -5,6 +5,11 @@ const HTML_ATTRIBUTE_NAME_MAP: Record<string, string> = {
     httpEquiv: 'http-equiv'
 };
 
+const ATTRIBUTE_ONLY_PROPS: ReadonlySet<string> = new Set(['loading', 'decoding', 'fetchpriority']);
+
+const toCssPropertyName = (key: string): string =>
+    key.startsWith('--') ? key : key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+
 export const getHTMLValidSvgTag = (fiberType: string): string => {
     switch (fiberType) {
         case 'anchor':
@@ -134,22 +139,29 @@ export const updateDomProperties = (
         .filter(isNew(prevProps, nextProps))
         .forEach((name) => {
             const el = dom as any;
-            
+            const value = nextProps[name];
+
+            if (value === undefined || value === null) {
+                const attrName = name === 'className' ? 'class' : name === 'htmlFor' ? 'for' : name;
+                (dom as HTMLElement).removeAttribute(attrName);
+                return;
+            }
+
             if (isSvgElement) {
                 if (name === 'className') {
-                    (dom as SVGElement).setAttribute('class', nextProps[name]);
+                    (dom as SVGElement).setAttribute('class', value);
                 } else {
-                    (dom as SVGElement).setAttribute(name, nextProps[name]);
+                    (dom as SVGElement).setAttribute(name, value);
                 }
             } else {
                 if (name === 'className' || name === 'htmlFor') {
-                    el[name] = nextProps[name];
-                } else if (name.includes('-') || name === 'role') {
-                    (dom as HTMLElement).setAttribute(name, nextProps[name]);
+                    el[name] = value;
+                } else if (name.includes('-') || name === 'role' || ATTRIBUTE_ONLY_PROPS.has(name)) {
+                    (dom as HTMLElement).setAttribute(name, value);
                 } else if (dom.nodeType === 1 && /[A-Z]/.test(name)) {
-                    (dom as HTMLElement).setAttribute(HTML_ATTRIBUTE_NAME_MAP[name] ?? name.toLowerCase(), nextProps[name]);
+                    (dom as HTMLElement).setAttribute(HTML_ATTRIBUTE_NAME_MAP[name] ?? name.toLowerCase(), value);
                 } else {
-                    el[name] = nextProps[name];
+                    el[name] = value;
                 }
             }
         });
@@ -162,13 +174,13 @@ export const updateDomProperties = (
     Object.keys(nextStyle)
         .filter((key) => prevStyle[key] !== nextStyle[key])
         .forEach((key) => {
-            (dom as HTMLElement).style.setProperty(key, nextStyle[key]);
+            (dom as HTMLElement).style.setProperty(toCssPropertyName(key), String(nextStyle[key]));
         });
 
     Object.keys(prevStyle)
         .filter((key) => !(key in nextStyle))
         .forEach((key) => {
-            (dom as HTMLElement).style.setProperty(key, '');
+            (dom as HTMLElement).style.setProperty(toCssPropertyName(key), '');
         });
 
     Object.keys(nextProps)

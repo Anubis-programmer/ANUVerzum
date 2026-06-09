@@ -177,7 +177,7 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 | `AnuElement` | The virtual-DOM element descriptor (return type of `createElement`) |
 | `AnuChild` | Union of all valid JSX child types: `AnuElement \| string \| number \| boolean \| null \| undefined` |
 | `AnuNode` | Recursive child tree type — `AnuChild \| AnuNode[]`; accepts single children, arrays, and nested arrays (e.g. from `.map()`). Can also be imported directly to type a `children` field in a plain `type`: `type MyProps = { children?: AnuNode; }` |
-| `AnuCSSProperties` | Style object type used by `Props.style` — `Partial<Record<keyof CSSStyleDeclaration, string \| number>>` |
+| `AnuCSSProperties` | Style object type used by `Props.style` — `Partial<Record<keyof CSSStyleDeclaration, string \| number>>` plus a `` [`--${string}`] `` index for CSS custom properties. camelCase keys are converted to kebab-case CSS names; `--custom-property` keys are kept verbatim |
 | `Props` | Base props type providing `children?: AnuNode`, `style?: AnuCSSProperties`, and an open index signature. Extend it when a component uses `children` or needs the flexible index signature; for simple prop shapes, a plain `type` alias works equally well |
 | `Ref<T>` | Reference object created by `Anu.createRef<T>()` |
 | `Component<P, S>` | Abstract base class for class components |
