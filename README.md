@@ -181,8 +181,10 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 | `Props` | Base props type providing `children?: AnuNode`, `style?: AnuCSSProperties`, and an open index signature. Extend it when a component uses `children` or needs the flexible index signature; for simple prop shapes, a plain `type` alias works equally well |
 | `Ref<T>` | Reference object created by `Anu.createRef<T>()` |
 | `Component<P, S>` | Abstract base class for class components |
+| `PureComponent<P, S>` | `Component` subclass with a built-in shallow-compare `shouldComponentUpdate` |
 | `FunctionComponent<P>` | Function component signature |
 | `ElementType` | String tag, function component, or class component constructor |
+| `LazyOptions` | Options for `Anu.lazy` — `{ fallback?: AnuElement \| null; onError?: (error: unknown) => void }` |
 | `ContextValue<T>` | Context value passed to a `Consumer` render-prop: `{ value: Partial<T>; defaultContext: { value: T } }` |
 | `ConsumerProps<T>` | Props for a typed context `Consumer` — `children` is the render-prop `(ctx: ContextValue<T>) => AnuElement \| null` |
 | `Store<S, A>` | Store instance returned by `Anu.store.createStore` |

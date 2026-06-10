@@ -47,6 +47,9 @@
             <a href="#wrapper-components-and-sub-components">Wrapper components and sub-components</a>
         </li>
         <li>
+            <a href="#cloning-and-children">Cloning elements and inspecting children</a>
+        </li>
+        <li>
             <a href="#array-rendering">Array rendering</a>
         </li>
         <li>
@@ -57,6 +60,12 @@
         </li>
         <li>
             <a href="#refs">The refs</a>
+        </li>
+        <li>
+            <a href="#render-bailout">Optimizing re-renders - shouldComponentUpdate, PureComponent and memo</a>
+        </li>
+        <li>
+            <a href="#lazy-components">Lazy-loading components - Anu.lazy()</a>
         </li>
         <li>
             <a href="#rendering-application">Rendering application</a>
@@ -190,6 +199,9 @@
 <ul>
     <li>
         <a href="#deep-equal">Deep equality check for objects using Anu.Utils.deepEqual()</a>
+    </li>
+    <li>
+        <a href="#shallow-equal">Shallow equality check for objects using Anu.Utils.shallowEqual()</a>
     </li>
 </ul>
 
@@ -442,8 +454,10 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 | `Props` | Base props type providing `children?: AnuNode`, `style?: AnuCSSProperties`, and an open index signature. Extend it when a component uses `children` or needs the flexible index signature; for simple prop shapes without `children`, a plain `type` alias works equally well |
 | `Ref<T>` | Reference object created by `Anu.createRef<T>()` |
 | `Component<P, S>` | Abstract base class for class components |
+| `PureComponent<P, S>` | `Component` subclass that implements `shouldComponentUpdate` as a shallow compare of props and state |
 | `FunctionComponent<P>` | Function component signature |
 | `ElementType` | String tag, function component, or class component constructor |
+| `LazyOptions` | Options object for `Anu.lazy` — `{ fallback?: AnuElement \| null; onError?: (error: unknown) => void }` |
 | `ContextValue<T>` | Context value passed to a `Consumer` render-prop: `{ value: Partial<T>; defaultContext: { value: T } }` |
 | `ConsumerProps<T>` | Props for a typed context `Consumer` — `children` is the render-prop `(ctx: ContextValue<T>) => AnuElement \| null` |
 | `Store<S, A>` | Store instance returned by `Anu.store.createStore` |
@@ -673,6 +687,55 @@ It takes <strong>ONE</strong> argument which can either be:
             </ElemWrapper.Elem>
         </ElemWrapper>
         ```
+
+<h3 id="cloning-and-children">Cloning elements and inspecting children</h3>
+
+- A wrapper often needs to <i>inject</i> props (an <code>id</code>, an <code>aria-*</code> attribute, a <code>className</code>, an event handler) into the children it received without forcing the caller to wire them up. Mutating a received <code>child.props</code> directly is unsafe — it is a shared reference and fights the reconciler. Use <code>Anu.cloneElement()</code> to derive a <i>new</i> element with merged props instead:
+
+    ```typescript
+    // Anu.cloneElement(element, config?, ...children)
+    const described = Anu.cloneElement(child, { 'aria-describedby': helperId });
+    ```
+
+    - Config props win over the element's original props; props omitted from the config are kept from the original.
+    - The original children are preserved unless you pass new ones as the trailing arguments.
+    - <code>key</code> and <code>ref</code> are carried over from the original element unless the config overrides them.
+
+- To reach the child you want to clone — and to skip text/number children safely — use <code>Anu.Children</code> and <code>Anu.isValidElement()</code>. <code>Anu.Children</code> normalises <code>children</code> the same way the renderer does (it drops <code>null</code>, <code>undefined</code>, <code>false</code> and <code>true</code>, and flattens nested arrays):
+
+    | Helper | Description |
+    |--------|-------------|
+    | `Anu.Children.toArray(children)` | The normalised children as a flat array |
+    | `Anu.Children.count(children)` | The number of normalised children |
+    | `Anu.Children.map(children, fn)` | Maps over the normalised children, returning an array |
+    | `Anu.Children.forEach(children, fn)` | Iterates the normalised children |
+    | `Anu.Children.only(children)` | Returns the single element child, or throws if there is not exactly one element |
+    | `Anu.isValidElement(value)` | Type guard — `true` only for an `AnuElement` |
+
+    ```typescript
+    interface FieldProps extends Props {
+        label: string;
+        helperText?: string;
+    }
+
+    const Field = ({ label, helperText, children }: FieldProps): AnuElement => {
+        const helperId = 'field-helper';
+        const control = Anu.Children.only(children);
+
+        return (
+            <div>
+                <label>{label}</label>
+                {Anu.cloneElement(control, helperText ? { 'aria-describedby': helperId } : {})}
+                {helperText && <span id={helperId}>{helperText}</span>}
+            </div>
+        );
+    };
+
+    // Usage — the <input/> receives aria-describedby without the caller wiring it:
+    <Field label="Volume" helperText="0–100">
+        <input type="range" />
+    </Field>
+    ```
 
 <h3 id="array-rendering">Rendering array</h3>
 
@@ -1362,6 +1425,66 @@ when you want to imperatively modify a child outside of the typical dataflow.
     }
     ```
     
+<h3 id="render-bailout">Optimizing re-renders — <code>shouldComponentUpdate</code>, <code>PureComponent</code> and <code>memo</code></h3>
+
+- By default, when a component re-renders, its descendant components re-render too, because each render allocates fresh props objects for its children. For large lists, grids or trees this redundant work adds up. Three opt-in tools let a component skip a re-render when its inputs are unchanged. They are purely additive — nothing changes for components that do not opt in.
+
+- <strong><code>shouldComponentUpdate(nextProps, nextState)</code></strong> — define it on a class component to veto an update. Returning <code>false</code> commits the new props and state but skips the component's <code>render()</code> and preserves its existing subtree. <code>componentDidUpdate</code> does not fire on a vetoed update. It is never consulted on the initial mount.
+
+    ```typescript
+    class Row extends Anu.Component<{ value: string }> {
+        shouldComponentUpdate(nextProps: { value: string }): boolean {
+            return nextProps.value !== this.props.value;
+        }
+
+        render(): AnuElement {
+            return <li>{this.props.value}</li>;
+        }
+    }
+    ```
+
+- <strong><code>Anu.PureComponent</code></strong> — a <code>Component</code> subclass that implements <code>shouldComponentUpdate</code> for you as a <i>shallow</i> compare of props and state (own enumerable keys, compared with <code>Object.is</code>). Extend it instead of writing the comparison by hand:
+
+    ```typescript
+    class Row extends Anu.PureComponent<{ value: string }> {
+        render(): AnuElement {
+            return <li>{this.props.value}</li>;
+        }
+    }
+    ```
+
+- <strong><code>Anu.memo(Component, areEqual?)</code></strong> — the function-component equivalent. It wraps a function component and bails out of re-rendering while the comparator reports the props are equal. The default comparator is a shallow compare; pass your own <code>(prevProps, nextProps) => boolean</code> to customise it:
+
+    ```typescript
+    const Row = Anu.memo(({ value }: { value: string }) => <li>{value}</li>);
+
+    // Custom comparator — only re-render when `id` changes:
+    const Avatar = Anu.memo(
+        ({ id, url }: { id: string; url: string }) => <img src={url} />,
+        (prev, next) => prev.id === next.id
+    );
+    ```
+
+    - Because the shallow compare uses own enumerable keys, <code>key</code> and <code>ref</code> never pollute the comparison — they are stripped from props by <code>createElement</code>.
+
+<h3 id="lazy-components">Lazy-loading components — <code>Anu.lazy()</code></h3>
+
+- <code>Anu.lazy()</code> defers loading a heavy component behind a dynamic <code>import()</code> so it ships in its own bundle chunk instead of the initial bundle. It renders an optional fallback until the imported module resolves, then swaps the real component in and forwards the current props to it.
+
+    ```typescript
+    // Anu.lazy(factory, options?)
+    const Charts = Anu.lazy(() => import('./Charts'), { fallback: <Spinner /> });
+
+    // Renders <Spinner/> until the ./Charts chunk loads, then <Charts/>:
+    <Charts data={data} />
+    ```
+
+    - <code>factory</code> returns a promise resolving either to a module with a <code>default</code> export (the usual <code>import()</code> shape) or to the component itself.
+    - <code>options.fallback</code> is rendered while the module is loading; when omitted, nothing is rendered until it resolves.
+    - <code>options.onError</code> is called if the factory rejects (e.g. a chunk fails to load).
+
+- This is the minimal, code-splitting form: each <code>lazy</code> component renders its own fallback. There is no shared <code>&lt;Suspense&gt;</code> boundary to coordinate one fallback across a subtree, and no SSR/hydration support.
+
 <h3 id="rendering-application">Rendering your application</h3>
 
 - Select an existing HTML element (typically having <code>id</code> as "root" or "app") and use the <code>Anu.render()</code> method which takes two arguments:
@@ -2555,6 +2678,18 @@ Other typical use-case is when you have a feature but you don't want to show it 
         }
     };
     const answer: boolean = Anu.Utils.deepEqual(obj1, obj2); // true
+    ```
+
+<h2 id="shallow-equal">Shallow equality check for objects using <code>Anu.Utils.shallowEqual()</code></h2>
+
+- The <code>Anu.Utils.shallowEqual()</code> is a one-level equality check (the same comparison <code>Anu.PureComponent</code> and <code>Anu.memo()</code> use internally). It returns <code>true</code> when both values are the same reference, or when they have the same own enumerable keys and every value matches by <code>Object.is</code>. Unlike <code>deepEqual</code>, it does <strong>not</strong> recurse into nested objects — two equal-but-distinct nested objects compare as different.
+
+    ```typescript
+    Anu.Utils.shallowEqual({ a: 1, b: 'x' }, { a: 1, b: 'x' }); // true
+
+    const nested = { value: 1 };
+    Anu.Utils.shallowEqual({ data: nested }, { data: nested });        // true (same reference)
+    Anu.Utils.shallowEqual({ data: { value: 1 } }, { data: { value: 1 } }); // false (different references)
     ```
 
 <br>

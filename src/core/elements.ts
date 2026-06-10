@@ -1,3 +1,5 @@
+import { isNotNullish } from '../misc/utils';
+
 export const TEXT_ELEMENT = 'TEXT_ELEMENT' as const;
 
 export type AnuChild = AnuElement | string | number | boolean | null | undefined;
@@ -39,8 +41,8 @@ const createTextElement = (value: string | number | boolean): AnuElement => ({
 });
 
 export const createElement = (type: ElementType, config: Props | null, ...args: any[]): AnuElement => {
-    const key = config != null && config.key != null ? String(config.key) : null;
-    const ref = config != null && config.ref != null ? config.ref : null;
+    const key = isNotNullish(config) && isNotNullish(config.key) ? String(config.key) : null;
+    const ref = isNotNullish(config) && isNotNullish(config.ref) ? config.ref : null;
     const props: Props = Object.assign({}, config);
     delete props.key;
     delete props.ref;
@@ -59,7 +61,7 @@ const flattenChildren = (children: AnuNode, acc: AnuChild[] = []): AnuChild[] =>
         for (const child of children) {
             flattenChildren(child, acc);
         }
-    } else if (children !== null && children !== undefined && typeof children !== 'boolean') {
+    } else if (isNotNullish(children) && typeof children !== 'boolean') {
         acc.push(children);
     }
 
@@ -76,3 +78,42 @@ export const normalizeChildren = (children: AnuNode): AnuElement[] =>
               ? (c as AnuElement)
               : createTextElement(c as string | number)
     );
+
+export const cloneElement = (element: AnuElement, config?: Props | null, ...args: any[]): AnuElement => {
+    const props: Props = Object.assign({}, element.props, config || {});
+
+    if (args.length === 1) {
+        props.children = args[0];
+    } else if (args.length > 1) {
+        props.children = args;
+    }
+
+    const key = isNotNullish(config) && isNotNullish(config.key) ? String(config.key) : element.key;
+    const ref = isNotNullish(config) && isNotNullish(config.ref) ? config.ref : element.ref;
+    delete props.key;
+    delete props.ref;
+
+    return { type: element.type, props, key, ref };
+};
+
+export const isValidElement = (value: unknown): value is AnuElement =>
+    typeof value === 'object' && value !== null && 'type' in value && 'props' in value;
+
+export const Children = {
+    toArray: (children: AnuNode): AnuChild[] => toChildArray(children),
+    count: (children: AnuNode): number => toChildArray(children).length,
+    only: (children: AnuNode): AnuElement => {
+        const childArray = toChildArray(children);
+        const onlyChild = childArray[0];
+
+        if (childArray.length !== 1 || !isValidElement(onlyChild)) {
+            throw new Error('Children.only expected to receive a single element child.');
+        }
+
+        return onlyChild;
+    },
+    map: <T>(children: AnuNode, fn: (child: AnuChild, index: number) => T): T[] => toChildArray(children).map(fn),
+    forEach: (children: AnuNode, fn: (child: AnuChild, index: number) => void): void => {
+        toChildArray(children).forEach(fn);
+    }
+};

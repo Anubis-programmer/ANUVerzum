@@ -1,10 +1,13 @@
 import Utils from './misc/utils';
 import ServerAPI from './server-api/server-api';
-import { createElement, AnuElement, AnuNode, Props, Ref } from './core/elements';
+import { createElement, cloneElement, isValidElement, Children, AnuElement, AnuNode, Props, Ref } from './core/elements';
 import { createRef, render, createPortal } from './core/reconciler';
+import { lazy } from './core/lazy';
+import { memo } from './core/memo';
 import store from './store/store';
 import { createContext } from './core/components/Context';
 import { Component } from './core/components/Component';
+import { PureComponent } from './core/components/PureComponent';
 import { Fragment } from './core/components/Fragment';
 import Connector from './core/components/Connector';
 import Feature from './core/components/Feature';
@@ -19,10 +22,16 @@ const Anu = {
     },
     createContext,
     createElement,
+    cloneElement,
+    isValidElement,
+    Children,
     createPortal,
     createRef,
     Component,
+    PureComponent,
     Fragment,
+    lazy,
+    memo,
     render,
     Feature,
     History: {
@@ -40,7 +49,8 @@ export type { AnuElement, AnuChild, AnuNode, AnuCSSProperties, Props, Ref, Funct
 export type { ContextValue, ConsumerProps } from './core/components/Context';
 export type { Action, ThunkAction, Dispatch, Reducer, MiddlewareAPI, Middleware, Store, SelectorFn, CreateSelectorFn } from './store/store';
 export type { ApiSuccessResponse, ApiErrorResponse } from './server-api/server-api';
-export { Component, Fragment, createElement, createRef, createPortal, createContext, render, goTo };
+export { Component, PureComponent, Fragment, createElement, cloneElement, isValidElement, Children, createRef, createPortal, createContext, lazy, memo, render, goTo };
+export type { LazyOptions } from './core/lazy';
 export { AnulyticsProvider, trackEvent };
 export { store, ServerAPI, Utils, Connector, Feature, History, Intl };
 export type { AbbreviateNumberOptions, FormatNumberOptions, ParseNumberOptions } from './core/components/Intl';
