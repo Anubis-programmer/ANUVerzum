@@ -1,5 +1,6 @@
 import { createDomElement, updateDomProperties, SVG_ELEMENT_LIST } from './domUtils';
 import { AnuElement, AnuNode, ElementType, Props, Ref, PORTAL_ELEMENT, normalizeChildren } from './elements';
+import { isNotNullish } from '../misc/utils';
 
 const HOST_COMPONENT = 'host';
 const CLASS_COMPONENT = 'class';
@@ -220,6 +221,14 @@ const updateFunctionComponent = (wipFiber: Fiber): void => {
         cloneChildFibers(wipFiber);
 
         return;
+    } else if (
+        (wipFiber.type as any).__isMemo &&
+        !wipFiber.partialState &&
+        (wipFiber.type as any).__areEqual(instance.props, wipFiber.props)
+    ) {
+        cloneChildFibers(wipFiber);
+
+        return;
     }
 
     instance.props = wipFiber.props;
@@ -238,6 +247,7 @@ const createInstance = (fiber: Fiber): any => {
 
 const updateClassComponent = (wipFiber: Fiber): void => {
     let instance = wipFiber.stateNode || null;
+    const isInitialMount = instance === null;
 
     if (instance === null) {
         const stateNode = createInstance(wipFiber);
@@ -267,9 +277,27 @@ const updateClassComponent = (wipFiber: Fiber): void => {
         ? wipFiber.partialStateCallback(instance.state, wipFiber.props)
         : wipFiber.partialState;
     const nextState = Object.assign({}, instance.state, statePatch);
+    const nextProps = wipFiber.props;
+
+    if (
+        !isInitialMount &&
+        typeof instance.shouldComponentUpdate === 'function' &&
+        instance.shouldComponentUpdate(nextProps, nextState) === false
+    ) {
+        wipFiber.prevState = { ...instance.state };
+        instance.props = nextProps;
+        instance.state = nextState;
+        wipFiber.partialState = undefined;
+        delete wipFiber.partialStateCallback;
+        wipFiber.effectTag = null;
+        wipFiber.stateNode.__fiber = wipFiber;
+        cloneChildFibers(wipFiber);
+
+        return;
+    }
 
     wipFiber.prevState = { ...instance.state };
-    instance.props = wipFiber.props;
+    instance.props = nextProps;
     instance.state = nextState;
     wipFiber.partialState = undefined;
     delete wipFiber.partialStateCallback;
@@ -459,7 +487,7 @@ const completeWork = (fiber: Fiber): void => {
 
     if (fiber.parent) {
         const childEffects = fiber.effects || [];
-        const thisEffect = fiber.effectTag != null ? [fiber] : [];
+        const thisEffect = isNotNullish(fiber.effectTag) ? [fiber] : [];
         const parentEffects = fiber.parent.effects || [];
         fiber.parent.effects = parentEffects.concat(childEffects, thisEffect);
     } else {
@@ -694,7 +722,7 @@ export const __testing = {
             return;
         }
 
-        while (updateQueue.length > 0 || nextUnitOfWork != null) {
+        while (updateQueue.length > 0 || isNotNullish(nextUnitOfWork)) {
             workLoop(SYNC_DEADLINE);
         }
 

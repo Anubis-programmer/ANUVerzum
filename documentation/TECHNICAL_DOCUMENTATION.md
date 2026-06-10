@@ -142,8 +142,11 @@ src/
 │   ├── elements.ts                  ← Virtual DOM types and createElement()
 │   ├── reconciler.ts                ← Fiber engine, render(), scheduleUpdate()
 │   ├── domUtils.ts                  ← Real DOM creation and property diffing
+│   ├── lazy.ts                      ← lazy() async component loader (code-splitting)
+│   ├── memo.ts                      ← memo() function-component render bail-out
 │   └── components/
 │       ├── Component.ts             ← Abstract base class for class components
+│       ├── PureComponent.ts         ← Component subclass with shallow-compare shouldComponentUpdate
 │       ├── Fragment.ts              ← Wrapper-free child rendering
 │       ├── Context.ts               ← createContext() factory
 │       ├── History.ts               ← Client-side routing
@@ -156,7 +159,7 @@ src/
 ├── server-api/
 │   └── server-api.ts                ← XHR-based HTTP client
 ├── misc/
-│   └── utils.ts                     ← deepEqual utility
+│   └── utils.ts                     ← deepEqual, shallowEqual, isNotNullish utilities
 └── testing/
     ├── index.ts                     ← Public barrel export (anu-verzum/testing)
     ├── types.ts                     ← All TypeScript types for ATL
@@ -417,6 +420,14 @@ Normalization is deferred to consumption time, in two helpers exported from `ele
 - **`normalizeChildren(children)`** — used by the reconciler's `reconcileChildrenArray`. It recursively flattens nested arrays, drops `null`/`undefined`/booleans (`false` *and* `true`), wraps plain `string`/`number` values in a `TEXT_ELEMENT` node (`{ type: TEXT_ELEMENT, props: { nodeValue: String(value) }, key: null, ref: null }`), wraps bare function children via `createElement(fn, fn.props || {})`, and passes existing `AnuElement` objects through unchanged. This is why conditional rendering still works (`{cond && <El/>}` renders nothing for `false` *or* `undefined`), `0` renders as `"0"`, and `''` produces an empty text node.
 - **`toChildArray(children)`** — the same flatten-and-filter pass *without* the `TEXT_ELEMENT`/function wrapping. Components that introspect their children (`Context` Provider/Consumer, `Connector`/`Anulytics` `Provider`, `Fragment`, `Feature`'s `resolveDefault`) call this to coerce the raw `props.children` (which may be a single value, an array, or `undefined`) into a filtered array while still exposing the raw values — e.g. the `Context` Consumer reads its render-prop function directly as `children[0]`. None of these wrapper components enforce a child *count* any more: `Context`/`Connector`/`Anulytics` `Provider` and `Fragment` all render whatever children they receive (zero, one, or many — React parity); the `Context` Consumer is the only one with a child constraint, and it validates that the single render-prop is a *function*, not the count.
 
+<h4>Element introspection toolkit — <code>cloneElement</code>, <code>isValidElement</code>, <code>Children</code></h4>
+
+Three dependency-free helpers in `elements.ts` give consumers React-parity element introspection. They are exported from the barrel and hung on the `Anu` default object; none of them require a reconciler change.
+
+- **`cloneElement(element, config?, ...children)`** — derives a *new* `AnuElement` from an existing one. It builds `props` via `Object.assign({}, element.props, config || {})` (config wins), so the original element is never mutated. New trailing arguments replace `props.children`; with none passed, the original children are kept. `key`/`ref` are read with the same `isNotNullish(config) && isNotNullish(config.key)` guard `createElement` uses — taken from `config` when present, otherwise carried over from the source element — then deleted from `props`. Because the result is an ordinary descriptor, it flows through `normalizeChildren` → `reconcileChildrenArray` unchanged and an injected `ref` attaches via the existing PLACEMENT/UPDATE effect path. This is the primitive behind props/aria injection into composed children.
+- **`isValidElement(value)`** — a type guard (`value is AnuElement`) that is `true` only for a non-null object carrying both a `type` and a `props` key. Used to skip text/number children safely before cloning.
+- **`Children`** — thin wrappers over `toChildArray` so consumers get the same flatten-and-filter normalization the renderer uses: `toArray`, `count`, `map`, `forEach`, and `only` (which throws unless there is exactly one child and `isValidElement` accepts it).
+
 <br>
 <hr>
 
@@ -518,12 +529,13 @@ Sets `wipFiber.stateNode = wipFiber.props.container` (the target DOM node), then
 Creates the real DOM node on first visit (`wipFiber.stateNode = createDomElement(wipFiber)`), then calls `reconcileChildrenArray` with `wipFiber.props.children`.
 
 **`updateFunctionComponent(wipFiber)`**
-Creates a lightweight wrapper instance `{ props, render: type }` on first visit. On subsequent visits, performs an **early bailout** if props reference has not changed and no `partialState` is pending — the child fibers are cloned from the previous tree without re-running the function. Otherwise, calls `instance.render(wipFiber.props)` and reconciles the result.
+Creates a lightweight wrapper instance `{ props, render: type }` on first visit. On subsequent visits, performs an **early bailout** if props reference has not changed and no `partialState` is pending — the child fibers are cloned from the previous tree without re-running the function. A second bailout serves `memo`-wrapped components: when `wipFiber.type.__isMemo` is set and the memo comparator `wipFiber.type.__areEqual(instance.props, wipFiber.props)` returns `true`, the function is likewise skipped via `cloneChildFibers`. (A bailed-out function fiber may keep its `UPDATE` effect tag, but `commitWork` has no `UPDATE` branch for function fibers, so it is a no-op.) Otherwise, calls `instance.render(wipFiber.props)` and reconciles the result.
 
 **`updateClassComponent(wipFiber)`**
 - **First visit:** instantiates the class via `new type(props, context)`, binds lifecycle methods (`setState`, `componentDidMount`, `componentDidUpdate`, `componentWillUnmount`), and sets `instance.__fiber = fiber`.
 - **Subsequent visits:** performs an **early bailout** if `wipFiber.props === instance.props` and no `partialState` or `partialStateCallback` is pending (clones children without re-rendering). Because `instance.props` is assigned directly from `wipFiber.props` (same reference, matching the function component pattern), the reference check fires correctly when a parent bails out via `cloneChildFibers` and the child's fiber props are unchanged. The bailout still records `wipFiber.prevState = { ...instance.state }` before cloning: a bailed-out fiber retains its `UPDATE` effect tag (set when its parent reconciled it), so when a **descendant** `setState` re-renders the tree from the root, this ancestor's `componentDidUpdate(prevProps, prevState)` is still enqueued — and must receive a defined `prevState`/`prevProps` (`prevProps` comes from `effect.alternate.props`). Since nothing on this fiber changed, `prevState` equals the current state, matching React.
 - **Normal update:** computes a state *patch* — the object partial state directly, or the return value of `partialStateCallback(prevState, wipFiber.props)` for functional updates — then merges it onto the previous state with `Object.assign({}, instance.state, patch)`. Both forms merge (a functional updater may return only the changed keys, matching React), saves the old state to `wipFiber.prevState` (for `componentDidUpdate`), then calls `instance.render()`.
+- **`shouldComponentUpdate` bailout:** after computing `nextProps`/`nextState` but **before** `render()`, if this is not the initial mount and the instance defines `shouldComponentUpdate(nextProps, nextState)` that returns `false`, the update is vetoed. The new props and state are still committed to the instance (matching React — a skipped render does not skip the state transition), `wipFiber.partialState`/`partialStateCallback` are cleared, and the existing subtree is preserved via `cloneChildFibers`. Crucially, `wipFiber.effectTag` is set to `null` so the fiber is **not** bubbled into the root's `effects` array by `completeWork` — this suppresses the `componentDidUpdate` that the inherited `UPDATE` tag would otherwise enqueue, matching React's rule that `componentDidUpdate` does not fire on a vetoed update. The check is skipped on the initial mount (there is no previous render to keep), so a freshly-mounted component always renders. `Anu.PureComponent` opts into this path by implementing `shouldComponentUpdate` as a shallow compare of props and state.
 
 <h3 id="reconcile-children">Reconciling children</h3>
 
@@ -716,6 +728,13 @@ export abstract class Component<
 <br>
 <hr>
 
+<h2 id="pure-component">PureComponent — <code>src/core/components/PureComponent.ts</code></h2>
+
+`PureComponent` is a `Component` subclass whose only addition is a `shouldComponentUpdate(nextProps, nextState)` implemented as `!shallowEqual(this.props, nextProps) || !shallowEqual(this.state, nextState)`. It opts a class into the reconciler's `shouldComponentUpdate` bailout in `updateClassComponent`, so subclasses get the shallow-compare skip for free without writing the comparison by hand. Because it still inherits `static isAnuComponent = true`, `getTag()` classifies it as a `CLASS_COMPONENT` like any other component.
+
+<br>
+<hr>
+
 <h2 id="fragment">Fragment — <code>src/core/components/Fragment.ts</code></h2>
 
 `Fragment` is a class component that simply returns its children array without wrapping them in any DOM element. It allows sibling elements to be grouped in JSX without introducing a superfluous `<div>`. It accepts **any number of children, including zero** (an empty fragment renders nothing) — matching `React.Fragment`.
@@ -729,6 +748,69 @@ export class Fragment extends Component {
 ```
 
 `toChildArray` coerces the raw `props.children` (a single value, an array, or `undefined`) into a filtered array regardless of how many children were authored. The reconciler handles array returns from `render()` natively — `reconcileChildrenArray` accepts arrays and flattens them into sibling fibers. The `<>...</>` fragment shorthand is wired via `babel-preset.js` (`pragmaFrag: 'Anu.Fragment'`), which transforms it to `Anu.createElement(Anu.Fragment, null, ...)`.
+
+<br>
+<hr>
+
+<h2 id="lazy">Async loading — <code>src/core/lazy.ts</code></h2>
+
+`lazy(factory, options?)` defers a heavy component behind a dynamic `import()` so it ships in its own bundle chunk. It needs **no reconciler change** — it returns a `Component` subclass that fires the import on mount and `setState`s the resolved component in:
+
+```typescript
+export const lazy = (
+    factory: () => Promise<{ default: ElementType } | ElementType>,
+    options: LazyOptions = {}
+): ElementType =>
+    class Lazy extends Component<Props, { Loaded: ElementType | null }> {
+        state = { Loaded: null as ElementType | null };
+
+        componentDidMount(): void {
+            Promise.resolve()
+                .then(factory)
+                .then((mod) => {
+                    const Loaded = (mod as { default: ElementType }).default ?? (mod as ElementType);
+                    this.setState({ Loaded });
+                })
+                .catch((error) => {
+                    options.onError?.(error);
+                });
+        }
+
+        render(): AnuElement | null {
+            const { Loaded } = this.state;
+
+            if (Loaded === null) {
+                return options.fallback ?? null;
+            }
+
+            return createElement(Loaded, this.props);
+        }
+    };
+```
+
+The factory result is normalised with `(mod).default ?? mod`, so both an ES-module namespace (`{ default }`) and a bare component resolve correctly. Until it resolves, `render()` returns `options.fallback ?? null`; afterwards it forwards the live props to the loaded component on every update via `createElement(Loaded, this.props)`. The fallback→loaded swap is an ordinary `setState`, so it commits on the macro-task scheduler like any other update. This is the **minimal** code-splitting form: there is no shared `<Suspense>` boundary (each `lazy` renders its own fallback) and no SSR/hydration support.
+
+<br>
+<hr>
+
+<h2 id="memo">Function-component bail-out — <code>src/core/memo.ts</code></h2>
+
+`memo(Comp, areEqual?)` is the function-component equivalent of `PureComponent`. It returns a thin wrapper function that simply calls `Comp(props)`, tagged with two marker properties the reconciler reads:
+
+```typescript
+export const memo = <P extends Props>(
+    Comp: FunctionComponent<P>,
+    areEqual: (prev: P, next: P) => boolean = (prev, next) => shallowEqual(prev, next)
+): FunctionComponent<P> => {
+    const Memoized = ((props: P) => Comp(props)) as MemoComponent<P>;
+    Memoized.__isMemo = true;
+    Memoized.__areEqual = areEqual;
+
+    return Memoized;
+};
+```
+
+The wrapper is a plain arrow function with no `prototype`, so `getTag()` classifies it as a `FUNCTION_COMPONENT`. The default comparator is `shallowEqual`; a custom one receives `(prevProps, nextProps)`. `updateFunctionComponent` consults `__isMemo`/`__areEqual` as a second bail-out branch (see the [reconciler walk](#reconcile-children)) — when the comparator reports the props are equal, the function body is skipped and the subtree is cloned. `key`/`ref` never reach the comparator because `createElement` strips them from `props`.
 
 <br>
 <hr>
@@ -1413,11 +1495,27 @@ export const deepEqual = (
 A recursive structural equality check for plain objects. It short-circuits on key count mismatch, then recursively compares each value. Non-object values are compared with strict equality (`===`). This is used by the Context API's `ContextProvider` to avoid unnecessary re-renders when the provider re-renders with a structurally identical context value.
 
 ```typescript
-const Utils = { deepEqual };
+export const shallowEqual = (
+    objectA: Record<string, any>,
+    objectB: Record<string, any>
+): boolean
+```
+
+A one-level equality check: `Object.is` on the two references first, then a same-length comparison of own enumerable keys with `Object.is` per value (React semantics). It backs `PureComponent.shouldComponentUpdate` and the default `memo` comparator.
+
+```typescript
+export const isNotNullish = <T>(value: T): value is NonNullable<T> =>
+    value !== null && value !== undefined;
+```
+
+A guard that returns `true` when a value is neither `null` nor `undefined`. It is the project's strict-equality replacement for the loose `x != null` idiom — `createElement`/`cloneElement` use it for their `key`/`ref` resolution, and the reconciler uses it where it previously compared `effectTag`/`nextUnitOfWork` against `null`.
+
+```typescript
+const Utils = { deepEqual, shallowEqual };
 export default Utils;
 ```
 
-`Utils` is also exposed on the `Anu` namespace as `Anu.Utils.deepEqual()` for use in consumer applications.
+`Utils` is also exposed on the `Anu` namespace as `Anu.Utils.deepEqual()` / `Anu.Utils.shallowEqual()` for use in consumer applications. (`isNotNullish` is an internal guard and is exported only as a named export, not on `Anu.Utils`.)
 
 <br>
 <hr>
@@ -1556,7 +1654,7 @@ export const installSyncScheduler = (): void => {
 
 ```typescript
 flushSync(): void {
-    while (updateQueue.length > 0 || nextUnitOfWork != null) {
+    while (updateQueue.length > 0 || isNotNullish(nextUnitOfWork)) {
         workLoop(SYNC_DEADLINE);
     }
 

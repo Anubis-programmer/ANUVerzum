@@ -1,5 +1,7 @@
 const isObject = (object: unknown): object is Record<string, unknown> => object !== null && typeof object === 'object';
 
+export const isNotNullish = <T>(value: T): value is NonNullable<T> => value !== null && value !== undefined;
+
 export const deepEqual = (object1: Record<string, any>, object2: Record<string, any>): boolean => {
     const keys1 = Object.keys(object1);
     const keys2 = Object.keys(object2);
@@ -21,8 +23,34 @@ export const deepEqual = (object1: Record<string, any>, object2: Record<string, 
     return true;
 };
 
+export const shallowEqual = (objectA: Record<string, any>, objectB: Record<string, any>): boolean => {
+    if (Object.is(objectA, objectB)) {
+        return true;
+    }
+
+    if (typeof objectA !== 'object' || objectA === null || typeof objectB !== 'object' || objectB === null) {
+        return false;
+    }
+
+    const keysA = Object.keys(objectA);
+    const keysB = Object.keys(objectB);
+
+    if (keysA.length !== keysB.length) {
+        return false;
+    }
+
+    for (const key of keysA) {
+        if (!Object.prototype.hasOwnProperty.call(objectB, key) || !Object.is(objectA[key], objectB[key])) {
+            return false;
+        }
+    }
+
+    return true;
+};
+
 const Utils = {
-    deepEqual
+    deepEqual,
+    shallowEqual
 };
 
 export default Utils;

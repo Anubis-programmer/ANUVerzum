@@ -1,4 +1,5 @@
 import { TEXT_ELEMENT, AnuElement, Props } from './elements';
+import { isNotNullish } from '../misc/utils';
 
 const HTML_ATTRIBUTE_NAME_MAP: Record<string, string> = {
     acceptCharset: 'accept-charset',
@@ -141,7 +142,7 @@ export const updateDomProperties = (
             const el = dom as any;
             const value = nextProps[name];
 
-            if (value === undefined || value === null) {
+            if (!isNotNullish(value)) {
                 const attrName = name === 'className' ? 'class' : name === 'htmlFor' ? 'for' : name;
                 (dom as HTMLElement).removeAttribute(attrName);
                 return;
