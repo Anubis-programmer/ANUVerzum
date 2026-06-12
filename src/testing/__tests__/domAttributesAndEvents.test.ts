@@ -187,6 +187,79 @@ describe('fireEvent.wheel dispatches a WheelEvent', () => {
     });
 });
 
+describe('fireEvent carries non-standard event payloads to the handler', () => {
+    test('fireEvent.paste delivers clipboardData to an onPaste handler', () => {
+        let pasted = '';
+        const { getByRole } = render(
+            Anu.createElement('input', {
+                type: 'text',
+                onPaste: (e: ClipboardEvent) => {
+                    pasted = e.clipboardData!.getData('text');
+                }
+            })
+        );
+
+        const input = getByRole('textbox');
+        const returned = fireEvent.paste(input, {
+            clipboardData: { getData: () => '123456' }
+        });
+
+        expect(pasted).toBe('123456');
+        expect(returned).toBe(true);
+    });
+
+    test('the generic fireEvent(el, "paste", …) form also carries clipboardData', () => {
+        let pasted = '';
+        const { getByRole } = render(
+            Anu.createElement('input', {
+                type: 'text',
+                onPaste: (e: ClipboardEvent) => {
+                    pasted = e.clipboardData!.getData('text');
+                }
+            })
+        );
+
+        fireEvent(getByRole('textbox'), 'paste', {
+            clipboardData: { getData: () => 'abc' }
+        });
+
+        expect(pasted).toBe('abc');
+    });
+
+    test('fireEvent.drop delivers dataTransfer to an onDrop handler', () => {
+        let dropped = '';
+        const { getByRole } = render(
+            Anu.createElement('button', {
+                onDrop: (e: DragEvent) => {
+                    dropped = e.dataTransfer!.getData('id');
+                }
+            })
+        );
+
+        fireEvent.drop(getByRole('button'), {
+            dataTransfer: { getData: () => 'task-1' }
+        });
+
+        expect(dropped).toBe('task-1');
+    });
+
+    test('standard init keys are still honoured by the constructor (not shadowed)', () => {
+        let seenDelta: number | null = null;
+        const { getByRole } = render(
+            Anu.createElement('input', {
+                type: 'number',
+                onWheel: (e: WheelEvent) => {
+                    seenDelta = e.deltaY;
+                }
+            })
+        );
+
+        fireEvent.wheel(getByRole('spinbutton'), { deltaY: 42, clipboardData: null });
+
+        expect(seenDelta).toBe(42);
+    });
+});
+
 describe('fireEvent named helpers for the mouse-move family', () => {
     const cases: Array<[keyof typeof fireEvent, string, string]> = [
         ['mouseEnter', 'onMouseEnter', 'mouseenter'],

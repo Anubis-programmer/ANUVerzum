@@ -1820,11 +1820,13 @@ Explicit `role=""` attributes always take precedence over implicit roles. Access
 
 <h3 id="atl-events">Event utilities</h3>
 
-**`src/testing/events/fireEvent.ts`** — dispatches synthetic DOM events. It selects the correct event constructor (`MouseEvent`, `KeyboardEvent`, `FocusEvent`, `PointerEvent`, `WheelEvent`, or generic `Event`) based on the event name, dispatches it on the element, then calls `flushEffects()` to ensure any resulting state updates (e.g. from `onClick` handlers that call `setState`) are committed to the DOM before the test assertion runs.
+**`src/testing/events/fireEvent.ts`** — dispatches synthetic DOM events. It selects the correct event constructor (`MouseEvent` — also for the `drag`/`drop` family, `KeyboardEvent`, `FocusEvent`, `PointerEvent`, `WheelEvent`, or generic `Event`) based on the event name, dispatches it on the element, then calls `flushEffects()` to ensure any resulting state updates (e.g. from `onClick` handlers that call `setState`) are committed to the DOM before the test assertion runs.
 
 Before dispatching, if the `init` object carries a `target` property, those values are applied to the element first (`Object.assign(element, init.target)`) — matching Testing Library — so `fireEvent.input(node, { target: { value: 'x' } })` sets `node.value` before the event fires and handlers read the new value. The remaining `init` keys are forwarded to the event constructor.
 
-Named shorthands: `click`, `dblclick`, `change`, `input`, `focus`, `blur`, `keyDown`, `keyUp`, `keyPress`, `submit`, `mouseDown`, `mouseUp`, `wheel`, `error`, `load`, `abort`.
+The DOM `Event` constructors only read the standard `EventInit` keys for the chosen event type and **silently drop** anything else, so non-standard payloads — `clipboardData` for paste/copy/cut, `dataTransfer` for drag-and-drop, or any custom property — would never reach the handler. After construction, `buildEvent` therefore walks the `init` keys and `Object.defineProperty`-assigns each one that is *not already present* on the event (`!(key in event)`). The `in` guard means a key the constructor already applied (e.g. `deltaY` on a `WheelEvent`, `key` on a `KeyboardEvent`) is left untouched — only the dropped, non-standard keys are carried over — so this never fights the read-only accessors a blanket `Object.assign(event, init)` would throw on.
+
+Named shorthands: `click`, `dblclick`, `change`, `input`, `focus`, `blur`, `keyDown`, `keyUp`, `keyPress`, `submit`, `mouseDown`, `mouseUp`, `wheel`, `paste`, `copy`, `cut`, `drag`, `dragStart`, `dragEnd`, `dragEnter`, `dragLeave`, `dragOver`, `drop`, `error`, `load`, `abort`. The clipboard and drag shorthands rely on the payload-carrying above for their `clipboardData`/`dataTransfer` to survive.
 
 **`src/testing/events/userEvent.ts`** — simulates higher-level user interactions by composing multiple `fireEvent` calls:
 

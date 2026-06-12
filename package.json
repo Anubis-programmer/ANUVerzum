@@ -1,6 +1,6 @@
 {
   "name": "anu-verzum",
-  "version": "4.0.1",
+  "version": "4.1.0",
   "description": "A \"React-like\" UI library that supports JSX syntax, Redux-like state management, array-rendering, i18n, routing and many more.",
   "keywords": [
     "anu-verzum",
