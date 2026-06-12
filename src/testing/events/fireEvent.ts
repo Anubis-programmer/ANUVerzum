@@ -5,27 +5,36 @@ type EventInit = globalThis.EventInit & { target?: Record<string, any> } & Recor
 const buildEvent = (eventName: string, init?: EventInit): Event => {
     const opts = { bubbles: true, cancelable: true, ...init };
 
-    if (/^(click|mouse|contextmenu|dblclick)/i.test(eventName)) {
-        return new MouseEvent(eventName, opts);
+    let event: Event;
+
+    if (/^(click|mouse|contextmenu|dblclick|drag|drop)/i.test(eventName)) {
+        event = new MouseEvent(eventName, opts);
+    } else if (/^key/i.test(eventName)) {
+        event = new KeyboardEvent(eventName, opts);
+    } else if (/^(focus|blur)/i.test(eventName)) {
+        event = new FocusEvent(eventName, opts);
+    } else if (/^pointer/i.test(eventName)) {
+        event = new PointerEvent(eventName, opts);
+    } else if (/^wheel/i.test(eventName)) {
+        event = new WheelEvent(eventName, opts);
+    } else {
+        event = new Event(eventName, opts);
     }
 
-    if (/^key/i.test(eventName)) {
-        return new KeyboardEvent(eventName, opts);
+    if (init) {
+        for (const key of Object.keys(init)) {
+            if (!(key in event)) {
+                Object.defineProperty(event, key, {
+                    value: init[key],
+                    enumerable: true,
+                    configurable: true,
+                    writable: true
+                });
+            }
+        }
     }
 
-    if (/^(focus|blur)/i.test(eventName)) {
-        return new FocusEvent(eventName, opts);
-    }
-
-    if (/^pointer/i.test(eventName)) {
-        return new PointerEvent(eventName, opts);
-    }
-
-    if (/^wheel/i.test(eventName)) {
-        return new WheelEvent(eventName, opts);
-    }
-
-    return new Event(eventName, opts);
+    return event;
 };
 
 export const fireEvent = (element: Element, eventName: string, init?: EventInit): boolean => {
@@ -61,6 +70,16 @@ fireEvent.mouseOver = (el: Element, init?: EventInit) => fireEvent(el, 'mouseove
 fireEvent.mouseOut = (el: Element, init?: EventInit) => fireEvent(el, 'mouseout', init);
 fireEvent.mouseMove = (el: Element, init?: EventInit) => fireEvent(el, 'mousemove', init);
 fireEvent.wheel = (el: Element, init?: EventInit) => fireEvent(el, 'wheel', init);
+fireEvent.paste = (el: Element, init?: EventInit) => fireEvent(el, 'paste', init);
+fireEvent.copy = (el: Element, init?: EventInit) => fireEvent(el, 'copy', init);
+fireEvent.cut = (el: Element, init?: EventInit) => fireEvent(el, 'cut', init);
+fireEvent.drag = (el: Element, init?: EventInit) => fireEvent(el, 'drag', init);
+fireEvent.dragStart = (el: Element, init?: EventInit) => fireEvent(el, 'dragstart', init);
+fireEvent.dragEnd = (el: Element, init?: EventInit) => fireEvent(el, 'dragend', init);
+fireEvent.dragEnter = (el: Element, init?: EventInit) => fireEvent(el, 'dragenter', init);
+fireEvent.dragLeave = (el: Element, init?: EventInit) => fireEvent(el, 'dragleave', init);
+fireEvent.dragOver = (el: Element, init?: EventInit) => fireEvent(el, 'dragover', init);
+fireEvent.drop = (el: Element, init?: EventInit) => fireEvent(el, 'drop', init);
 fireEvent.error = (el: Element, init?: EventInit) => fireEvent(el, 'error', init);
 fireEvent.load = (el: Element, init?: EventInit) => fireEvent(el, 'load', init);
 fireEvent.abort = (el: Element, init?: EventInit) => fireEvent(el, 'abort', init);

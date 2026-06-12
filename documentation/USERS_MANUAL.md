@@ -2980,11 +2980,35 @@ describe('fireEvent', () => {
 | `fireEvent.keyPress(el, init?)` | `KeyboardEvent` — `keypress` |
 | `fireEvent.submit(el, init?)` | `Event` — `submit` |
 | `fireEvent.wheel(el, init?)` | `WheelEvent` — `wheel` |
+| `fireEvent.paste(el, init?)` | `Event` — `paste` (carries `clipboardData`) |
+| `fireEvent.copy(el, init?)` | `Event` — `copy` (carries `clipboardData`) |
+| `fireEvent.cut(el, init?)` | `Event` — `cut` (carries `clipboardData`) |
+| `fireEvent.drag(el, init?)` | `MouseEvent` — `drag` (carries `dataTransfer`) |
+| `fireEvent.dragStart(el, init?)` | `MouseEvent` — `dragstart` (carries `dataTransfer`) |
+| `fireEvent.dragEnd(el, init?)` | `MouseEvent` — `dragend` (carries `dataTransfer`) |
+| `fireEvent.dragEnter(el, init?)` | `MouseEvent` — `dragenter` (carries `dataTransfer`) |
+| `fireEvent.dragLeave(el, init?)` | `MouseEvent` — `dragleave` (carries `dataTransfer`) |
+| `fireEvent.dragOver(el, init?)` | `MouseEvent` — `dragover` (carries `dataTransfer`) |
+| `fireEvent.drop(el, init?)` | `MouseEvent` — `drop` (carries `dataTransfer`) |
 | `fireEvent.error(el, init?)` | `Event` — `error` |
 | `fireEvent.load(el, init?)` | `Event` — `load` |
 | `fireEvent.abort(el, init?)` | `Event` — `abort` |
 
 You can also call `fireEvent(element, 'eventname', eventInit?)` directly for any event name not covered by a shorthand.
+
+**Simulating clipboard and drag payloads** — native DOM event constructors only read their standard `EventInit` fields and drop anything else, so `fireEvent` carries any extra `init` key (e.g. `clipboardData`, `dataTransfer`) onto the dispatched event for you. Provide a minimal stub with just the methods your handler reads:
+
+```typescript
+test('pasting distributes a code across the segments', () => {
+    const onChange = jest.fn();
+    const { container } = render(<PinInput length={6} onChange={onChange} />);
+    const seg = container.querySelector('.anu-pin-input__segment') as HTMLInputElement;
+
+    fireEvent.paste(seg, { clipboardData: { getData: () => '123456' } });
+
+    expect(onChange).toHaveBeenLastCalledWith('123456');
+});
+```
 
 **Setting form values** — pass a `target` option and `fireEvent` assigns those properties to the element *before* dispatching (mirroring Testing Library), so the handler reads the updated value:
 
