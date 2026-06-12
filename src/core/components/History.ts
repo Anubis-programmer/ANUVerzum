@@ -1,12 +1,14 @@
-import { createElement } from '../elements';
+import { createElement, cloneElement, Children, isValidElement } from '../elements';
 import { Component } from './Component';
 import { trackRouteChange } from './AnulyticsProvider';
 import { AnuElement, Props, ComponentConstructor, FunctionComponent } from '../elements';
+import { isNotNullish } from '../../misc/utils';
 
 export interface RouteMatch {
     path: string | null;
     url: string;
     isExact: boolean;
+    params: Record<string, string>;
 }
 
 export interface HistoryRouteProps extends Props {
@@ -14,6 +16,7 @@ export interface HistoryRouteProps extends Props {
     exact?: boolean;
     component?: ComponentConstructor | FunctionComponent;
     render?: (opts: { match: RouteMatch }) => AnuElement | null;
+    computedMatch?: RouteMatch | null;
 }
 
 export interface HistoryLinkProps extends Props {
@@ -74,6 +77,39 @@ const historyReplace = (path: string): void => {
     });
 };
 
+interface CompiledPath {
+    regex: RegExp;
+    keys: string[];
+}
+
+const compilePath = (path: string, exact: boolean): CompiledPath => {
+    const keys: string[] = [];
+    const segments = path.split('/').filter(Boolean);
+
+    if (segments.length === 0) {
+        return { regex: new RegExp(exact ? '^/?$' : '^/'), keys };
+    }
+
+    let body = '';
+
+    for (const segment of segments) {
+        if (segment === '*') {
+            keys.push('*');
+            body += '(?:/(.*))?';
+        } else if (segment.startsWith(':')) {
+            const optional = segment.endsWith('?');
+            keys.push(segment.slice(1, optional ? -1 : undefined));
+            body += optional ? '(?:/([^/]+))?' : '/([^/]+)';
+        } else {
+            body += `/${segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`;
+        }
+    }
+
+    const suffix = exact ? '/?$' : '(?=/|$)';
+
+    return { regex: new RegExp(`^${body}${suffix}`), keys };
+};
+
 const matchPath = (pathname: string, options: { exact?: boolean; path?: string }): RouteMatch | null => {
     const { exact = false, path } = options;
 
@@ -81,72 +117,93 @@ const matchPath = (pathname: string, options: { exact?: boolean; path?: string }
         return {
             path: null,
             url: pathname,
-            isExact: true
+            isExact: true,
+            params: {}
         };
     }
 
-    const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const match = new RegExp(`^${escapedPath}`).exec(pathname);
+    const { regex, keys } = compilePath(path, exact);
+    const match = regex.exec(pathname);
 
     if (!match) {
         return null;
     }
 
     const url = match[0];
-    const isExact = pathname === url;
-
-    if (exact && !isExact) {
-        return null;
-    }
-
-    return { path, url, isExact };
-};
-
-const singularize = (word: string): string => {
-    if (word.endsWith('ies')) {
-        return `${word.slice(0, -3)}y`;
-    }
-
-    if (word.endsWith('sses')) {
-        return word.slice(0, -2);
-    }
-
-    if (word.endsWith('xes')) {
-        return word.slice(0, -2);
-    }
-
-    if (word.endsWith('zes')) {
-        return word.slice(0, -3);
-    }
-
-    if (word.endsWith('ches')) {
-        return word.slice(0, -2);
-    }
-
-    if (word.endsWith('shes')) {
-        return word.slice(0, -2);
-    }
-
-    if (word.endsWith('s')) {
-        return word.slice(0, -1);
-    }
-
-    return word;
-};
-
-const parseUrlParams = (pathname: string): Record<string, string> => {
-    const segments = pathname.split('/').filter(Boolean);
     const params: Record<string, string> = {};
 
-    for (let i = 0; i < segments.length - 1; i += 2) {
-        params[`${singularize(segments[i])}Id`] = segments[i + 1];
-    }
+    keys.forEach((key, index) => {
+        if (isNotNullish(match[index + 1])) {
+            params[key] = match[index + 1];
+        }
+    });
 
-    return params;
+    return { path, url, isExact: pathname === url, params };
+};
+
+const routeMatches = new Map<Component, RouteMatch>();
+
+const setRouteMatch = (route: Component, match: RouteMatch): void => {
+    routeMatches.set(route, match);
+};
+
+const clearRouteMatch = (route: Component): void => {
+    routeMatches.delete(route);
+};
+
+const getMergedRouteParams = (): Record<string, string> => {
+    const merged: Record<string, string> = {};
+    routeMatches.forEach((match) => Object.assign(merged, match.params));
+
+    return merged;
 };
 
 class HistoryRoute extends Component<HistoryRouteProps> {
     constructor(props: HistoryRouteProps) {
+        super(props);
+        this.handlePop = this.handlePop.bind(this);
+    }
+
+    componentDidMount(): void {
+        window.addEventListener('popstate', this.handlePop);
+        register(this);
+    }
+
+    componentWillUnmount(): void {
+        unregister(this);
+        clearRouteMatch(this);
+        window.removeEventListener('popstate', this.handlePop);
+    }
+
+    handlePop(): void {
+        this.setState();
+    }
+
+    render(): AnuElement | null {
+        const { path, exact, component, render, computedMatch } = this.props;
+
+        const match = computedMatch ?? matchPath(window.location.pathname, { path, exact });
+
+        if (match !== null) {
+            setRouteMatch(this, match);
+
+            if (component) {
+                return createElement(component, { match });
+            }
+
+            if (render) {
+                return render({ match });
+            }
+        } else {
+            clearRouteMatch(this);
+        }
+
+        return null;
+    }
+}
+
+class HistorySwitch extends Component<Props> {
+    constructor(props: Props) {
         super(props);
         this.handlePop = this.handlePop.bind(this);
     }
@@ -166,17 +223,17 @@ class HistoryRoute extends Component<HistoryRouteProps> {
     }
 
     render(): AnuElement | null {
-        const { path, exact, component, render } = this.props;
+        const pathname = window.location.pathname;
 
-        const match = matchPath(window.location.pathname, { path, exact });
-
-        if (match !== null) {
-            if (component) {
-                return createElement(component, { match });
+        for (const child of Children.toArray(this.props.children)) {
+            if (!isValidElement(child)) {
+                continue;
             }
 
-            if (render) {
-                return render({ match });
+            const match = matchPath(pathname, { path: child.props.path, exact: child.props.exact });
+
+            if (match !== null) {
+                return cloneElement(child, { computedMatch: match });
             }
         }
 
@@ -250,21 +307,17 @@ export const goTo = (path = '/', replace?: boolean): void => {
     }
 };
 
-const getUrlParams = (key: string): string | null => {
-    const params = parseUrlParams(window.location.pathname);
-    
-    return params[key] ?? null;
-};
+const getRouteParams = (key: string): string | null => getMergedRouteParams()[key] ?? null;
 
-const getAllUrlParamNames = (): string[] =>
-    Object.keys(parseUrlParams(window.location.pathname));
+const getAllRouteParamNames = (): string[] => Object.keys(getMergedRouteParams());
 
 const History = {
     Link: HistoryLink,
     Redirect: HistoryRedirect,
     Route: HistoryRoute,
-    getUrlParams,
-    getAllUrlParamNames
+    Switch: HistorySwitch,
+    getRouteParams,
+    getAllRouteParamNames
 };
 
 export default History;
@@ -276,5 +329,6 @@ export const __testing = {
         }
         
         instances.length = 0;
+        routeMatches.clear();
     }
 };

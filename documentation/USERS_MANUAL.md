@@ -82,13 +82,16 @@
             <a href="#linking-and-routing">Linking and routing</a>
         </li>
         <li>
+            <a href="#route-params-and-switch">Dynamic params and the &lt;Anu.History.Switch /&gt;</a>
+        </li>
+        <li>
             <a href="#redirecting-with-history-redirect">Redirecting with &lt;Anu.History.Redirect /&gt;</a>
         </li>
         <li>
             <a href="#redirecting-with-history-goto">Redirecting with Anu.History.goTo()</a>
         </li>
         <li>
-            <a href="#reading-url-parameters">Reading URL parameters</a>
+            <a href="#reading-url-parameters">Reading route parameters</a>
         </li>
     </ul>
     <li>
@@ -1579,13 +1582,14 @@ class App extends Anu.Component<{}, { showModal: boolean }> {
     - Any <code>onClick</code> you pass is preserved — it runs first, and if it calls <code>event.preventDefault()</code> the client-side navigation is skipped. Pass <code>replace</code> to navigate via <code>replaceState</code> instead of <code>pushState</code>.
     - To make a custom (non-anchor) link, call <code>Anu.History.goTo(path, replace?)</code> from your own handler.
 - Use the <code>&lt;Anu.History.Route /&gt;</code> component that takes a <code>path</code> argument and if the link you clicked matches the <code>path</code>, it will render the attached component:
-    - The <code>&lt;Anu.History.Route /&gt;</code> component has a <code>path</code> prop to match against the URL. If it has an <code>exact</code> prop, it doesn't allow partial matching.
+    - The <code>&lt;Anu.History.Route /&gt;</code> component has a <code>path</code> prop to match against the URL. By default it matches as a <strong>prefix</strong> at a segment boundary (so <code>/users</code> matches <code>/users/42</code> but not <code>/usersxyz</code>); add the <code>exact</code> prop to require a full-pathname match.
+    - The <code>path</code> supports <strong>dynamic segments</strong>: <code>:name</code> captures one URL segment, <code>:name?</code> makes it optional, and a trailing <code>*</code> (splat) captures the remainder of the path. Captures are exposed on <code>match.params</code> (the splat under the key <code>'*'</code>) — see <a href="#route-params-and-switch">Dynamic params and the Switch</a>.
     - The <code>&lt;Anu.History.Route /&gt;</code> can also have a <code>component</code> (must be a component) or a <code>render</code> prop (it must be a function that returns a component).
 
         ```typescript
         import Anu, { AnuElement, Props } from 'anu-verzum';
 
-        interface RouteMatch { path: string | null; url: string; isExact: boolean; }
+        interface RouteMatch { path: string | null; url: string; isExact: boolean; params: Record<string, string>; }
 
         const Home = (): AnuElement => <h2>Home</h2>;
         const About = (): AnuElement => <h2>About</h2>;
@@ -1637,6 +1641,40 @@ class App extends Anu.Component<{}, { showModal: boolean }> {
         );
         ```
 
+<h3 id="route-params-and-switch">Dynamic params and the <code>&lt;Anu.History.Switch /&gt;</code></h3>
+
+- A route reads its captured parameters from <code>match.params</code>. Each <code>:name</code> in the <code>path</code> becomes a key; a trailing <code>*</code> splat is stored under <code>'*'</code>:
+
+    ```typescript
+    // URL: /users/42/settings
+    <Anu.History.Route
+        path="/users/:id/settings"
+        exact
+        render={({ match }) => <Settings userId={match.params.id} />}  // match.params.id === '42'
+    />
+
+    // URL: /files/photos/2024/summer
+    <Anu.History.Route
+        path="/files/*"
+        render={({ match }) => <FileBrowser path={match.params['*']} />}  // 'photos/2024/summer'
+    />
+    ```
+
+- By default every <code>&lt;Anu.History.Route /&gt;</code> renders independently, so several can match at once. Wrap them in <code>&lt;Anu.History.Switch /&gt;</code> to render <strong>only the first matching route</strong>. This is what makes a real "404 / not-found" page possible — a pathless (or <code>*</code>) Route placed <em>last</em> renders only when every earlier route missed:
+
+    ```typescript
+    const RouterApp = (): AnuElement => (
+        <Anu.History.Switch>
+            <Anu.History.Route path="/users/:id" exact component={UserProfile} />
+            <Anu.History.Route path="/users" exact component={UserList} />
+            <Anu.History.Route path="/about" component={About} />
+            <Anu.History.Route component={NotFound} />   {/* catch-all — must be last */}
+        </Anu.History.Switch>
+    );
+    ```
+
+    - Because selection is **first-match**, order matters: put more specific routes (more static segments, `exact`) before broader ones, and the catch-all last.
+
 <h3 id="redirecting-with-history-redirect">Redirecting - <strong>The <code>&lt;Anu.History.Redirect /&gt;</code> component</strong></h3>
 
 - If the user needs to be redirected (e.g. if not logged in), use the <code>&lt;Anu.History.Redirect /&gt;</code> component:
@@ -1678,36 +1716,24 @@ class App extends Anu.Component<{}, { showModal: boolean }> {
         Anu.History.goTo('/about', true);
         ```
 
-<h3 id="reading-url-parameters">Reading URL parameters - <strong><code>Anu.History.getUrlParams()</code> and <code>Anu.History.getAllUrlParamNames()</code></strong></h3>
+<h3 id="reading-url-parameters">Reading route parameters - <strong><code>Anu.History.getRouteParams()</code> and <code>Anu.History.getAllRouteParamNames()</code></strong></h3>
 
-URLs are expected to follow the REST resource-path convention:
+There are two ways to read a matched route's parameters. Use <code>match.params</code> (above) when you have a matched route and want its <code>:name</code>/splat captures inside that route's <code>component</code>/<code>render</code>. Use the imperative <code>getRouteParams()</code> below when you need a captured value <em>anywhere</em> in your code, without being inside a <code>render</code> prop.
 
-```
-/{noun-plural}/{id}/{noun-plural}/{id}/...
-```
-
-The router parses the current pathname into named parameters by singularizing each noun segment and appending `Id`.
-A trailing action segment (odd-length path) is ignored.
-
-| URL | Extracted params |
-|---|---|
-| `/products` | `{}` |
-| `/products/a3f8c2d1` | `{ productId: 'a3f8c2d1' }` |
-| `/users/asdf1234/products` | `{ userId: 'asdf1234' }` |
-| `/users/asdf1234/products/ghjk5678` | `{ userId: 'asdf1234', productId: 'ghjk5678' }` |
-| `/users/asdf1234/products/ghjk5678/delete` | `{ userId: 'asdf1234', productId: 'ghjk5678' }` |
-
-- **`Anu.History.getUrlParams(key)`** — returns the value of the named URL parameter derived from the current pathname, or `null` if the key is not present.
-- **`Anu.History.getAllUrlParamNames()`** — returns an array of all parameter key names extractable from the current pathname. Useful for development and debugging.
+- **`Anu.History.getRouteParams(key)`** / **`Anu.History.getAllRouteParamNames()`** — read the captures of the currently-matched routes <strong>by the <code>:name</code> you declared in the <code>path</code></strong> (and the splat under <code>'*'</code>), so you can read a route param from anywhere in code. Internally each matched <code>Route</code> records its <code>match</code> while mounted and clears it when it stops matching or unmounts; the result is the live, merged set of all currently-matched routes (a nested child's params are merged over its parent's). <code>getRouteParams(key)</code> returns the captured value or <code>null</code> if no matched route declares that key; <code>getAllRouteParamNames()</code> returns the array of all currently-captured names.
 
     ```typescript
-    // URL: /users/asdf1234/products/ghjk5678
-    Anu.History.getUrlParams('userId');       // → 'asdf1234'
-    Anu.History.getUrlParams('productId');    // → 'ghjk5678'
-    Anu.History.getUrlParams('orderId');      // → null
+    // Active route: <Anu.History.Route path="/users/:id" /> at URL /users/42
+    Anu.History.getRouteParams('id');         // → '42'   (by your :param name)
+    Anu.History.getRouteParams('userId');     // → null   (no matched route declares :userId)
 
-    Anu.History.getAllUrlParamNames();        // → ['userId', 'productId']
+    // Active route: <Anu.History.Route path="/files/*" /> at URL /files/a/b/c
+    Anu.History.getRouteParams('*');          // → 'a/b/c'  (the splat)
+
+    Anu.History.getAllRouteParamNames();      // → ['id'] / ['*'] / ...
     ```
+
+    > Read a value **by the name you wrote in the route pattern** — the key is the <code>:name</code> from your <code>path</code>, and the trailing <code>*</code> splat lands under <code>'*'</code>.
 
 <br>
 

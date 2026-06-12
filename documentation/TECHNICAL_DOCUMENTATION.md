@@ -53,7 +53,7 @@
     <ul>
         <li><a href="#global-instances-registry">Global instance registry</a></li>
         <li><a href="#path-matching">Path matching</a></li>
-        <li><a href="#url-param-parsing">URL parameter parsing and singularization</a></li>
+        <li><a href="#route-param-registry">The current-match registry — <code>getRouteParams</code></a></li>
         <li><a href="#route-link-redirect">Route, Link, Redirect components</a></li>
     </ul>
     <li><a href="#store">State Management — <code>src/store/store.ts</code></a></li>
@@ -912,45 +912,53 @@ const register   = (comp: Component): void => { instances.push(comp); };
 const unregister = (comp: Component): void => { /* splice by indexOf */ };
 ```
 
-When navigation occurs — whether via `HistoryLink`, `HistoryRedirect`, or `Anu.History.goTo()` — both `historyPush` and `historyReplace` call `setState()` on every registered `HistoryRoute` instance. This causes all routes in the tree to re-evaluate their `matchPath()` and re-render accordingly, without requiring a context or event bus.
+When navigation occurs — whether via `HistoryLink`, `HistoryRedirect`, or `Anu.History.goTo()` — both `historyPush` and `historyReplace` call `setState()` on every registered `HistoryRoute`/`HistorySwitch` instance. This causes all routes in the tree to re-evaluate their `matchPath()` and re-render accordingly, without requiring a context or event bus.
 
 <h3 id="path-matching">Path matching</h3>
 
 ```typescript
+const compilePath = (path: string, exact: boolean): { regex: RegExp; keys: string[] };
+
 const matchPath = (
     pathname: string,
     options: { exact?: boolean; path?: string }
 ): RouteMatch | null
 ```
 
-- If `path` is not provided, the route always matches (returns `{ path: null, url: pathname, isExact: true }`).
-- Otherwise, the path is escaped and used to construct a `RegExp` anchored at the start (`^`). This matches the path as a prefix of the current pathname.
-- If `exact` is true and the matched segment is not equal to the full pathname, the match is rejected.
+`compilePath` turns a route pattern into a regex plus an ordered list of capture `keys`, splitting on `/` and translating each segment:
 
-The returned `RouteMatch` contains `{ path, url, isExact }` and is passed to the `component` or `render` prop of the `Route`.
+- A static segment is regex-escaped and matched literally.
+- `:name` becomes a single-segment capture `/([^/]+)` and pushes `name` onto `keys`; `:name?` becomes the optional `(?:/([^/]+))?`.
+- A trailing `*` becomes `(?:/(.*))?` and pushes the literal key `*` — the splat, which captures the remainder including `/`.
+- A root pattern (`/`, no segments) compiles to `^/?$` (exact) or `^/` (matches anything).
+- The suffix is `/?$` when `exact`, otherwise the **segment-boundary lookahead** `(?=/|$)`. This is the key change from the old literal-prefix matcher: a non-exact `/users` still matches `/users/42` but no longer matches `/usersxyz`.
 
-<h3 id="url-param-parsing">URL parameter parsing and singularization</h3>
+`matchPath` runs the compiled regex against `pathname`, then zips `keys` against the regex capture groups (skipping groups that did not participate, e.g. an absent optional or empty splat) to build `params`. If `path` is absent the route always matches (`{ path: null, url: pathname, isExact: true, params: {} }`). The returned `RouteMatch` — `{ path, url, isExact, params }` — is passed to the `component` (`createElement(component, { match })`) or `render({ match })` prop. `isExact` is `pathname === url`.
 
-ANUVerzum uses a REST-convention-based URL parameter parser:
+<h3 id="route-param-registry">The current-match registry — <code>getRouteParams</code></h3>
+
+`match.params` is only visible inside a route's `component`/`render`. To read **pattern** captures imperatively (by the `:name` you declared, and the splat under `'*'`), ANUVerzum keeps a module-level `routeMatches: Map<Component, RouteMatch>`. Each `HistoryRoute`, in `render`, calls `setRouteMatch(this, match)` when it matches and `clearRouteMatch(this)` when it does not (and on `componentWillUnmount`). Because navigation `setState`s every registered route, the map always reflects the **live** set of currently-matched routes.
 
 ```typescript
-const parseUrlParams = (pathname: string): Record<string, string>
+const getMergedRouteParams = (): Record<string, string> => {
+    const merged: Record<string, string> = {};
+    routeMatches.forEach((match) => Object.assign(merged, match.params));
+    return merged;
+};
+
+const getRouteParams = (key: string): string | null => getMergedRouteParams()[key] ?? null;
+const getAllRouteParamNames = (): string[] => Object.keys(getMergedRouteParams());
 ```
 
-The pathname is split on `/` and the resulting segments are iterated in pairs. Each even-indexed segment is treated as a resource noun (e.g. `users`), and the next segment (odd index) is its ID value. The noun is singularized and `Id` is appended to form the key:
-
-```
-/users/asdf1234/products/ghjk5678
- └─ users → singularize → user → "userId": "asdf1234"
-              products → singularize → product → "productId": "ghjk5678"
-```
-
-`singularize()` handles the most common English plural endings: `ies→y`, `sses→ss`, `xes→x`, `zes→z`, `ches→ch`, `shes→sh`, and a generic `s→` fallback.
+Params are **merged across all currently-matched routes** in insertion (mount) order, so a nested child's captures overlay its parent's (`{ userId }` from `/users/:userId` plus `{ userId, postId }` from a child `/users/:userId/posts/:postId` → `{ userId, postId }`). Inside a `Switch` only the selected child renders, so only its params are present — giving a clean single-route read. `getRouteParams('id')` reads the param you *named* `id` in the pattern, and the trailing `*` splat is reachable under the `'*'` key.
 
 <h3 id="route-link-redirect">Route, Link, Redirect components</h3>
 
 **`HistoryRoute`**
-Registers with the global instance list on mount and listens for `popstate` (back/forward browser navigation). On render, calls `matchPath` against `window.location.pathname`. If it matches, renders either `createElement(component, { match })` or `render({ match })`. Returns `null` if no match.
+Registers with the global instance list on mount and listens for `popstate` (back/forward browser navigation). On render, it uses an injected `computedMatch` if present (set by an enclosing `Switch`), otherwise calls `matchPath` against `window.location.pathname`. If it matches, renders either `createElement(component, { match })` or `render({ match })`. Returns `null` if no match.
+
+**`HistorySwitch`**
+The exclusivity container — the analogue of React Router v5's `<Switch>`. It registers and listens for navigation exactly like a Route, but on render it walks its children (via `Children.toArray`, guarding each with `isValidElement`), runs `matchPath` against each child's `path`/`exact`, and renders **only the first match** — `cloneElement(child, { computedMatch: match })` — returning `null` if none match. First-match means ordering is significant: place more specific routes earlier, and a pathless or `*` Route last as the catch-all/404. This is what makes a true 404 expressible — a bare `Route` renders unconditionally on its own, but inside a `Switch` it only renders when every earlier sibling missed. Built entirely on the element-introspection toolkit (`Children`/`isValidElement`/`cloneElement`); no reconciler change.
 
 **`HistoryLink`**
 Renders as an `<a>` tag with `href={to}`, mirroring React Router's `<Link>`. Adds an `ariaLabel` of `historyLink[-ariaLabel]` for accessibility, and strips the Link-only `replace` prop so it never reaches the DOM. Its click handling matches React Router:
