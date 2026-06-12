@@ -1,16 +1,16 @@
 import { Component } from './components/Component';
-import { createElement, AnuElement, ElementType, Props } from './elements';
+import { createElement, AnuElement, ComponentConstructor, ElementType, Props } from './elements';
 
 export interface LazyOptions {
     fallback?: AnuElement | null;
     onError?: (error: unknown) => void;
 }
 
-export const lazy = (
+export const lazy = <P extends Props = Props>(
     factory: () => Promise<{ default: ElementType } | ElementType>,
     options: LazyOptions = {}
-): ElementType =>
-    class Lazy extends Component<Props, { Loaded: ElementType | null }> {
+): ComponentConstructor<P> =>
+    class Lazy extends Component<P, { Loaded: ElementType | null }> {
         state = { Loaded: null as ElementType | null };
 
         componentDidMount(): void {

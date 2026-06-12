@@ -757,11 +757,11 @@ export class Fragment extends Component {
 `lazy(factory, options?)` defers a heavy component behind a dynamic `import()` so it ships in its own bundle chunk. It needs **no reconciler change** — it returns a `Component` subclass that fires the import on mount and `setState`s the resolved component in:
 
 ```typescript
-export const lazy = (
+export const lazy = <P extends Props = Props>(
     factory: () => Promise<{ default: ElementType } | ElementType>,
     options: LazyOptions = {}
-): ElementType =>
-    class Lazy extends Component<Props, { Loaded: ElementType | null }> {
+): ComponentConstructor<P> =>
+    class Lazy extends Component<P, { Loaded: ElementType | null }> {
         state = { Loaded: null as ElementType | null };
 
         componentDidMount(): void {
@@ -789,6 +789,8 @@ export const lazy = (
 ```
 
 The factory result is normalised with `(mod).default ?? mod`, so both an ES-module namespace (`{ default }`) and a bare component resolve correctly. Until it resolves, `render()` returns `options.fallback ?? null`; afterwards it forwards the live props to the loaded component on every update via `createElement(Loaded, this.props)`. The fallback→loaded swap is an ordinary `setState`, so it commits on the macro-task scheduler like any other update. This is the **minimal** code-splitting form: there is no shared `<Suspense>` boundary (each `lazy` renders its own fallback) and no SSR/hydration support.
+
+The return type is `ComponentConstructor<P>`, **not** `ElementType`. `ElementType` is a union that includes `string`, which has no construct or call signature, so a value typed that way is rejected by `JSX.ElementType` resolution (`TS2604` on `<Lazy />`). Since `lazy` always returns a class component, the narrower `ComponentConstructor<P>` is both accurate and JSX-renderable, and the optional `P` type parameter types the props the loaded component receives (`Anu.lazy<{ data: Data }>(...)`).
 
 <br>
 <hr>
