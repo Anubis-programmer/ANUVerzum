@@ -573,8 +573,10 @@ The resulting fibers are linked into a sibling-chain as the new children of `wip
 **`commitWork(effect)`** handles each effect tag:
 
 - **`PLACEMENT`:**
-    - For `HOST_COMPONENT`: finds the correct DOM parent by walking up until a host ancestor is found. Uses `getNextHostNode()` to determine the correct sibling insertion point, so newly placed elements land in the right position even when their logical siblings are class or function components. Sets `ref.current` if present. 
+    - For `HOST_COMPONENT`: finds the correct DOM parent by walking up until a host ancestor is found. Uses `getNextHostNode()` to determine the `insertBefore` anchor — the first already-placed host DOM node that should follow this one — so newly placed elements land in the right position even when their logical siblings are class or function components. When no anchor is found it falls back to `appendChild`. Sets `ref.current` if present.
     - For `CLASS_COMPONENT`: enqueues `componentDidMount` in `componentLifecyclesQueue`.
+
+    `getNextHostNode(fiber, domParent)` resolves the anchor by scanning the fiber's following siblings (`getFirstHostNode` on each — descending into component children to reach the first host DOM node, skipping portals), and returns the first whose DOM node is already a child of `domParent`. Crucially it does **not** stop at the fiber's own sibling chain: a component child (e.g. a `Chip` function component) renders its host node *inside* its own subtree, so its next host neighbour lives one level up. When the local sibling scan is exhausted and the fiber's parent is itself a `CLASS_COMPONENT`/`FUNCTION_COMPONENT` (i.e. it shares the same `domParent`), the walk **climbs to that parent and continues scanning its siblings**, stopping only when it reaches the host/root/portal boundary that owns `domParent`. Without this climb, a keyed component child inserted before a keyed host sibling (the canonical "chips before an `<input>`" shape) would resolve no anchor and be `appendChild`-ed *after* the host element instead of before it.
 
 - **`UPDATE`:**
     - For `HOST_COMPONENT`: calls `updateDomProperties()` to diff old vs new props. Sets `ref.current` if present.
