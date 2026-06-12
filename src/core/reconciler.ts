@@ -427,16 +427,28 @@ const getFirstHostNode = (fiber: Fiber): Node | null => {
 };
 
 const getNextHostNode = (fiber: Fiber, domParent: HTMLElement): Node | null => {
-    let sibling: Fiber | undefined = fiber.sibling;
+    let node: Fiber | undefined = fiber;
 
-    while (sibling) {
-        const node = getFirstHostNode(sibling);
+    while (node) {
+        let sibling: Fiber | undefined = node.sibling;
 
-        if (node && (node as HTMLElement).parentNode === domParent) {
-            return node;
+        while (sibling) {
+            const hostNode = getFirstHostNode(sibling);
+
+            if (hostNode && (hostNode as HTMLElement).parentNode === domParent) {
+                return hostNode;
+            }
+
+            sibling = sibling.sibling;
         }
-        
-        sibling = sibling.sibling;
+
+        const parent: Fiber | undefined = node.parent;
+
+        if (!parent || (parent.tag !== CLASS_COMPONENT && parent.tag !== FUNCTION_COMPONENT)) {
+            break;
+        }
+
+        node = parent;
     }
 
     return null;
