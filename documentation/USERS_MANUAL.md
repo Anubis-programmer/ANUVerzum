@@ -79,6 +79,9 @@
     </li>
     <ul>
         <li>
+            <a href="#router-configuration">Configuring the router (hash mode &amp; basename)</a>
+        </li>
+        <li>
             <a href="#linking-and-routing">Linking and routing</a>
         </li>
         <li>
@@ -1573,6 +1576,25 @@ class App extends Anu.Component<{}, { showModal: boolean }> {
 <br>
 
 <h2 id="history-api">Routing - <strong>The History API</strong></h2>
+
+<h3 id="router-configuration">Configuring the router (hash mode &amp; basename)</h3>
+
+- By default the router uses the <strong>History API</strong> (real paths via <code>pushState</code>) and assumes the app is mounted at the domain root. Call <code>Anu.History.configure(...)</code> <strong>once at app startup, before your first render</strong>, to change either:
+    - <code>mode: 'hash'</code> — navigate over the URL fragment (<code>#/foo</code>) instead of the path. Use this on a <strong>static host</strong> (e.g. GitHub Pages) where opening a deep link or hard-refreshing a real path would 404 at the server — the fragment is client-only, so the server only ever sees <code>index.html</code>.
+    - <code>basename: '/my-app'</code> — a base-path prefix for apps not served from the root (GitHub Pages project sites, reverse-proxy subpaths). The basename is stripped from the URL before <code>path</code> matching and prepended to every <code>&lt;Link&gt;</code> <code>href</code> and <code>goTo</code> target, so your route <code>path</code>s and <code>to</code>s stay written relative to the app root.
+
+    ```typescript
+    // Static host served from https://<user>.github.io/<repo>/
+    Anu.History.configure({ mode: 'hash' });
+
+    // Real paths under a subpath: https://<user>.github.io/<repo>/users
+    Anu.History.configure({ basename: '/<repo>' });
+
+    // The two compose — basename then applies inside the fragment (#/<repo>/users)
+    Anu.History.configure({ mode: 'hash', basename: '/<repo>' });
+    ```
+
+    Both options default to backward-compatible values (<code>mode: 'history'</code>, no basename), so existing apps need no change.
 
 <h3 id="linking-and-routing">Linking and routing</h3>
 

@@ -904,7 +904,33 @@ Updates propagate by registration rather than through the render tree: on each r
 
 <h2 id="history-routing">Routing — <code>src/core/components/History.ts</code></h2>
 
-ANUVerzum implements client-side routing using the browser's History API (`pushState` / `replaceState`) and the `popstate` event.
+ANUVerzum implements client-side routing using the browser's History API (`pushState` / `replaceState`) and the `popstate` event. It also supports an opt-in **hash mode** (fragment-based routing) and a **basename** prefix, both set through a single configuration entry point.
+
+<h3 id="router-configuration">Router configuration — <code>configure</code></h3>
+
+```typescript
+type RouterMode = 'history' | 'hash';
+
+const config: RouterConfig = { mode: 'history', basename: '' };
+
+const configure = (options: { mode?: RouterMode; basename?: string }): void;
+```
+
+`Anu.History.configure({ mode, basename })` mutates a module-level `config` singleton (call it once at app startup, before the first render). Both options are independent and compose:
+
+- **`mode`** — `'history'` (default) navigates via `pushState`/`replaceState` over `location.pathname`; `'hash'` navigates over `location.hash` (`#/foo`) so the app works on a static host (e.g. GitHub Pages) where a hard refresh or shared deep link would otherwise 404 at the server.
+- **`basename`** — a base-path prefix for apps not served from the domain root (e.g. `/<repo>` on GitHub Pages project sites). It is normalized (leading slash forced, trailing slash stripped, `/` treated as empty), then **stripped** from the read location before matching and **prepended** to every generated `href` / navigation target.
+
+Two internal helpers thread the config through the rest of the module:
+
+```typescript
+// the basename-stripped path the router matches against (pathname or hash content per mode)
+const getCurrentPath = (): string => stripBasename(getRawLocation());
+// the actual href / navigation target: basename-prefixed, fragment-marked in hash mode
+const buildHref = (to: string): string;
+```
+
+`getRawLocation` reads `location.pathname` in history mode and `location.hash.slice(1)` (defaulting to `/`) in hash mode. In hash mode `basename` applies **inside** the fragment (`#/<basename>/foo`); the pathname is left to the static host. `navigate(to, replace)` (the unified replacement for the old `historyPush`/`historyReplace`) emits `trackRouteChange(to)`, writes `buildHref(to)` via `pushState`/`replaceState`, then `setState()`s every registered instance.
 
 <h3 id="global-instances-registry">Global instance registry</h3>
 
@@ -916,7 +942,7 @@ const register   = (comp: Component): void => { instances.push(comp); };
 const unregister = (comp: Component): void => { /* splice by indexOf */ };
 ```
 
-When navigation occurs — whether via `HistoryLink`, `HistoryRedirect`, or `Anu.History.goTo()` — both `historyPush` and `historyReplace` call `setState()` on every registered `HistoryRoute`/`HistorySwitch` instance. This causes all routes in the tree to re-evaluate their `matchPath()` and re-render accordingly, without requiring a context or event bus.
+When navigation occurs — whether via `HistoryLink`, `HistoryRedirect`, or `Anu.History.goTo()` — `navigate()` calls `setState()` on every registered `HistoryRoute`/`HistorySwitch` instance. This causes all routes in the tree to re-evaluate their `matchPath()` and re-render accordingly, without requiring a context or event bus. Every instance subscribes to **both** `popstate` and `hashchange`, so back/forward navigation and external hash edits re-render the tree in either mode.
 
 <h3 id="path-matching">Path matching</h3>
 
@@ -959,17 +985,17 @@ Params are **merged across all currently-matched routes** in insertion (mount) o
 <h3 id="route-link-redirect">Route, Link, Redirect components</h3>
 
 **`HistoryRoute`**
-Registers with the global instance list on mount and listens for `popstate` (back/forward browser navigation). On render, it uses an injected `computedMatch` if present (set by an enclosing `Switch`), otherwise calls `matchPath` against `window.location.pathname`. If it matches, renders either `createElement(component, { match })` or `render({ match })`. Returns `null` if no match.
+Registers with the global instance list on mount and listens for `popstate` and `hashchange` (back/forward browser navigation and external hash edits). On render, it uses an injected `computedMatch` if present (set by an enclosing `Switch`), otherwise calls `matchPath` against `getCurrentPath()` (the basename-stripped pathname, or hash content in hash mode). If it matches, renders either `createElement(component, { match })` or `render({ match })`. Returns `null` if no match.
 
 **`HistorySwitch`**
 The exclusivity container — the analogue of React Router v5's `<Switch>`. It registers and listens for navigation exactly like a Route, but on render it walks its children (via `Children.toArray`, guarding each with `isValidElement`), runs `matchPath` against each child's `path`/`exact`, and renders **only the first match** — `cloneElement(child, { computedMatch: match })` — returning `null` if none match. First-match means ordering is significant: place more specific routes earlier, and a pathless or `*` Route last as the catch-all/404. This is what makes a true 404 expressible — a bare `Route` renders unconditionally on its own, but inside a `Switch` it only renders when every earlier sibling missed. Built entirely on the element-introspection toolkit (`Children`/`isValidElement`/`cloneElement`); no reconciler change.
 
 **`HistoryLink`**
-Renders as an `<a>` tag with `href={to}`, mirroring React Router's `<Link>`. Adds an `ariaLabel` of `historyLink[-ariaLabel]` for accessibility, and strips the Link-only `replace` prop so it never reaches the DOM. Its click handling matches React Router:
+Renders as an `<a>` tag with `href={buildHref(to)}` (so the `href` carries the basename prefix and, in hash mode, the leading `#`), mirroring React Router's `<Link>`. Adds an `ariaLabel` of `historyLink[-ariaLabel]` for accessibility, and strips the Link-only `replace` prop so it never reaches the DOM. Its click handling matches React Router:
 
 - It **composes** a consumer-supplied `onClick` rather than replacing it — the user's `onClick` runs first, and navigation only proceeds if the handler did not call `event.preventDefault()` (`!event.defaultPrevented`).
 - It only intercepts **plain left-clicks**, gated by `shouldProcessLinkClick(event, target)` (`event.button === 0`, no `meta`/`ctrl`/`shift`/`alt` modifier, and `target` unset or `_self`). For modifier-clicks, middle/right-clicks, or `target="_blank"`, it leaves the browser's native behavior intact (open-in-new-tab, etc.).
-- When it does process the click, it calls `event.preventDefault()` and navigates via `goTo(to, replace)` → `historyPush`/`historyReplace`.
+- When it does process the click, it calls `event.preventDefault()` and navigates via `goTo(to, replace)` → `navigate(to, replace)`.
 
 For a non-anchor / custom link element, consumers build their own and call the exported `Anu.History.goTo()` from their handler (ANUVerzum exposes the imperative function rather than a React-Router-style hook).
 
@@ -1682,7 +1708,7 @@ Several modules maintain module-level state that must be reset between tests. Ra
 | Module | `__testing` methods | State reset |
 |--------|---------------------|-------------|
 | `src/core/reconciler.ts` | `flushSync()`, `installSyncScheduler()`, `uninstallSyncScheduler()`, `resetGlobals()` | `updateQueue`, `componentLifecyclesQueue`, `nextUnitOfWork`, `pendingCommit`, `scheduleWork` |
-| `src/core/components/History.ts` | `reset()` | `instances: Component[]` registry |
+| `src/core/components/History.ts` | `reset()` | `instances: Component[]` registry, `routeMatches` map, `config` (mode/basename back to defaults) |
 | `src/core/components/Intl.ts` | `reset()` | `__messagesContext` module variable |
 | `src/core/components/AnulyticsProvider.ts` | `reset()` | `AnulyticsState.setAnulyticsInstanceExist(false)` |
 

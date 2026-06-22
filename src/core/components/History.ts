@@ -49,11 +49,82 @@ const hasHistoryAPI =
     typeof window.history !== 'undefined' &&
     typeof window.history.pushState === 'function';
 
-const historyPush = (path: string): void => {
-    trackRouteChange(path);
+export type RouterMode = 'history' | 'hash';
+
+export interface RouterConfig {
+    mode: RouterMode;
+    basename: string;
+}
+
+const config: RouterConfig = { mode: 'history', basename: '' };
+
+const normalizeBasename = (basename: string): string => {
+    if (!basename || basename === '/') {
+        return '';
+    }
+
+    const prefixed = basename.startsWith('/') ? basename : `/${basename}`;
+
+    return prefixed.endsWith('/') ? prefixed.slice(0, -1) : prefixed;
+};
+
+const configure = (options: { mode?: RouterMode; basename?: string }): void => {
+    if (isNotNullish(options.mode)) {
+        config.mode = options.mode;
+    }
+
+    if (isNotNullish(options.basename)) {
+        config.basename = normalizeBasename(options.basename);
+    }
+};
+
+const getRawLocation = (): string => {
+    if (config.mode === 'hash') {
+        return window.location.hash.slice(1) || '/';
+    }
+
+    return window.location.pathname;
+};
+
+const stripBasename = (pathname: string): string => {
+    const { basename } = config;
+
+    if (!basename) {
+        return pathname;
+    }
+
+    if (pathname === basename) {
+        return '/';
+    }
+
+    if (pathname.startsWith(`${basename}/`)) {
+        return pathname.slice(basename.length);
+    }
+
+    return pathname;
+};
+
+const getCurrentPath = (): string => stripBasename(getRawLocation());
+
+const withBasename = (path: string): string => (config.basename ? `${config.basename}${path}` : path);
+
+const buildHref = (to: string): string => {
+    const target = withBasename(to);
+
+    return config.mode === 'hash' ? `#${target}` : target;
+};
+
+const navigate = (to: string, replace?: boolean): void => {
+    trackRouteChange(to);
 
     if (hasHistoryAPI) {
-        history.pushState({}, '', path);
+        const href = buildHref(to);
+
+        if (replace) {
+            history.replaceState({}, '', href);
+        } else {
+            history.pushState({}, '', href);
+        }
     } else {
         console.warn('History API not available - running in non-browser environment');
     }
@@ -63,19 +134,9 @@ const historyPush = (path: string): void => {
     });
 };
 
-const historyReplace = (path: string): void => {
-    trackRouteChange(path);
+const historyPush = (path: string): void => navigate(path, false);
 
-    if (hasHistoryAPI) {
-        history.replaceState({}, '', path);
-    } else {
-        console.warn('History API not available - running in non-browser environment');
-    }
-
-    instances.forEach((instance) => {
-        instance.setState();
-    });
-};
+const historyReplace = (path: string): void => navigate(path, true);
 
 interface CompiledPath {
     regex: RegExp;
@@ -166,6 +227,7 @@ class HistoryRoute extends Component<HistoryRouteProps> {
 
     componentDidMount(): void {
         window.addEventListener('popstate', this.handlePop);
+        window.addEventListener('hashchange', this.handlePop);
         register(this);
     }
 
@@ -173,6 +235,7 @@ class HistoryRoute extends Component<HistoryRouteProps> {
         unregister(this);
         clearRouteMatch(this);
         window.removeEventListener('popstate', this.handlePop);
+        window.removeEventListener('hashchange', this.handlePop);
     }
 
     handlePop(): void {
@@ -182,7 +245,7 @@ class HistoryRoute extends Component<HistoryRouteProps> {
     render(): AnuElement | null {
         const { path, exact, component, render, computedMatch } = this.props;
 
-        const match = computedMatch ?? matchPath(window.location.pathname, { path, exact });
+        const match = computedMatch ?? matchPath(getCurrentPath(), { path, exact });
 
         if (match !== null) {
             setRouteMatch(this, match);
@@ -210,12 +273,14 @@ class HistorySwitch extends Component<Props> {
 
     componentDidMount(): void {
         window.addEventListener('popstate', this.handlePop);
+        window.addEventListener('hashchange', this.handlePop);
         register(this);
     }
 
     componentWillUnmount(): void {
         unregister(this);
         window.removeEventListener('popstate', this.handlePop);
+        window.removeEventListener('hashchange', this.handlePop);
     }
 
     handlePop(): void {
@@ -223,7 +288,7 @@ class HistorySwitch extends Component<Props> {
     }
 
     render(): AnuElement | null {
-        const pathname = window.location.pathname;
+        const pathname = getCurrentPath();
 
         for (const child of Children.toArray(this.props.children)) {
             if (!isValidElement(child)) {
@@ -273,7 +338,7 @@ class HistoryLink extends Component<HistoryLinkProps> {
         return createElement(
             'a',
             {
-                href: to,
+                href: buildHref(to),
                 ariaLabel: `historyLink${ariaLabel ? `-${ariaLabel}` : ''}`,
                 ...restProps,
                 onClick: this.handleClick
@@ -316,6 +381,7 @@ const History = {
     Redirect: HistoryRedirect,
     Route: HistoryRoute,
     Switch: HistorySwitch,
+    configure,
     getRouteParams,
     getAllRouteParamNames
 };
@@ -330,5 +396,7 @@ export const __testing = {
         
         instances.length = 0;
         routeMatches.clear();
+        config.mode = 'history';
+        config.basename = '';
     }
 };
