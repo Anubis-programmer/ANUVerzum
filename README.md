@@ -13,7 +13,7 @@ A lightweight React-inspired UI library for building component-based web applica
 - Class components with full lifecycle support and function components
 - JSX via a custom Babel preset — no separate TypeScript preset needed
 - Redux-compatible state management with thunk middleware and memoized selectors
-- Client-side routing over the History API
+- Client-side routing over the History API, with opt-in hash mode and basename support for static/subpath hosts
 - Context API, i18n (Intl), feature flags, and built-in event analytics (Anulytics)
 - Ships with TypeScript declaration files — no `@types` package needed
 - Built-in testing companion — **Anu Testing Library (ATL)** shipped as `anu-verzum/testing`
