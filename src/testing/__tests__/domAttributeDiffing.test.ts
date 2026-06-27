@@ -38,6 +38,45 @@ describe('an attribute whose value becomes undefined on re-render is removed', (
     });
 });
 
+describe('a property-path prop whose value becomes undefined on re-render is cleared', () => {
+    class InertToggle extends Component<Record<string, never>, { on: boolean }> {
+        state = { on: false };
+        render() {
+            return Anu.createElement('button', {
+                inert: this.state.on ? undefined : 'true',
+                'data-x': this.state.on ? undefined : 'y',
+                onClick: () => this.setState({ on: true })
+            });
+        }
+    }
+
+    test('inert is set initially and cleared after the toggle (property path)', () => {
+        const { container } = render(Anu.createElement(InertToggle, {}));
+        const button = container.querySelector('button') as HTMLButtonElement & { inert: unknown };
+
+        expect(button.inert).toBe('true');
+        expect(button.getAttribute('data-x')).toBe('y');
+
+        fireEvent.click(button);
+
+        expect(button.inert).toBeUndefined();
+        expect(button.getAttribute('data-x')).toBeNull();
+    });
+
+    test('a property-path prop is cleared when the key is gone in next props', () => {
+        const { container, rerender } = render(
+            Anu.createElement('button', { inert: 'true' })
+        );
+        const button = container.querySelector('button') as HTMLButtonElement & { inert: unknown };
+
+        expect(button.inert).toBe('true');
+
+        rerender(Anu.createElement('button', {}));
+
+        expect(button.inert).toBeUndefined();
+    });
+});
+
 describe('camelCase CSS property keys in a style object are applied', () => {
     test('objectFit reaches the element as object-fit', () => {
         const { container } = render(

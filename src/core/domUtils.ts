@@ -114,6 +114,23 @@ export const updateDomProperties = (
         (key: string): boolean =>
             !(key in next);
 
+    const removeDomProperty = (name: string): void => {
+        const el = dom as any;
+        if (isSvgElement) {
+            (dom as SVGElement).removeAttribute(name === 'className' ? 'class' : name);
+        } else if (name === 'className') {
+            (dom as HTMLElement).removeAttribute('class');
+        } else if (name === 'htmlFor') {
+            (dom as HTMLElement).removeAttribute('for');
+        } else if (name.includes('-') || name === 'role' || ATTRIBUTE_ONLY_PROPS.has(name)) {
+            (dom as HTMLElement).removeAttribute(name);
+        } else if (dom.nodeType === 1 && /[A-Z]/.test(name)) {
+            (dom as HTMLElement).removeAttribute(HTML_ATTRIBUTE_NAME_MAP[name] ?? name.toLowerCase());
+        } else {
+            el[name] = undefined;
+        }
+    };
+
     Object.keys(prevProps)
         .filter(isEvent)
         .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
@@ -125,15 +142,7 @@ export const updateDomProperties = (
     Object.keys(prevProps)
         .filter(isAttribute)
         .filter(isGone(prevProps, nextProps))
-        .forEach((name) => {
-            if (name === 'className') {
-                (dom as HTMLElement).removeAttribute('class');
-            } else if (name === 'htmlFor') {
-                (dom as HTMLElement).removeAttribute('for');
-            } else {
-                (dom as HTMLElement).removeAttribute(name);
-            }
-        });
+        .forEach(removeDomProperty);
 
     Object.keys(nextProps)
         .filter(isAttribute)
@@ -143,8 +152,7 @@ export const updateDomProperties = (
             const value = nextProps[name];
 
             if (!isNotNullish(value)) {
-                const attrName = name === 'className' ? 'class' : name === 'htmlFor' ? 'for' : name;
-                (dom as HTMLElement).removeAttribute(attrName);
+                removeDomProperty(name);
                 return;
             }
 
