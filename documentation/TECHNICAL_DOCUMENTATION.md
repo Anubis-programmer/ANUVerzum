@@ -241,6 +241,7 @@ The `JSX` global namespace is also declared here so TypeScript recognizes JSX sy
 ```typescript
 declare global {
     namespace JSX {
+        type ElementType = AnuElementType;
         interface IntrinsicAttributes { key?: string | number | null; ref?: Ref<any> | null; }
         interface Element extends AnuElement<any, any> {}
         interface ElementClass { render(): AnuNode; }
@@ -250,6 +251,8 @@ declare global {
     }
 }
 ```
+
+`JSX.ElementType` (aliasing `ElementType` from `core/elements`, imported as `AnuElementType` to avoid a self-referential collision inside the namespace) admits `string | FunctionComponent | ComponentConstructor | PortalElementType`. Without it, a JSX tag that is an in-scope **value** (e.g. `const Tag = tagName; <Tag />` for a polymorphic `as`-prop component) resolves only against `ElementClass`/function-component call signatures, so a `string`-typed tag variable errors `TS2604`. Defining `ElementType` lets a `string`-typed tag typecheck as idiomatic JSX rather than forcing a manual `Anu.createElement(tag as string, …)` call. (TS 5.1+ honors this opt-in.)
 
 `JSX.ElementClass.render` **must stay in sync with `Component`'s abstract `render()`** — both return `AnuNode`. TypeScript validates every class component used in JSX against `ElementClass`, so if `Component.render` returns a shape wider than `ElementClass.render` declares (e.g. `Fragment.render(): AnuChild[]`), `<Anu.Fragment />` silently fails the check and stops resolving to a valid `JSX.Element`. This repo's own `tsconfig.json` does not set `jsx`, so `npm run typecheck` never exercises the `JSX` namespace — JSX-contract regressions only surface in consumer/editor contexts.
 
