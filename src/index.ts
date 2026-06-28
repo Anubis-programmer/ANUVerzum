@@ -1,6 +1,6 @@
 import Utils from './misc/utils';
 import ServerAPI from './server-api/server-api';
-import { createElement, cloneElement, isValidElement, Children, AnuElement, AnuNode, Props, Ref } from './core/elements';
+import { createElement, cloneElement, isValidElement, Children, AnuElement, AnuNode, Props, Ref, ElementType as AnuElementType } from './core/elements';
 import { createRef, render, createPortal } from './core/reconciler';
 import { lazy } from './core/lazy';
 import { memo } from './core/memo';
@@ -58,6 +58,7 @@ export type { AbbreviateNumberOptions, FormatNumberOptions, ParseNumberOptions }
 /* eslint-disable @typescript-eslint/no-namespace, @typescript-eslint/no-empty-object-type */
 declare global {
     namespace JSX {
+        type ElementType = AnuElementType;
         interface IntrinsicAttributes {
             key?: string | number | null;
             ref?: Ref<any> | null;
