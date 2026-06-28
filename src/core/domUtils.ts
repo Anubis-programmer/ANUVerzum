@@ -167,6 +167,8 @@ export const updateDomProperties = (
                     el[name] = value;
                 } else if (name.includes('-') || name === 'role' || ATTRIBUTE_ONLY_PROPS.has(name)) {
                     (dom as HTMLElement).setAttribute(name, value);
+                } else if (typeof value === 'boolean' && name in el) {
+                    el[name] = value;
                 } else if (dom.nodeType === 1 && /[A-Z]/.test(name)) {
                     (dom as HTMLElement).setAttribute(HTML_ATTRIBUTE_NAME_MAP[name] ?? name.toLowerCase(), value);
                 } else {
