@@ -77,6 +77,46 @@ describe('a property-path prop whose value becomes undefined on re-render is cle
     });
 });
 
+describe('camelCase boolean DOM props are set as properties, not stringified attributes', () => {
+    test('readOnly={false} omits the attribute and reads false', () => {
+        const { container } = render(Anu.createElement('input', { readOnly: false }));
+        const input = container.querySelector('input') as HTMLInputElement;
+
+        expect(input.hasAttribute('readonly')).toBe(false);
+        expect(input.readOnly).toBe(false);
+    });
+
+    test('readOnly={true} sets the attribute and reads true', () => {
+        const { container } = render(Anu.createElement('input', { readOnly: true }));
+        const input = container.querySelector('input') as HTMLInputElement;
+
+        expect(input.readOnly).toBe(true);
+    });
+
+    test('toggling readOnly from true to false clears it', () => {
+        const { container, rerender } = render(
+            Anu.createElement('input', { readOnly: true })
+        );
+        const input = container.querySelector('input') as HTMLInputElement;
+
+        expect(input.readOnly).toBe(true);
+
+        rerender(Anu.createElement('input', { readOnly: false }));
+
+        expect(input.hasAttribute('readonly')).toBe(false);
+        expect(input.readOnly).toBe(false);
+    });
+
+    test('string-valued camelCase props still reach setAttribute', () => {
+        const { container } = render(
+            Anu.createElement('input', { autoComplete: 'email' })
+        );
+        const input = container.querySelector('input') as HTMLInputElement;
+
+        expect(input.getAttribute('autocomplete')).toBe('email');
+    });
+});
+
 describe('camelCase CSS property keys in a style object are applied', () => {
     test('objectFit reaches the element as object-fit', () => {
         const { container } = render(
