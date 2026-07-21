@@ -48,6 +48,121 @@ const updateQueue: Array<{
 let nextUnitOfWork: Fiber | null | undefined = null;
 let pendingCommit: Fiber | null = null;
 
+const boundariesHandlingError = new Set<any>();
+
+const isErrorBoundary = (fiber: Fiber): boolean => {
+    if (fiber.tag !== CLASS_COMPONENT || !fiber.type) {
+        return false;
+    }
+
+    const ctor = fiber.type as any;
+
+    return typeof ctor.getDerivedStateFromError === 'function' || typeof ctor.prototype?.componentDidCatch === 'function';
+};
+
+const findErrorBoundary = (start: Fiber | undefined, skip?: Set<any>): Fiber | null => {
+    let node: Fiber | undefined = start;
+
+    while (node) {
+        if (isErrorBoundary(node) && !(skip && skip.has(node.stateNode))) {
+            return node;
+        }
+
+        node = node.parent;
+    }
+
+    return null;
+};
+
+const getComponentName = (fiber: Fiber): string => {
+    const type = fiber.type as any;
+
+    if (typeof type === 'function') {
+        return type.name || 'Anonymous';
+    }
+
+    if (typeof type === 'string') {
+        return type;
+    }
+
+    return 'Unknown';
+};
+
+const buildComponentStack = (fiber: Fiber | null | undefined): string => {
+    const lines: string[] = [];
+    let node: Fiber | null | undefined = fiber;
+
+    while (node) {
+        if (node.tag === CLASS_COMPONENT || node.tag === FUNCTION_COMPONENT || node.tag === HOST_COMPONENT) {
+            lines.push(`    in ${getComponentName(node)}`);
+        }
+
+        node = node.parent;
+    }
+
+    return `\n${lines.join('\n')}`;
+};
+
+const handleRenderError = (failedFiber: Fiber | null | undefined, error: unknown): Fiber => {
+    const boundary = failedFiber ? findErrorBoundary(failedFiber.parent, boundariesHandlingError) : null;
+
+    if (!boundary) {
+        boundariesHandlingError.clear();
+        nextUnitOfWork = null;
+        pendingCommit = null;
+        throw error;
+    }
+
+    const instance = boundary.stateNode;
+    const ctor = boundary.type as any;
+    boundariesHandlingError.add(instance);
+
+    const patch = typeof ctor.getDerivedStateFromError === 'function' ? ctor.getDerivedStateFromError(error) : null;
+
+    if (typeof instance.componentDidCatch === 'function') {
+        const info = { componentStack: buildComponentStack(failedFiber) };
+        componentLifecyclesQueue.push({
+            fn: () => instance.componentDidCatch(error, info),
+            params: {}
+        });
+    }
+
+    boundary.partialState = patch || {};
+    boundary.child = undefined;
+    boundary.effects = [];
+    pendingCommit = null;
+
+    return boundary;
+};
+
+const handleCommitError = (fiber: Fiber | undefined, error: unknown): void => {
+    const boundary = fiber ? findErrorBoundary(fiber.parent) : null;
+
+    if (!boundary) {
+        console.error(error);
+
+        return;
+    }
+
+    const instance = boundary.stateNode;
+    const ctor = boundary.type as any;
+    const patch = typeof ctor.getDerivedStateFromError === 'function' ? ctor.getDerivedStateFromError(error) : null;
+
+    if (typeof instance.componentDidCatch === 'function') {
+        try {
+            instance.componentDidCatch(error, { componentStack: buildComponentStack(fiber) });
+        } catch (callbackError) {
+            console.error(callbackError);
+        }
+    }
+
+    updateQueue.push({
+        from: CLASS_COMPONENT,
+        instance,
+        partialState: patch || {}
+    });
+};
+
 const getRoot = (fiber: Fiber): Fiber => {
     let node = fiber;
 
@@ -93,7 +208,11 @@ const workLoop = (deadline: IdleDeadline): void => {
     }
 
     while (nextUnitOfWork && deadline.timeRemaining() > ENOUGH_TIME) {
-        nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
+        try {
+            nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
+        } catch (error) {
+            nextUnitOfWork = handleRenderError(nextUnitOfWork, error);
+        }
     }
 
     if (pendingCommit) {
@@ -510,6 +629,7 @@ const completeWork = (fiber: Fiber): void => {
 type LifecycleEntry = {
     fn: (prevProps?: any, prevState?: any) => void;
     params: { prevProps?: any; prevState?: any };
+    fiber?: Fiber;
 };
 
 const componentLifecyclesQueue: LifecycleEntry[] = [];
@@ -518,9 +638,15 @@ const flushComponentLifecyclesQueue = (): void => {
     while (componentLifecyclesQueue.length > 0) {
         const {
             fn,
-            params: { prevProps, prevState }
+            params: { prevProps, prevState },
+            fiber
         } = componentLifecyclesQueue.shift()!;
-        fn(prevProps, prevState);
+
+        try {
+            fn(prevProps, prevState);
+        } catch (error) {
+            handleCommitError(fiber, error);
+        }
     }
 };
 
@@ -536,6 +662,7 @@ const commitAllWork = (fiber: Fiber): void => {
     (fiber.stateNode as any)._rootContainerFiber = fiber;
     nextUnitOfWork = null;
     pendingCommit = null;
+    boundariesHandlingError.clear();
 };
 
 const commitWork = (effect: Fiber): void => {
@@ -568,7 +695,8 @@ const commitWork = (effect: Fiber): void => {
             if (effect.stateNode.componentDidMount) {
                 componentLifecyclesQueue.push({
                     fn: effect.stateNode.componentDidMount,
-                    params: {}
+                    params: {},
+                    fiber: effect
                 });
             }
         }
@@ -592,7 +720,8 @@ const commitWork = (effect: Fiber): void => {
                         params: {
                             prevProps: effect.alternate?.props,
                             prevState: effect.prevState
-                        }
+                        },
+                        fiber: effect
                     });
                 }
             }
@@ -764,5 +893,6 @@ export const __testing = {
         componentLifecyclesQueue.length = 0;
         nextUnitOfWork = null;
         pendingCommit = null;
+        boundariesHandlingError.clear();
     }
 };

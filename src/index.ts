@@ -1,6 +1,7 @@
 import Utils from './misc/utils';
 import ServerAPI from './server-api/server-api';
-import { createElement, cloneElement, isValidElement, Children, AnuElement, AnuNode, Props, Ref, ElementType as AnuElementType } from './core/elements';
+import { createElement, cloneElement, isValidElement, Children, AnuElement, AnuNode, Ref, ElementType as AnuElementType } from './core/elements';
+import { AnuIntrinsicElements } from './core/dom-attributes';
 import { createRef, render, createPortal } from './core/reconciler';
 import { lazy } from './core/lazy';
 import { memo } from './core/memo';
@@ -46,6 +47,7 @@ const Anu = {
 };
 
 export type { AnuElement, AnuChild, AnuNode, AnuCSSProperties, Props, Ref, FunctionComponent, ElementType } from './core/elements';
+export type { ErrorInfo } from './core/components/Component';
 export type { ContextValue, ConsumerProps } from './core/components/Context';
 export type { Action, ThunkAction, Dispatch, Reducer, MiddlewareAPI, Middleware, Store, SelectorFn, CreateSelectorFn } from './store/store';
 export type { ApiSuccessResponse, ApiErrorResponse } from './server-api/server-api';
@@ -73,9 +75,7 @@ declare global {
         interface ElementChildrenAttribute {
             children: Record<string, unknown>;
         }
-        interface IntrinsicElements {
-            [elemName: string]: Props;
-        }
+        interface IntrinsicElements extends AnuIntrinsicElements {}
     }
 }
 /* eslint-enable @typescript-eslint/no-namespace, @typescript-eslint/no-empty-object-type */
