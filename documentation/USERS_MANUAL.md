@@ -41,6 +41,9 @@
             <a href="#class-based-components">Class-based components</a>
         </li>
         <li>
+            <a href="#error-boundaries">Error boundaries</a>
+        </li>
+        <li>
             <a href="#rendering-props">Rendering props</a>
         </li>
         <li>
@@ -459,8 +462,9 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 | `AnuCSSProperties` | Style object type used by `Props.style` — `Partial<Record<keyof CSSStyleDeclaration, string \| number>>` plus a `` [`--${string}`] `` index for CSS custom properties; allows numeric values for unitless CSS properties such as `flexShrink`, `zIndex`, `opacity`. camelCase keys (`objectFit`, `backgroundColor`) are converted to their kebab-case CSS names when applied; `--custom-property` keys are kept verbatim |
 | `Props` | Base props type providing `children?: AnuNode`, `style?: AnuCSSProperties`, and an open index signature. Extend it when a component uses `children` or needs the flexible index signature; for simple prop shapes without `children`, a plain `type` alias works equally well |
 | `Ref<T>` | Reference object created by `Anu.createRef<T>()` |
-| `Component<P, S>` | Abstract base class for class components |
+| `Component<P, S>` | Abstract base class for class components. Becomes an [error boundary](#error-boundaries) when it defines `static getDerivedStateFromError(error)` and/or `componentDidCatch(error, info)` |
 | `PureComponent<P, S>` | `Component` subclass that implements `shouldComponentUpdate` as a shallow compare of props and state |
+| `ErrorInfo` | Second argument passed to `componentDidCatch` — `{ componentStack: string }` |
 | `FunctionComponent<P>` | Function component signature |
 | `ElementType` | String tag, function component, or class component constructor |
 | `LazyOptions` | Options object for `Anu.lazy` — `{ fallback?: AnuElement \| null; onError?: (error: unknown) => void }` |
@@ -648,6 +652,53 @@ It takes <strong>ONE</strong> argument which can either be:
             );
         }
     }
+    ```
+
+<h3 id="error-boundaries">Error boundaries</h3>
+
+- An **error boundary** is a class component that catches errors thrown while **rendering** its descendants (or in a descendant's `componentDidMount`/`componentDidUpdate`) and renders a fallback UI instead of letting the error tear down the tree. The semantics match React.
+- A component becomes a boundary by defining either (or both) of:
+    - <code>static getDerivedStateFromError(error)</code> — returns a state patch used to render the fallback. This is where you set the state that switches <code>render()</code> to the fallback branch.
+    - <code>componentDidCatch(error, info)</code> — for side effects such as logging. <code>info</code> is an <code>ErrorInfo</code> object (<code>{ componentStack }</code>).
+- A boundary **only** catches errors from its descendants, never its own render. The **nearest** boundary above the throwing component handles the error, so you can isolate failures per region (e.g. keep your `Header`/`Footer` mounted while only the main region shows an error state).
+- If a boundary's own fallback throws, the error propagates to the next boundary further up. A render error with no boundary anywhere above it propagates out (the tree is torn down), so place at least one boundary near the top of your app.
+
+    ```tsx
+    import Anu, { Component, ErrorInfo } from 'anu-verzum';
+
+    type State = { error: Error | null };
+
+    class ErrorBoundary extends Component<{ children?: AnuNode }, State> {
+        state = { error: null };
+
+        static getDerivedStateFromError(error: Error): State {
+            return { error };
+        }
+
+        componentDidCatch(error: Error, info: ErrorInfo): void {
+            // Log to your monitoring service; info.componentStack shows where it threw.
+            console.error(error, info.componentStack);
+        }
+
+        render(): AnuNode {
+            if (this.state.error) {
+                return <p role="alert">Something went wrong.</p>;
+            }
+
+            return this.props.children;
+        }
+    }
+
+    // Keeps the chrome mounted; only the main region swaps to a fallback if it throws:
+    const AppShell = () => (
+        <div>
+            <header>Header</header>
+            <ErrorBoundary>
+                <MainRegion />
+            </ErrorBoundary>
+            <footer>Footer</footer>
+        </div>
+    );
     ```
 
 <h3 id="rendering-props">Rendering props</h3>

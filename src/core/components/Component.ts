@@ -1,6 +1,8 @@
 import { scheduleUpdate } from '../reconciler';
 import { AnuNode, Props } from '../elements';
 
+export type ErrorInfo = { componentStack: string };
+
 export abstract class Component<P extends Record<string, any> = Props, S extends Record<string, any> = Record<string, any>> {
     props: P;
     state: S;
