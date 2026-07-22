@@ -415,6 +415,10 @@ const updateClassComponent = (wipFiber: Fiber): void => {
         return;
     }
 
+    if (!isInitialMount && !isNotNullish(wipFiber.effectTag)) {
+        wipFiber.effectTag = UPDATE;
+    }
+
     wipFiber.prevState = { ...instance.state };
     instance.props = nextProps;
     instance.state = nextState;
