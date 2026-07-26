@@ -30,6 +30,30 @@ describe('History.Link rendering', () => {
         expect(a.getAttribute('target')).toBe('_blank');
         expect(a.getAttribute('class')).toBe('nav');
     });
+
+    test('injects no default aria-label; the visible text is the accessible name', () => {
+        const { container, getByRole } = renderLink({ to: '/products' }, 'Products');
+        const a = anchor(container);
+
+        expect(a.getAttribute('aria-label')).toBeNull();
+        expect(a.hasAttribute('arialabel')).toBe(false);
+        expect(getByRole('link', { name: 'Products' })).toBe(a);
+    });
+
+    test('an author-supplied ariaLabel lands as aria-label and wins the accessible name', () => {
+        const { container, getByRole } = renderLink({ to: '/x', ariaLabel: 'Open products' }, 'X');
+        const a = anchor(container);
+
+        expect(a.getAttribute('aria-label')).toBe('Open products');
+        expect(a.hasAttribute('arialabel')).toBe(false);
+        expect(getByRole('link', { name: 'Open products' })).toBe(a);
+    });
+
+    test('a hyphenated aria-label prop passes through unchanged', () => {
+        const { container } = renderLink({ to: '/x', 'aria-label': 'Consumer name' }, 'X');
+
+        expect(anchor(container).getAttribute('aria-label')).toBe('Consumer name');
+    });
 });
 
 describe('History.Link navigation via the History API', () => {
