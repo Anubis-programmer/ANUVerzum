@@ -56,6 +56,7 @@ export type { LazyOptions } from './core/lazy';
 export { AnulyticsProvider, trackEvent };
 export { store, ServerAPI, Utils, Connector, Feature, History, Intl };
 export type { AbbreviateNumberOptions, FormatNumberOptions, ParseNumberOptions } from './core/components/Intl';
+export type { RouteMatch, RouterMode, RouterConfig, HistoryListener } from './core/components/History';
 
 /* eslint-disable @typescript-eslint/no-namespace, @typescript-eslint/no-empty-object-type */
 declare global {

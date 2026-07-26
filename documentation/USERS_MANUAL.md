@@ -99,6 +99,9 @@
         <li>
             <a href="#reading-url-parameters">Reading route parameters</a>
         </li>
+        <li>
+            <a href="#observing-the-current-route">Reading the current route and observing navigation</a>
+        </li>
     </ul>
     <li>
         <a href="#server-api">Calling the server asynchronously - The Server API</a>
@@ -480,6 +483,10 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 | `CreateSelectorFn` | Overloaded interface for `Anu.store.createSelector` — enables full type inference on transformation parameters |
 | `ApiSuccessResponse<T>` | Successful HTTP response `{ status: number; response: T \| null }` |
 | `ApiErrorResponse` | Error HTTP response `{ status: number; response: null }` |
+| `RouteMatch` | Route-match result `{ path, url, isExact, params }` — passed to a `Route`'s `component`/`render`, returned by `Anu.History.matchPath` |
+| `RouterMode` | Router mode union — `'history' \| 'hash'` |
+| `RouterConfig` | Router configuration `{ mode: RouterMode; basename: string }` — returned (read-only) by `Anu.History.getConfig` |
+| `HistoryListener` | Listener signature for `Anu.History.subscribe` — `(path: string) => void` |
 
 #### Library development scripts
 
@@ -1808,6 +1815,44 @@ There are two ways to read a matched route's parameters. Use <code>match.params<
     ```
 
     > Read a value **by the name you wrote in the route pattern** — the key is the <code>:name</code> from your <code>path</code>, and the trailing <code>*</code> splat lands under <code>'*'</code>.
+
+<h3 id="observing-the-current-route">Reading the current route and observing navigation - <strong><code>Anu.History.getCurrentPath()</code>, <code>Anu.History.subscribe()</code>, <code>Anu.History.matchPath()</code> and <code>Anu.History.getConfig()</code></strong></h3>
+
+A component that lives <em>outside</em> a <code>&lt;Anu.History.Route /&gt;</code> / <code>&lt;Anu.History.Switch /&gt;</code> — a navigation menu marking the active page, a breadcrumb, a tab strip — often needs to know the current route and re-render when navigation happens. Don't read <code>window.location</code> yourself (it doesn't know your <code>mode</code>/<code>basename</code> configuration), and don't listen for <code>popstate</code> yourself (in-app navigation uses <code>pushState</code>, which fires no <code>popstate</code> — a listener would appear to work in hash mode and silently fail in history mode). Use the router's own API instead:
+
+- **`Anu.History.getCurrentPath()`** — the current path exactly as route patterns see it: basename-stripped, and read from the fragment in hash mode (e.g. <code>'/users/42'</code>).
+- **`Anu.History.subscribe(listener)`** — calls <code>listener(path)</code> on <em>every</em> route change: <code>Link</code> clicks, <code>goTo()</code>, <code>Redirect</code>, browser back/forward and manual hash edits. Returns an <strong>unsubscribe</strong> function — always call it when your component unmounts.
+- **`Anu.History.matchPath(path, options?)`** — matches a route pattern against the <em>current</em> location using the router's own matcher (same <code>:param</code> / <code>:param?</code> / <code>*</code> / <code>exact</code> semantics as <code>Route</code>); returns the <code>RouteMatch</code> (<code>{ path, url, isExact, params }</code>) or <code>null</code>.
+- **`Anu.History.getConfig()`** — a read-only snapshot of the router configuration (<code>{ mode, basename }</code>).
+
+    ```typescript
+    import Anu, { AnuElement } from 'anu-verzum';
+
+    // A nav item that marks itself as the current page — no manual `current` prop needed:
+    class NavItem extends Anu.Component<{ to: string; label: string }> {
+        private unsubscribe: (() => void) | null = null;
+
+        componentDidMount(): void {
+            this.unsubscribe = Anu.History.subscribe(() => this.setState());
+        }
+
+        componentWillUnmount(): void {
+            this.unsubscribe?.();
+        }
+
+        render(): AnuElement {
+            const isCurrent = Anu.History.matchPath(this.props.to, { exact: true }) !== null;
+
+            return (
+                <Anu.History.Link to={this.props.to} aria-current={isCurrent ? 'page' : undefined}>
+                    {this.props.label}
+                </Anu.History.Link>
+            );
+        }
+    }
+    ```
+
+    > In hash mode, a browser back/forward fires both <code>popstate</code> and <code>hashchange</code>, so your listener may run twice for a single navigation. A listener that just calls <code>setState()</code> (like the one above) is unaffected; make side-effecting listeners idempotent (e.g. compare against the path you last handled).
 
 <br>
 
