@@ -35,6 +35,39 @@ describe('camelCase HTML attributes are forwarded to the DOM', () => {
         expect(meta.getAttribute('http-equiv')).toBe('refresh');
     });
 
+    test('camelCase aria* props map to hyphenated aria-* attributes', () => {
+        const { getByRole } = render(
+            Anu.createElement('button', { ariaLabel: 'Close dialog', ariaExpanded: 'false' }, 'x')
+        );
+
+        const el = getByRole('button');
+
+        expect(el.getAttribute('aria-label')).toBe('Close dialog');
+        expect(el.getAttribute('aria-expanded')).toBe('false');
+        expect(el.hasAttribute('arialabel')).toBe(false);
+        expect(el.hasAttribute('ariaexpanded')).toBe(false);
+    });
+
+    test('multi-word ARIA attributes keep their single-word spelling', () => {
+        const { container } = render(
+            Anu.createElement('div', { ariaLabelledBy: 'title-1', ariaValueMin: '0' })
+        );
+
+        const div = container.querySelector('div') as HTMLDivElement;
+
+        expect(div.getAttribute('aria-labelledby')).toBe('title-1');
+        expect(div.getAttribute('aria-valuemin')).toBe('0');
+    });
+
+    test('camelCase data* props map via the dataset rule (dataTestId → data-test-id)', () => {
+        const { container } = render(Anu.createElement('div', { dataTestId: 'panel' }));
+
+        const div = container.querySelector('div') as HTMLDivElement;
+
+        expect(div.getAttribute('data-test-id')).toBe('panel');
+        expect(div.dataset.testId).toBe('panel');
+    });
+
     test('lowercase, hyphenated and className/htmlFor props still work', () => {
         const { getByRole } = render(
             Anu.createElement('input', {

@@ -332,14 +332,13 @@ class HistoryLink extends Component<HistoryLinkProps> {
     }
 
     render(): AnuElement {
-        const { to, children, ariaLabel, ...restProps } = this.props;
+        const { to, children, ...restProps } = this.props;
         delete restProps.replace;
 
         return createElement(
             'a',
             {
                 href: buildHref(to),
-                ariaLabel: `historyLink${ariaLabel ? `-${ariaLabel}` : ''}`,
                 ...restProps,
                 onClick: this.handleClick
             },

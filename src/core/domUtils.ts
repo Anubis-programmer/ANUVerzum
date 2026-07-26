@@ -6,6 +6,24 @@ const HTML_ATTRIBUTE_NAME_MAP: Record<string, string> = {
     httpEquiv: 'http-equiv'
 };
 
+const toHtmlAttributeName = (name: string): string => {
+    const mapped = HTML_ATTRIBUTE_NAME_MAP[name];
+
+    if (isNotNullish(mapped)) {
+        return mapped;
+    }
+
+    if (/^aria[A-Z]/.test(name)) {
+        return `aria-${name.slice(4).toLowerCase()}`;
+    }
+
+    if (/^data[A-Z]/.test(name)) {
+        return `data${name.slice(4).replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`)}`;
+    }
+
+    return name.toLowerCase();
+};
+
 const ATTRIBUTE_ONLY_PROPS: ReadonlySet<string> = new Set(['loading', 'decoding', 'fetchpriority']);
 
 const toCssPropertyName = (key: string): string =>
@@ -125,7 +143,7 @@ export const updateDomProperties = (
         } else if (name.includes('-') || name === 'role' || ATTRIBUTE_ONLY_PROPS.has(name)) {
             (dom as HTMLElement).removeAttribute(name);
         } else if (dom.nodeType === 1 && /[A-Z]/.test(name)) {
-            (dom as HTMLElement).removeAttribute(HTML_ATTRIBUTE_NAME_MAP[name] ?? name.toLowerCase());
+            (dom as HTMLElement).removeAttribute(toHtmlAttributeName(name));
         } else {
             el[name] = undefined;
         }
@@ -170,7 +188,7 @@ export const updateDomProperties = (
                 } else if (typeof value === 'boolean' && name in el) {
                     el[name] = value;
                 } else if (dom.nodeType === 1 && /[A-Z]/.test(name)) {
-                    (dom as HTMLElement).setAttribute(HTML_ATTRIBUTE_NAME_MAP[name] ?? name.toLowerCase(), value);
+                    (dom as HTMLElement).setAttribute(toHtmlAttributeName(name), value);
                 } else {
                     el[name] = value;
                 }

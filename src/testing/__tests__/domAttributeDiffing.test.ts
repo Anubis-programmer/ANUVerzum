@@ -77,6 +77,32 @@ describe('a property-path prop whose value becomes undefined on re-render is cle
     });
 });
 
+describe('camelCase aria* props are removed via their hyphenated attribute name', () => {
+    test('ariaLabel gone from next props removes aria-label', () => {
+        const { container, rerender } = render(
+            Anu.createElement('button', { ariaLabel: 'Close' })
+        );
+        const button = container.querySelector('button') as HTMLButtonElement;
+
+        expect(button.getAttribute('aria-label')).toBe('Close');
+
+        rerender(Anu.createElement('button', {}));
+
+        expect(button.getAttribute('aria-label')).toBeNull();
+    });
+
+    test('ariaLabel becoming undefined removes aria-label too', () => {
+        const { container, rerender } = render(
+            Anu.createElement('button', { ariaLabel: 'Close' })
+        );
+        const button = container.querySelector('button') as HTMLButtonElement;
+
+        rerender(Anu.createElement('button', { ariaLabel: undefined }));
+
+        expect(button.getAttribute('aria-label')).toBeNull();
+    });
+});
+
 describe('camelCase boolean DOM props are set as properties, not stringified attributes', () => {
     test('readOnly={false} omits the attribute and reads false', () => {
         const { container } = render(Anu.createElement('input', { readOnly: false }));
