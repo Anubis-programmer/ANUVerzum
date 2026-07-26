@@ -200,6 +200,10 @@ The following types are exported from `anu-verzum` for use in consumer projects:
 | `ApiErrorResponse` | Error HTTP response `{ status: number; response: null }` |
 | `FormatNumberOptions` | Options for `Anu.Intl.formatNumber` — `Intl.NumberFormatOptions` plus an optional `locale` |
 | `ParseNumberOptions` | Options for `Anu.Intl.parseNumber` — `{ locale?: string }` |
+| `RouteMatch` | Route-match result `{ path, url, isExact, params }` — passed to a `Route`'s `component`/`render`, returned by `Anu.History.matchPath` |
+| `RouterMode` | Router mode union — `'history' \| 'hash'` |
+| `RouterConfig` | Router configuration `{ mode: RouterMode; basename: string }` — returned (read-only) by `Anu.History.getConfig` |
+| `HistoryListener` | Listener signature for `Anu.History.subscribe` — `(path: string) => void` |
 
 #### Library development scripts
 

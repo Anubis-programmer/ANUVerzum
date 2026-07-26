@@ -106,6 +106,38 @@ const stripBasename = (pathname: string): string => {
 
 const getCurrentPath = (): string => stripBasename(getRawLocation());
 
+const getConfig = (): Readonly<RouterConfig> => ({ ...config });
+
+export type HistoryListener = (path: string) => void;
+
+const listeners = new Set<HistoryListener>();
+
+const notifySubscribers = (): void => {
+    const path = getCurrentPath();
+
+    [...listeners].forEach((listener) => listener(path));
+};
+
+const handleExternalNavigation = (): void => notifySubscribers();
+
+const subscribe = (listener: HistoryListener): (() => void) => {
+    if (listeners.size === 0 && typeof window !== 'undefined') {
+        window.addEventListener('popstate', handleExternalNavigation);
+        window.addEventListener('hashchange', handleExternalNavigation);
+    }
+
+    listeners.add(listener);
+
+    return (): void => {
+        listeners.delete(listener);
+
+        if (listeners.size === 0 && typeof window !== 'undefined') {
+            window.removeEventListener('popstate', handleExternalNavigation);
+            window.removeEventListener('hashchange', handleExternalNavigation);
+        }
+    };
+};
+
 const withBasename = (path: string): string => (config.basename ? `${config.basename}${path}` : path);
 
 const buildHref = (to: string): string => {
@@ -132,6 +164,8 @@ const navigate = (to: string, replace?: boolean): void => {
     instances.forEach((instance) => {
         instance.setState();
     });
+
+    notifySubscribers();
 };
 
 const historyPush = (path: string): void => navigate(path, false);
@@ -375,14 +409,21 @@ const getRouteParams = (key: string): string | null => getMergedRouteParams()[ke
 
 const getAllRouteParamNames = (): string[] => Object.keys(getMergedRouteParams());
 
+const matchCurrentPath = (path: string, options: { exact?: boolean } = {}): RouteMatch | null =>
+    matchPath(getCurrentPath(), { path, exact: options.exact });
+
 const History = {
     Link: HistoryLink,
     Redirect: HistoryRedirect,
     Route: HistoryRoute,
     Switch: HistorySwitch,
     configure,
+    getConfig,
+    getCurrentPath,
     getRouteParams,
-    getAllRouteParamNames
+    getAllRouteParamNames,
+    matchPath: matchCurrentPath,
+    subscribe
 };
 
 export default History;
@@ -395,7 +436,13 @@ export const __testing = {
         
         instances.length = 0;
         routeMatches.clear();
+        listeners.clear();
         config.mode = 'history';
         config.basename = '';
+
+        if (typeof window !== 'undefined') {
+            window.removeEventListener('popstate', handleExternalNavigation);
+            window.removeEventListener('hashchange', handleExternalNavigation);
+        }
     }
 };

@@ -55,6 +55,7 @@
         <li><a href="#global-instances-registry">Global instance registry</a></li>
         <li><a href="#path-matching">Path matching</a></li>
         <li><a href="#route-param-registry">The current-match registry — <code>getRouteParams</code></a></li>
+        <li><a href="#history-observation-api">The public observation API — <code>getCurrentPath</code>, <code>subscribe</code>, <code>matchPath</code>, <code>getConfig</code></a></li>
         <li><a href="#route-link-redirect">Route, Link, Redirect components</a></li>
     </ul>
     <li><a href="#store">State Management — <code>src/store/store.ts</code></a></li>
@@ -235,6 +236,7 @@ export type { Action, ThunkAction, Dispatch, Reducer, MiddlewareAPI, Middleware,
               Store, SelectorFn, CreateSelectorFn };
 export type { ApiSuccessResponse, ApiErrorResponse };
 export type { AbbreviateNumberOptions, FormatNumberOptions, ParseNumberOptions };
+export type { RouteMatch, RouterMode, RouterConfig, HistoryListener };
 ```
 
 The `JSX` global namespace is also declared here so TypeScript recognizes JSX syntax in consumer projects without any additional configuration:
@@ -963,7 +965,7 @@ const register   = (comp: Component): void => { instances.push(comp); };
 const unregister = (comp: Component): void => { /* splice by indexOf */ };
 ```
 
-When navigation occurs — whether via `HistoryLink`, `HistoryRedirect`, or `Anu.History.goTo()` — `navigate()` calls `setState()` on every registered `HistoryRoute`/`HistorySwitch` instance. This causes all routes in the tree to re-evaluate their `matchPath()` and re-render accordingly, without requiring a context or event bus. Every instance subscribes to **both** `popstate` and `hashchange`, so back/forward navigation and external hash edits re-render the tree in either mode.
+When navigation occurs — whether via `HistoryLink`, `HistoryRedirect`, or `Anu.History.goTo()` — `navigate()` calls `setState()` on every registered `HistoryRoute`/`HistorySwitch` instance, then calls `notifySubscribers()` for external `History.subscribe` listeners (see the public observation API below). This causes all routes in the tree to re-evaluate their `matchPath()` and re-render accordingly, without requiring a context or event bus. Every instance subscribes to **both** `popstate` and `hashchange`, so back/forward navigation and external hash edits re-render the tree in either mode.
 
 <h3 id="path-matching">Path matching</h3>
 
@@ -1002,6 +1004,22 @@ const getAllRouteParamNames = (): string[] => Object.keys(getMergedRouteParams()
 ```
 
 Params are **merged across all currently-matched routes** in insertion (mount) order, so a nested child's captures overlay its parent's (`{ userId }` from `/users/:userId` plus `{ userId, postId }` from a child `/users/:userId/posts/:postId` → `{ userId, postId }`). Inside a `Switch` only the selected child renders, so only its params are present — giving a clean single-route read. `getRouteParams('id')` reads the param you *named* `id` in the pattern, and the trailing `*` splat is reachable under the `'*'` key.
+
+<h3 id="history-observation-api">The public observation API — <code>getCurrentPath</code>, <code>subscribe</code>, <code>matchPath</code>, <code>getConfig</code></h3>
+
+Components that live outside `Route`/`Switch` (a nav marking its active item with `aria-current="page"`, a breadcrumb, navigation side effects) need to read the current route and observe navigation. Neither is possible from the outside without these exports: the correct path depends on the private `config` (`mode`/`basename`), and in-app navigation uses `pushState`, which by specification fires **no** `popstate` — an external `popstate` listener works in `hash` mode (where `hashchange` fires) and silently fails in `history` mode. All four members are exposures of existing internals, not new logic:
+
+```typescript
+History.getCurrentPath(): string;                       // the private getCurrentPath, exported as-is
+History.getConfig(): Readonly<RouterConfig>;            // shallow copy — config stays write-only via configure()
+History.subscribe(listener: HistoryListener): () => void;   // HistoryListener = (path: string) => void
+History.matchPath(path: string, options?: { exact?: boolean }): RouteMatch | null;
+```
+
+- **`getCurrentPath`** returns the basename-stripped, mode-aware path — exactly what route patterns match against (`/users/42`, never `/app/users/42` or the raw `location.hash`).
+- **`subscribe`** keeps a module-level `listeners: Set<HistoryListener>`. `navigate()` calls `notifySubscribers()` right after its `instances.forEach(...)` loop, so in-app navigation (`Link`, `Redirect`, `goTo`) reaches subscribers; a single module-level handler is **lazily attached** to `popstate` + `hashchange` when the first subscriber arrives (no import-time side effects) and detached when the last unsubscribes, so browser back/forward and external hash edits reach them too — the same two events every `Route`/`Switch` listens to, making external and internal observers see identical navigations. Each listener receives the current `getCurrentPath()`. Notification iterates a **copy** of the set, so unsubscribing during a pass is safe; `Set` semantics mean double-subscribing the same listener notifies it once. In `hash` mode a back/forward fires both `popstate` and `hashchange`, so a subscriber may fire twice for one navigation — the same double-fire the internal instances tolerate (their `setState` coalesces); idempotent listeners are unaffected. `__testing.reset()` clears the set and detaches the window handlers.
+- **`matchPath`** (internally `matchCurrentPath`) is the private `matchPath` with `pathname` defaulted to `getCurrentPath()` — "does this pattern match where we are now?" — with the same `:param` / `:param?` / `*` / segment-boundary semantics as `Route`, so consumers never re-implement a subtly different matcher.
+- **`getConfig`** returns a `Readonly<RouterConfig>` **copy** (mutating it changes nothing); useful for building hrefs the way `buildHref` does.
 
 <h3 id="route-link-redirect">Route, Link, Redirect components</h3>
 
