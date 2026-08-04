@@ -8,7 +8,12 @@ const FUNCTION_COMPONENT = 'function';
 const HOST_ROOT = 'root';
 const PORTAL = 'portal';
 
-type FiberTag = typeof HOST_COMPONENT | typeof CLASS_COMPONENT | typeof FUNCTION_COMPONENT | typeof HOST_ROOT | typeof PORTAL;
+type FiberTag =
+    | typeof HOST_COMPONENT
+    | typeof CLASS_COMPONENT
+    | typeof FUNCTION_COMPONENT
+    | typeof HOST_ROOT
+    | typeof PORTAL;
 
 const PLACEMENT = 1;
 const DELETION = 2;
@@ -31,6 +36,7 @@ type Fiber = {
     alternate?: Fiber;
     effects?: Fiber[];
     effectTag?: EffectTag | null;
+    moved?: boolean;
     partialState?: Record<string, any>;
     partialStateCallback?: (prevState: any, prevProps: any) => any;
     prevState?: Record<string, any>;
@@ -57,7 +63,9 @@ const isErrorBoundary = (fiber: Fiber): boolean => {
 
     const ctor = fiber.type as any;
 
-    return typeof ctor.getDerivedStateFromError === 'function' || typeof ctor.prototype?.componentDidCatch === 'function';
+    return (
+        typeof ctor.getDerivedStateFromError === 'function' || typeof ctor.prototype?.componentDidCatch === 'function'
+    );
 };
 
 const findErrorBoundary = (start: Fiber | undefined, skip?: Set<any>): Fiber | null => {
@@ -231,9 +239,7 @@ const performWork = (deadline: IdleDeadline): void => {
 const FRAME_BUDGET = 5;
 
 const now = (): number =>
-    typeof performance !== 'undefined' && typeof performance.now === 'function'
-        ? performance.now()
-        : Date.now();
+    typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
 
 let frameDeadline = 0;
 
@@ -451,27 +457,29 @@ const getTag = (element: AnuElement): FiberTag => {
 
 const reconcileChildrenArray = (wipFiber: Fiber, newChildElements: any): void => {
     const elements = normalizeChildren(newChildElements);
-    const oldFiberMap = new Map<string | number, Fiber>();
+    const oldFiberMap = new Map<string | number, { fiber: Fiber; index: number }>();
     let oldFiber: Fiber | undefined = wipFiber.alternate ? wipFiber.alternate.child : undefined;
     let oldIndex = 0;
 
     while (oldFiber) {
         const mapKey = oldFiber.key ?? oldIndex;
-        oldFiberMap.set(mapKey, oldFiber);
+        oldFiberMap.set(mapKey, { fiber: oldFiber, index: oldIndex });
         oldFiber = oldFiber.sibling;
         oldIndex++;
     }
 
     let prevFiber: Fiber | undefined;
+    let lastPlacedIndex = 0;
 
     for (let i = 0; i < elements.length; i++) {
         const element: AnuElement = elements[i];
         const mapKey = element.key ?? i;
-        const matchedOldFiber = oldFiberMap.get(mapKey);
+        const matched = oldFiberMap.get(mapKey);
+        const matchedOldFiber = matched?.fiber;
         const sameType = matchedOldFiber !== undefined && element.type === matchedOldFiber.type;
         let newFiber: Fiber;
 
-        if (sameType && matchedOldFiber) {
+        if (sameType && matched && matchedOldFiber) {
             newFiber = {
                 type: matchedOldFiber.type,
                 tag: matchedOldFiber.tag,
@@ -487,6 +495,12 @@ const reconcileChildrenArray = (wipFiber: Fiber, newChildElements: any): void =>
 
             if (matchedOldFiber.partialStateCallback) {
                 newFiber.partialStateCallback = matchedOldFiber.partialStateCallback;
+            }
+
+            if (matched.index < lastPlacedIndex) {
+                newFiber.moved = true;
+            } else {
+                lastPlacedIndex = matched.index;
             }
 
             oldFiberMap.delete(mapKey);
@@ -518,7 +532,7 @@ const reconcileChildrenArray = (wipFiber: Fiber, newChildElements: any): void =>
         prevFiber = newFiber;
     }
 
-    oldFiberMap.forEach((fiber) => {
+    oldFiberMap.forEach(({ fiber }) => {
         fiber.effectTag = DELETION;
         wipFiber.effects = wipFiber.effects || [];
         wipFiber.effects.push(fiber);
@@ -526,7 +540,7 @@ const reconcileChildrenArray = (wipFiber: Fiber, newChildElements: any): void =>
 };
 
 const getFirstHostNode = (fiber: Fiber): Node | null => {
-    if (fiber.tag === PORTAL) {
+    if (fiber.tag === PORTAL || fiber.effectTag === PLACEMENT || fiber.moved) {
         return null;
     }
 
@@ -705,6 +719,10 @@ const commitWork = (effect: Fiber): void => {
             }
         }
     } else if (effect.effectTag === UPDATE) {
+        if (effect.moved) {
+            insertFiberDom(effect, domParent, getNextHostNode(effect, domParent));
+        }
+
         if (effect && effect.stateNode && effect.alternate && effect.alternate.props && effect.props) {
             if (effect.tag === HOST_COMPONENT) {
                 updateDomProperties(
@@ -732,6 +750,29 @@ const commitWork = (effect: Fiber): void => {
         }
     } else if (effect.effectTag === DELETION) {
         commitDeletion(effect, domParent);
+    }
+};
+
+const insertFiberDom = (fiber: Fiber, domParent: HTMLElement, nextDomSibling: Node | null): void => {
+    if (fiber.tag === PORTAL) {
+        return;
+    }
+
+    if (fiber.tag === HOST_COMPONENT) {
+        if (nextDomSibling) {
+            domParent.insertBefore(fiber.stateNode, nextDomSibling);
+        } else {
+            domParent.appendChild(fiber.stateNode);
+        }
+
+        return;
+    }
+
+    let child: Fiber | undefined = fiber.child;
+
+    while (child) {
+        insertFiberDom(child, domParent, nextDomSibling);
+        child = child.sibling;
     }
 };
 
