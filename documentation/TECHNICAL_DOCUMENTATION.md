@@ -473,6 +473,7 @@ type Fiber = {
     // Effect collection
     effects?: Fiber[];          // all effects collected from this subtree
     effectTag?: EffectTag | null; // PLACEMENT | DELETION | UPDATE
+    moved?: boolean;            // key-matched fiber whose position changed; commit repositions its host DOM
 };
 ```
 
@@ -549,7 +550,7 @@ Creates a lightweight wrapper instance `{ props, render: type }` on first visit.
 
 `reconcileChildrenArray(wipFiber, newChildElements)` is the diffing algorithm. It matches old fibers to new elements using **keys** (when present) or **index** (fallback), and marks each fiber with the appropriate effect tag.
 
-1. Build a `Map<key | index, Fiber>` from all existing child fibers.
+1. Build a `Map<key | index, { fiber, index }>` from all existing child fibers — the entry records each old fiber's **position** alongside the fiber itself.
 2. For each new element:
     - Look up the old fiber by `element.key ?? i`.
     - If found and types match → mark `UPDATE`, carry over `stateNode` and `alternate`.
@@ -558,6 +559,8 @@ Creates a lightweight wrapper instance `{ props, render: type }` on first visit.
 3. Any old fibers left in the map (i.e. not matched by any new element) are marked `DELETION`.
 
 The resulting fibers are linked into a sibling-chain as the new children of `wipFiber`.
+
+**Move detection (`lastPlacedIndex`).** Matching by key means a reused fiber may sit at a *different position* than before, and the `UPDATE` commit path alone only patches props in place — it never repositions DOM. The loop therefore tracks the highest old index seen so far among key-matched fibers (React's `lastPlacedIndex` algorithm): a match whose old index is **greater than or equal to** the running maximum is stationary relative to everything already placed, so the maximum advances; a match whose old index is **lower** has moved backward past an already-placed sibling and gets `moved: true` on the new fiber (keeping its `UPDATE` tag, so props patching and `componentDidUpdate` behave as for any update). Only fibers that fall behind the maximum are marked — reordering `[a,b,c,d]` to `[d,a,b,c]` marks `a,b,c` (each has an old index below `d`'s 3), while `[a,b,c,d]` to `[b,c,d,a]` marks only `a`. Commit then repositions the marked fibers' host DOM (see the `UPDATE` bullet in the commit phase).
 
 **`cloneChildFibers(parentFiber)`** is the fast path when a component bails out early. It copies child fibers verbatim from `parentFiber.alternate` without reconciliation — no effect tags are added, so no DOM mutations are generated. A clone *does* carry over any pending `partialState`/`partialStateCallback`; when such a clone later takes the full-render path in `updateClassComponent`, it self-stamps `UPDATE` (see the normal-update bullet above) so its lifecycles are not lost to the missing parent-stamped tag.
 
@@ -584,9 +587,10 @@ The resulting fibers are linked into a sibling-chain as the new children of `wip
     - For `HOST_COMPONENT`: finds the correct DOM parent by walking up until a host ancestor is found. Uses `getNextHostNode()` to determine the `insertBefore` anchor — the first already-placed host DOM node that should follow this one — so newly placed elements land in the right position even when their logical siblings are class or function components. When no anchor is found it falls back to `appendChild`. Sets `ref.current` if present.
     - For `CLASS_COMPONENT`: enqueues `componentDidMount` in `componentLifecyclesQueue`.
 
-    `getNextHostNode(fiber, domParent)` resolves the anchor by scanning the fiber's following siblings (`getFirstHostNode` on each — descending into component children to reach the first host DOM node, skipping portals), and returns the first whose DOM node is already a child of `domParent`. Crucially it does **not** stop at the fiber's own sibling chain: a component child (e.g. a `Chip` function component) renders its host node *inside* its own subtree, so its next host neighbour lives one level up. When the local sibling scan is exhausted and the fiber's parent is itself a `CLASS_COMPONENT`/`FUNCTION_COMPONENT` (i.e. it shares the same `domParent`), the walk **climbs to that parent and continues scanning its siblings**, stopping only when it reaches the host/root/portal boundary that owns `domParent`. Without this climb, a keyed component child inserted before a keyed host sibling (the canonical "chips before an `<input>`" shape) would resolve no anchor and be `appendChild`-ed *after* the host element instead of before it.
+    `getNextHostNode(fiber, domParent)` resolves the anchor by scanning the fiber's following siblings (`getFirstHostNode` on each — descending into component children to reach the first host DOM node, skipping portals **and any fiber that is itself pending placement or a move**, i.e. `effectTag === PLACEMENT` or `moved` — a node still headed for a different position cannot serve as a stable anchor; this mirrors React's `getHostSibling` skipping `Placement`-flagged fibers), and returns the first whose DOM node is already a child of `domParent`. Crucially it does **not** stop at the fiber's own sibling chain: a component child (e.g. a `Chip` function component) renders its host node *inside* its own subtree, so its next host neighbour lives one level up. When the local sibling scan is exhausted and the fiber's parent is itself a `CLASS_COMPONENT`/`FUNCTION_COMPONENT` (i.e. it shares the same `domParent`), the walk **climbs to that parent and continues scanning its siblings**, stopping only when it reaches the host/root/portal boundary that owns `domParent`. Without this climb, a keyed component child inserted before a keyed host sibling (the canonical "chips before an `<input>`" shape) would resolve no anchor and be `appendChild`-ed *after* the host element instead of before it.
 
 - **`UPDATE`:**
+    - If the fiber carries `moved: true` (a key-matched child whose position changed — see move detection above), the commit first repositions its host DOM: it resolves the `insertBefore` anchor with `getNextHostNode` and calls `insertFiberDom(effect, domParent, anchor)`, which mirrors `removeFiberDom`'s walk — a `HOST_COMPONENT` fiber has its existing `stateNode` re-inserted before the anchor (or appended when there is none; `insertBefore` on an already-attached node *moves* it), a class/function fiber recurses so **all** of its top-level host descendants are re-inserted in tree order before the same anchor, and portals are skipped (their content lives in another container, so a portal "move" is a DOM no-op). Because effects commit in sibling order and pending movers are excluded from anchor resolution, a run of movers whose following siblings are all also moving falls back to `appendChild` — and the left-to-right processing makes the appends land in the correct final order.
     - For `HOST_COMPONENT`: calls `updateDomProperties()` to diff old vs new props. Sets `ref.current` if present.
     - For `CLASS_COMPONENT`: enqueues `componentDidUpdate(prevProps, prevState)` in `componentLifecyclesQueue`.
 
