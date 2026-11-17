@@ -579,7 +579,7 @@ The resulting fibers are linked into a sibling-chain as the new children of `wip
 
 <h3 id="commit-phase">Commit phase &amp; lifecycle queue</h3>
 
-`commitAllWork(fiber)` processes `fiber.effects` in order by calling `commitWork(effect)` on each, and flushes the lifecycle queue after the last effect:
+`commitAllWork(fiber)` processes `fiber.effects` in order by calling `commitWork(effect)` on each, then finalises the commit — records the root as `containerDom._rootContainerFiber`, clears `nextUnitOfWork`/`pendingCommit` and the `boundariesHandlingError` set — and only **then** flushes the lifecycle queue. The order matters: a `setState` inside `componentDidMount`/`componentDidUpdate` can run a complete render + commit re-entrantly (ATL's synchronous scheduler does exactly that). If the outer commit recorded its root *after* the flush, it would overwrite the newer root committed by that nested pass with its own stale tree, and the next root `render()` would reconcile against the pre-`setState` children — keyed children added by the nested pass would look new, get `PLACEMENT` a second time, and duplicate in the DOM (regression: `mountSetStateRootFiber.test.ts`).
 
 **`commitWork(effect)`** handles each effect tag:
 

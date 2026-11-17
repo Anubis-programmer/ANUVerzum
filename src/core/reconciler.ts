@@ -679,18 +679,14 @@ const flushComponentLifecyclesQueue = (): void => {
 };
 
 const commitAllWork = (fiber: Fiber): void => {
-    (fiber.effects || []).forEach((effect, index, effects) => {
-        commitWork(effect);
-
-        if (index === effects.length - 1) {
-            flushComponentLifecyclesQueue();
-        }
-    });
+    (fiber.effects || []).forEach(commitWork);
 
     (fiber.stateNode as any)._rootContainerFiber = fiber;
     nextUnitOfWork = null;
     pendingCommit = null;
     boundariesHandlingError.clear();
+
+    flushComponentLifecyclesQueue();
 };
 
 const commitWork = (effect: Fiber): void => {
