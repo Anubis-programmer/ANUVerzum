@@ -535,7 +535,7 @@ scheduleWork()  →  MessageChannel macro-task
 Sets `wipFiber.stateNode = wipFiber.props.container` (the target DOM node), then calls `reconcileChildrenArray` with `wipFiber.props.children`. Because the portal fiber's `stateNode` is the container, `commitWork`'s DOM-parent walk stops there and renders all children into that container rather than into the normal parent. `getFirstHostNode` returns `null` for portal fibers so they are invisible to sibling insertion-order logic in the parent container.
 
 **`updateHostComponent(wipFiber)`**
-Creates the real DOM node on first visit (`wipFiber.stateNode = createDomElement(wipFiber)`), then calls `reconcileChildrenArray` with `wipFiber.props.children`.
+Creates the real DOM node on first visit (`wipFiber.stateNode = createDomElement(wipFiber, getHostParentDom(wipFiber))` — the parent DOM node decides the namespace, see [SVG support](#svg-support)), then calls `reconcileChildrenArray` with `wipFiber.props.children`.
 
 **`updateFunctionComponent(wipFiber)`**
 Creates a lightweight wrapper instance `{ props, render: type }` on first visit. On subsequent visits, performs an **early bailout** if props reference has not changed and no `partialState` is pending — the child fibers are cloned from the previous tree without re-running the function. A second bailout serves `memo`-wrapped components: when `wipFiber.type.__isMemo` is set and the memo comparator `wipFiber.type.__areEqual(instance.props, wipFiber.props)` returns `true`, the function is likewise skipped via `cloneChildFibers`. (A bailed-out function fiber may keep its `UPDATE` effect tag, but `commitWork` has no `UPDATE` branch for function fibers, so it is a no-op.) Otherwise, calls `instance.render(wipFiber.props)` and reconciles the result.
@@ -640,15 +640,22 @@ This module is the boundary between the virtual DOM and the real DOM. The reconc
 
 <h3 id="svg-support">SVG support</h3>
 
-`SVG_ELEMENT_LIST` is a compile-time constant array listing every supported SVG element name (67 entries, including filters, gradients, shapes, and animation elements). The reconciler checks this array to decide whether to use `document.createElementNS` vs `document.createElement`.
+The namespace of a host element is **inherited from its parent DOM node** (React parity), not looked up in a tag allow-list:
 
-Three element names are mapped to avoid JSX conflicts with their HTML equivalents:
+- `svg` itself is always created in the SVG namespace (`SVG_NAMESPACE`), wherever it appears — including inside `<foreignObject>`.
+- Any other element is created in the SVG namespace when its **host parent DOM node** is an SVG-namespace element other than `<foreignObject>`; otherwise it is HTML. So every descendant of `<svg>` — `defs`, `pattern`, raw `a`/`style`/`title`/`script`, even unknown tags — is SVG, while the children of `<foreignObject>` switch back to HTML.
+- The host parent is resolved by `getHostParentDom` in the reconciler: it walks `fiber.parent` past class/function component fibers to the nearest host, portal, or root fiber and takes its `stateNode`. Because `beginWork` runs top-down, that parent DOM node always exists when the child is created. A `PORTAL` fiber's `stateNode` is its `container` and a `HOST_ROOT`'s is the render container, so `createPortal(<rect/>, someSvgG)` and `Anu.render(<g/>, svgEl)` inherit the container's namespace.
+- On `UPDATE`, the commit phase passes `isSvgDom(effect.stateNode)` (read off the real node's `namespaceURI`) to `updateDomProperties`, so the update path always matches how the node was created.
+
+Consequence: an SVG tag name rendered **outside** any SVG context (e.g. `<circle>` directly inside a `<div>`) is created as an HTML element — exactly what the HTML parser would do. Before inheritance, a fixed `SVG_ELEMENT_LIST` decided the namespace per tag; it missed `defs`, which silently created `<defs>` in the HTML namespace (jsdom still queried it and set its attributes, but a real browser rendered nothing inside it, so a `<pattern>` in `<defs>` painted nothing). `svgNamespace.test.ts` asserts the namespace of every SVG 2 element, the `foreignObject` boundary, portals, SVG render containers, and the outside-SVG case.
+
+Three alias names remain for JSX/typing convenience; inside an SVG context they are remapped to the real tag (outside one they are just unknown HTML tags):
 
 | JSX tag | Real SVG tag | Reason |
 |---------|-------------|--------|
-| `anchor` | `a` | Avoids conflict with HTML `<a>` |
-| `svgStyle` | `style` | Avoids conflict with HTML `<style>` |
-| `svgTitle` | `title` | Avoids conflict with HTML `<title>` |
+| `anchor` | `a` | Typed with SVG attributes instead of HTML `<a>` |
+| `svgStyle` | `style` | Typed with SVG attributes instead of HTML `<style>` |
+| `svgTitle` | `title` | Typed with SVG attributes instead of HTML `<title>` |
 
 `getHTMLValidSvgTag(fiberType)` performs this translation before passing the tag to `createElementNS`.
 
@@ -656,14 +663,15 @@ Three element names are mapped to avoid JSX conflicts with their HTML equivalent
 
 ```typescript
 export const createDomElement = (
-    fiber: AnuElement & { type: string }
+    fiber: AnuElement & { type: string },
+    parentDom?: Node | null
 ): HTMLElement | SVGElement | Text
 ```
 
 Dispatches to the correct `document.*` factory:
 - `TEXT_ELEMENT` → `document.createTextNode('')`
-- SVG elements → `document.createElementNS('http://www.w3.org/2000/svg', tag)`
-- HTML elements → `document.createElement(tag)`
+- `svg`, or any element whose `parentDom` is an SVG-namespace element other than `foreignObject` → `document.createElementNS(SVG_NAMESPACE, getHTMLValidSvgTag(tag))`
+- everything else → `document.createElement(tag)`
 
 After creation, `updateDomProperties(dom, {}, fiber.props, isSvgElement)` is called immediately to apply the initial props — the same code path as updates, with an empty `prevProps`.
 
@@ -684,7 +692,7 @@ This function applies the minimal diff between `prevProps` and `nextProps` to th
 
 2. **Remove stale attributes.** Props present in `prevProps` but absent from `nextProps` are removed via the shared `removeDomProperty` helper (see below).
 
-   **Symmetric removal — `removeDomProperty`.** Removal mirrors the set decision in pass 3 rather than blindly calling `removeAttribute`. A prop that was *written as a property* (`el[name] = value`) is *cleared as a property* (`el[name] = undefined`), because `removeAttribute` is a no-op for a value that never became an attribute — e.g. `inert`, set via `el.inert = 'true'`, would otherwise keep its old value when toggled off. The helper applies the same branch order as the set path: SVG → `removeAttribute` (`className`→`class`); `className`→`removeAttribute('class')`; `htmlFor`→`removeAttribute('for')`; hyphenated / `role` / `ATTRIBUTE_ONLY_PROPS` → `removeAttribute`; camelCase HTML names on element nodes → `removeAttribute` under the name resolved by the shared `toHtmlAttributeName` helper (see pass 3); everything else → `el[name] = undefined`. It is used by both this stale-key pass and the nullish-value short-circuit in pass 3.
+   **Symmetric removal — `removeDomProperty`.** Removal mirrors the set decision in pass 3 rather than blindly calling `removeAttribute`. A prop that was *written as a property* (`el[name] = value`) is *cleared as a property*, because `removeAttribute` is a no-op for a value that never became an attribute — e.g. `inert`, set via `el.inert = 'true'`, would otherwise keep its old value when toggled off. It is never cleared by assigning `undefined`: a string IDL property coerces that to the literal string `"undefined"` (an `<input placeholder>` cleared on update showed the text `undefined`). Instead, a real IDL property (`name in el` and not an own property, i.e. an accessor on the prototype) is reset by the type of its current value — boolean → `false`, string → `''`, object/function → `null`, number → left as is — and then its reflected attribute is `removeAttribute`-d (element nodes only), which also returns numeric properties like `rows` to their default. An expando (own property on the element, e.g. `inert` under jsdom, which has no `inert` IDL property) is `delete`-d. The helper applies the same branch order as the set path: SVG → `removeAttribute` (`className`→`class`); `className`→`removeAttribute('class')`; `htmlFor`→`removeAttribute('for')`; hyphenated / `role` / `ATTRIBUTE_ONLY_PROPS` → `removeAttribute`; camelCase HTML names on element nodes → `removeAttribute` under the name resolved by the shared `toHtmlAttributeName` helper (see pass 3); real IDL property → typed reset + `removeAttribute`; expando → `delete`. It is used by both this stale-key pass and the nullish-value short-circuit in pass 3.
 
 3. **Set new / changed attributes.** A new/changed prop whose value is `undefined` or `null` is treated as a **removal** — routed through `removeDomProperty` (above), so the property/attribute decision matches how the prop was originally written rather than always coercing to `removeAttribute`. This mirrors the initial-render behaviour, where an `undefined` prop is filtered out by the `prev[key] !== next[key]` diff and never written, so `attr={cond ? value : undefined}` cleanly drops the prop when the condition flips — including property-path props like `inert`. Otherwise, for SVG elements, all attributes are set via `setAttribute()`. For HTML elements:
    - any prop whose name contains a hyphen (e.g. `aria-*`, `data-*`), equals `role`, or is in `ATTRIBUTE_ONLY_PROPS` (`loading`, `decoding`, `fetchpriority`) is set via `setAttribute()` — hyphenated names are never valid IDL properties, so property assignment would silently create a JS object property rather than an HTML attribute, and the `ATTRIBUTE_ONLY_PROPS` reflected attributes are not implemented as IDL properties under jsdom, so `el.loading = 'lazy'` would silently create a dead JS property instead of an attribute;
@@ -694,7 +702,7 @@ This function applies the minimal diff between `prevProps` and `nextProps` to th
 
 4. **Diff inline styles.** Changed `style` keys are applied via `style.setProperty(cssName, value)`, where `cssName` is the **kebab-cased** form of the JS key (`objectFit` → `object-fit`, `backgroundColor` → `background-color`, `WebkitTransform` → `-webkit-transform`) — `CSSStyleDeclaration.setProperty` only accepts CSS-valid property names, so a camelCase key like `objectFit` would otherwise be silently discarded. Custom-property keys (`--accent`) are passed through verbatim. Keys present in `prevStyle` but absent from `nextStyle` are cleared by setting them to `''`.
 
-5. **Add new event listeners.** New or changed `on*` props are registered via `addEventListener`. Event names are derived by lower-casing the prop name and stripping the `on` prefix (e.g. `onClick` → `click`).
+5. **Add new event listeners.** New or changed `on*` props are registered via `addEventListener`. Event names come from `toEventType`, shared by this pass and pass 1 so add and remove always target the same type: the `EVENT_TYPE_EXCEPTIONS` table is consulted first for React-style props whose DOM event name differs — `onDoubleClick` → `dblclick` (a plain lowercase would bind the non-existent `doubleclick` event, so the handler never fired) — and otherwise the prop name is lower-cased with the `on` prefix stripped (e.g. `onClick` → `click`). Every other event prop typed in `dom-attributes.ts` lowercases to its real DOM name; a new typed event whose DOM name differs belongs in the table (regression: `eventNameMapping.test.ts`).
 
 <br>
 <hr>

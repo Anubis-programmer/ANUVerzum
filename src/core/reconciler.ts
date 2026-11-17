@@ -1,4 +1,4 @@
-import { createDomElement, updateDomProperties, SVG_ELEMENT_LIST } from './domUtils';
+import { createDomElement, updateDomProperties, isSvgDom } from './domUtils';
 import { AnuElement, AnuNode, ElementType, Props, Ref, PORTAL_ELEMENT, normalizeChildren } from './elements';
 import { isNotNullish } from '../misc/utils';
 
@@ -328,9 +328,19 @@ const updatePortalComponent = (wipFiber: Fiber): void => {
     reconcileChildrenArray(wipFiber, wipFiber.props.children);
 };
 
+const getHostParentDom = (fiber: Fiber): Node | null => {
+    let parent = fiber.parent;
+
+    while (parent && (parent.tag === CLASS_COMPONENT || parent.tag === FUNCTION_COMPONENT)) {
+        parent = parent.parent;
+    }
+
+    return parent ? (parent.stateNode as Node) : null;
+};
+
 const updateHostComponent = (wipFiber: Fiber): void => {
     if (!wipFiber.stateNode) {
-        wipFiber.stateNode = createDomElement(wipFiber as any);
+        wipFiber.stateNode = createDomElement(wipFiber as any, getHostParentDom(wipFiber));
     }
 
     const newChildElements = wipFiber.props.children;
@@ -725,12 +735,7 @@ const commitWork = (effect: Fiber): void => {
 
         if (effect && effect.stateNode && effect.alternate && effect.alternate.props && effect.props) {
             if (effect.tag === HOST_COMPONENT) {
-                updateDomProperties(
-                    effect.stateNode,
-                    effect.alternate.props,
-                    effect.props,
-                    (SVG_ELEMENT_LIST as string[]).indexOf(effect.type as string) > -1
-                );
+                updateDomProperties(effect.stateNode, effect.alternate.props, effect.props, isSvgDom(effect.stateNode));
 
                 if (effect.ref) {
                     effect.ref.current = effect.stateNode;

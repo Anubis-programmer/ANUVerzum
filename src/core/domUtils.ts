@@ -26,7 +26,14 @@ const toHtmlAttributeName = (name: string): string => {
 
 const ATTRIBUTE_ONLY_PROPS: ReadonlySet<string> = new Set(['loading', 'decoding', 'fetchpriority']);
 
-const toCssPropertyName = (key: string): string =>
+const EVENT_TYPE_EXCEPTIONS: Record<string, string> = {
+    onDoubleClick: 'dblclick'
+};
+
+const toEventType = (propName: string): string =>
+    EVENT_TYPE_EXCEPTIONS[propName] ?? propName.toLowerCase().substring(2);
+
+const toCssPropertyName =(key: string): string =>
     key.startsWith('--') ? key : key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
 
 export const getHTMLValidSvgTag = (fiberType: string): string => {
@@ -42,77 +49,12 @@ export const getHTMLValidSvgTag = (fiberType: string): string => {
     }
 };
 
-export const SVG_ELEMENT_LIST: readonly string[] = [
-    'anchor',
-    'animate',
-    'animateMotion',
-    'animateTransform',
-    'circle',
-    'clipPath',
-    'desc',
-    'discard',
-    'ellipse',
-    'feBlend',
-    'feColorMatrix',
-    'feComponentTransfer',
-    'feComposite',
-    'feConvolveMatrix',
-    'feDiffuseLighting',
-    'feDisplacementMap',
-    'feDistantLight',
-    'feDropShadow',
-    'feFlood',
-    'feFuncA',
-    'feFuncB',
-    'feFuncG',
-    'feFuncR',
-    'feGaussianBlur',
-    'feImage',
-    'feMerge',
-    'feMergeNode',
-    'feMorphology',
-    'feOffset',
-    'fePointLight',
-    'feSpecularLighting',
-    'feSpotLight',
-    'feTile',
-    'feTurbulence',
-    'filter',
-    'foreignObject',
-    'g',
-    'hatch',
-    'hatchpath',
-    'image',
-    'line',
-    'linearGradient',
-    'marker',
-    'mask',
-    'mesh',
-    'meshgradient',
-    'meshpatch',
-    'meshrow',
-    'metadata',
-    'mpath',
-    'path',
-    'pattern',
-    'polygon',
-    'polyline',
-    'radialGradient',
-    'rect',
-    'set',
-    'stop',
-    'svgStyle',
-    'svg',
-    'switch',
-    'symbol',
-    'text',
-    'textPath',
-    'svgTitle',
-    'tspan',
-    'unknown',
-    'use',
-    'view'
-];
+export const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+
+export const isSvgDom = (dom: Node): boolean => dom.nodeType === 1 && (dom as Element).namespaceURI === SVG_NAMESPACE;
+
+const childrenInheritSvgNamespace = (parentDom: Node | null | undefined): boolean =>
+    isNotNullish(parentDom) && isSvgDom(parentDom) && (parentDom as Element).localName !== 'foreignObject';
 
 export const updateDomProperties = (
     dom: HTMLElement | SVGElement | Text,
@@ -144,8 +86,22 @@ export const updateDomProperties = (
             (dom as HTMLElement).removeAttribute(name);
         } else if (dom.nodeType === 1 && /[A-Z]/.test(name)) {
             (dom as HTMLElement).removeAttribute(toHtmlAttributeName(name));
+        } else if (name in el && !Object.prototype.hasOwnProperty.call(el, name)) {
+            const current = el[name];
+
+            if (typeof current === 'boolean') {
+                el[name] = false;
+            } else if (typeof current === 'string') {
+                el[name] = '';
+            } else if (typeof current !== 'number') {
+                el[name] = null;
+            }
+
+            if (dom.nodeType === 1) {
+                (dom as HTMLElement).removeAttribute(name);
+            }
         } else {
-            el[name] = undefined;
+            delete el[name];
         }
     };
 
@@ -153,8 +109,7 @@ export const updateDomProperties = (
         .filter(isEvent)
         .filter((key) => !(key in nextProps) || isNew(prevProps, nextProps)(key))
         .forEach((name) => {
-            const eventType = name.toLowerCase().substring(2);
-            (dom as HTMLElement).removeEventListener(eventType, prevProps[name]);
+            (dom as HTMLElement).removeEventListener(toEventType(name), prevProps[name]);
         });
 
     Object.keys(prevProps)
@@ -216,20 +171,22 @@ export const updateDomProperties = (
         .filter(isEvent)
         .filter(isNew(prevProps, nextProps))
         .forEach((name) => {
-            const eventType = name.toLowerCase().substring(2);
-            (dom as HTMLElement).addEventListener(eventType, nextProps[name]);
+            (dom as HTMLElement).addEventListener(toEventType(name), nextProps[name]);
         });
 };
 
-export const createDomElement = (fiber: AnuElement & { type: string }): HTMLElement | SVGElement | Text => {
+export const createDomElement = (
+    fiber: AnuElement & { type: string },
+    parentDom?: Node | null
+): HTMLElement | SVGElement | Text => {
     const isTextElement = fiber.type === TEXT_ELEMENT;
-    const isSvgElement = (SVG_ELEMENT_LIST as string[]).indexOf(fiber.type) > -1;
+    const isSvgElement = !isTextElement && (fiber.type === 'svg' || childrenInheritSvgNamespace(parentDom));
     let dom: HTMLElement | SVGElement | Text;
 
     if (isTextElement) {
         dom = document.createTextNode('');
     } else if (isSvgElement) {
-        dom = document.createElementNS('http://www.w3.org/2000/svg', getHTMLValidSvgTag(fiber.type)) as SVGElement;
+        dom = document.createElementNS(SVG_NAMESPACE, getHTMLValidSvgTag(fiber.type)) as SVGElement;
     } else {
         dom = document.createElement(fiber.type);
     }

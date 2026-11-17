@@ -188,3 +188,91 @@ describe('reflected attributes not on the IDL path are forwarded', () => {
         expect(img.getAttribute('loading')).toBe('lazy');
     });
 });
+
+describe('a typed DOM property cleared on re-render is reset, never stringified to "undefined"', () => {
+    test.each([
+        ['placeholder', 'input', 'Min length 3'],
+        ['title', 'div', 'Tip'],
+        ['name', 'input', 'email'],
+        ['id', 'div', 'main']
+    ])('%s becoming undefined resets the property to "" and removes the attribute', (prop, tag, initial) => {
+        const { container, rerender } = render(Anu.createElement(tag, { [prop]: initial }));
+        const el = container.querySelector(tag) as any;
+
+        expect(el[prop]).toBe(initial);
+
+        rerender(Anu.createElement(tag, { [prop]: undefined }));
+
+        expect(el[prop]).toBe('');
+        expect(el.getAttribute(prop)).toBeNull();
+    });
+
+    test('a string property removed from props entirely is reset too', () => {
+        const { container, rerender } = render(Anu.createElement('input', { placeholder: 'Type here' }));
+        const input = container.querySelector('input') as HTMLInputElement;
+
+        rerender(Anu.createElement('input', {}));
+
+        expect(input.placeholder).toBe('');
+        expect(input.hasAttribute('placeholder')).toBe(false);
+    });
+
+    test('a null value clears a string property the same way', () => {
+        const { container, rerender } = render(Anu.createElement('input', { placeholder: 'Type here' }));
+        const input = container.querySelector('input') as HTMLInputElement;
+
+        rerender(Anu.createElement('input', { placeholder: null }));
+
+        expect(input.placeholder).toBe('');
+        expect(input.hasAttribute('placeholder')).toBe(false);
+    });
+
+    test('an input value becoming undefined empties the field', () => {
+        const { container, rerender } = render(Anu.createElement('input', { value: 'abc' }));
+        const input = container.querySelector('input') as HTMLInputElement;
+
+        rerender(Anu.createElement('input', { value: undefined }));
+
+        expect(input.value).toBe('');
+    });
+
+    test('a cleared string property can be set again', () => {
+        const { container, rerender } = render(Anu.createElement('input', { placeholder: 'One' }));
+        const input = container.querySelector('input') as HTMLInputElement;
+
+        rerender(Anu.createElement('input', { placeholder: undefined }));
+        rerender(Anu.createElement('input', { placeholder: 'Two' }));
+
+        expect(input.placeholder).toBe('Two');
+    });
+
+    test('a boolean property becoming undefined resets to false', () => {
+        const { container, rerender } = render(Anu.createElement('button', { disabled: true }));
+        const button = container.querySelector('button') as HTMLButtonElement;
+
+        rerender(Anu.createElement('button', { disabled: undefined }));
+
+        expect(button.disabled).toBe(false);
+        expect(button.hasAttribute('disabled')).toBe(false);
+    });
+
+    test('a numeric reflected property becoming undefined falls back to its default', () => {
+        const { container, rerender } = render(Anu.createElement('textarea', { rows: 5 }));
+        const textarea = container.querySelector('textarea') as HTMLTextAreaElement;
+
+        expect(textarea.rows).toBe(5);
+
+        rerender(Anu.createElement('textarea', { rows: undefined }));
+
+        expect(textarea.rows).toBe(2);
+        expect(textarea.hasAttribute('rows')).toBe(false);
+    });
+
+    test('a text node whose content becomes empty does not throw', () => {
+        const { container, rerender } = render(Anu.createElement('p', {}, 'hello'));
+
+        rerender(Anu.createElement('p', {}, ''));
+
+        expect((container.querySelector('p') as HTMLElement).textContent).toBe('');
+    });
+});
